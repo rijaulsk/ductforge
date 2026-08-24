@@ -1,0 +1,56 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+
+# next.js
+/.next/
+/out/
+/build
+
+# misc
+.DS_Store
+*.pem
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
+*~
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+.pnpm-debug.log*
+
+# env files — never commit a real one
+.env*
+!.env.example
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# Playwright / MCP browser artifacts
+/.playwright-mcp/
+/test-results/
+/playwright-report/
+
+# Loose images and scratch dropped at the repo ROOT. Real assets live under
+# /public and are not matched by these root-only globs.
+/*.png
+/*.jpg
+/*.jpeg
+/*.webp
+/*.pdf
+
+# Local Claude Code tooling
+/.claude/
+
+# docs/ IS tracked here, deliberately. The marketing repo gitignores it and
+# paid for it: every doc edit there is local-only, with no history and nothing
+# to roll back to. docs/app-surface.md is the rule set this app's UI is judged
+# against, and losing its history would mean losing the record of why the
+# workspace diverges from the marketing site.

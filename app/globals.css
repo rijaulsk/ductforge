@@ -1,0 +1,255 @@
+@import "tailwindcss";
+
+/*
+ * DuctForge design tokens.
+ *
+ * The brand ramps below are copied VERBATIM from the DebugSwift design system
+ * (docs/design-system.md §1). Do not invent, eyeball or approximate a hex —
+ * if a colour is needed and it is not in a table here, the answer is one of
+ * the colours that IS.
+ *
+ * What is new in this repo is the SEMANTIC layer (--ds-*). DuctForge is an
+ * app surface, not the marketing site, and the design system §1 explicitly
+ * sanctions dark mode for "tools, dashboards, code blocks". A component that
+ * writes `bg-cream` can never go dark; a component that writes `bg-page` can.
+ * So surfaces, rules and text colours are addressed semantically and the two
+ * themes just re-point them. Both themes resolve to design-system tokens —
+ * nothing below is a new colour.
+ */
+@theme {
+  /* Wipe Tailwind's default palette: only DebugSwift tokens may compile. */
+  --color-*: initial;
+
+  /* Indigo — primary ramp */
+  --color-indigo-50: #f1f3fe;
+  --color-indigo-100: #e2e6ff;
+  --color-indigo-200: #c9d1ff;
+  --color-indigo-300: #abb6fe;
+  --color-indigo-400: #8792fe;
+  --color-indigo-500: #6467f2;
+  --color-indigo-600: #5251da;
+  --color-indigo-700: #423eba;
+  --color-indigo-800: #332e96;
+  --color-indigo-900: #22206b;
+
+  /* Clay — warm accent ramp. CTA ONLY, ≤2% of any viewport, never a
+   * background. In this app that budget is spent on exactly one element:
+   * the primary action button. */
+  --color-clay-50: #fff0e9;
+  --color-clay-100: #ffe1d4;
+  --color-clay-200: #fec6ad;
+  --color-clay-300: #faa47d;
+  --color-clay-400: #f38e60;
+  --color-clay-500: #e87d4a;
+  --color-clay-600: #c55e29;
+  --color-clay-700: #9f440f;
+  --color-clay-800: #7b3000;
+  --color-clay-900: #571f00;
+
+  /* Warm neutrals */
+  --color-cream: #f7f3eb;
+  --color-sand: #ece7df;
+  --color-mist: #d8d4cd;
+  --color-stone: #a8a49e;
+  --color-slate: #5e5a53;
+  --color-charcoal: #3c3730;
+  --color-ink: #221d17;
+  --color-paper: #ffffff;
+
+  /* Semantic UI states — used with a word AND a glyph, never colour alone. */
+  --color-success-500: #2a9754;
+  --color-success-100: #d1f2d8;
+  --color-success-700: #046732;
+  --color-warning-500: #a77601;
+  --color-warning-100: #fbe5c1;
+  --color-warning-700: #704e03;
+  --color-danger-500: #da4053;
+  --color-danger-100: #fedfdf;
+  --color-danger-700: #9f0a2e;
+
+  /* Dark-mode surfaces (design system §1: indigo-tinted near-blacks, not grey) */
+  --color-dark-bg: #10121c;
+  --color-dark-surface: #1b1d29;
+  --color-dark-raised: #272936;
+
+  /* Typography — Satoshi only. Inter is banned. */
+  --font-sans: var(--font-satoshi), ui-sans-serif, system-ui, sans-serif;
+
+  --text-display: 4.5rem;
+  --text-display--line-height: 4.75rem;
+  --text-display--letter-spacing: -0.02em;
+  --text-display--font-weight: 900;
+  --text-h1: 3.25rem;
+  --text-h1--line-height: 3.625rem;
+  --text-h1--font-weight: 700;
+  --text-h1-mobile: 2.25rem;
+  --text-h1-mobile--line-height: 2.75rem;
+  --text-h1-mobile--font-weight: 700;
+  --text-h2: 2.25rem;
+  --text-h2--line-height: 2.625rem;
+  --text-h2--font-weight: 700;
+  --text-h2-mobile: 1.75rem;
+  --text-h2-mobile--line-height: 2.125rem;
+  --text-h2-mobile--font-weight: 700;
+  --text-h3: 1.5rem;
+  --text-h3--line-height: 2rem;
+  --text-h3--font-weight: 500;
+  --text-body: 1.125rem;
+  --text-body--line-height: 1.75rem;
+  --text-small: 0.9375rem;
+  --text-small--line-height: 1.375rem;
+  --text-eyebrow: 0.8125rem;
+  --text-eyebrow--line-height: 1rem;
+  --text-eyebrow--letter-spacing: 0.06em;
+  --text-eyebrow--font-weight: 500;
+
+  --radius-card: 14px;
+  --container-canvas: 82.5rem;
+}
+
+/* The semantic surface layer. Light is the default; dark re-points the same
+ * seven roles. Every value is a design-system token from the @theme block. */
+:root {
+  --ds-page: #f7f3eb; /* cream */
+  --ds-card: #ffffff; /* paper */
+  --ds-sunk: #ece7df; /* sand — inset wells, table headers, disabled fields */
+  --ds-line: #221d17; /* ink — the 1.5px card border */
+  --ds-rule: #d8d4cd; /* mist — hairlines inside a card */
+  --ds-heading: #221d17; /* ink */
+  --ds-body: #5e5a53; /* slate */
+  --ds-muted: #a8a49e; /* stone — captions, placeholders (large sizes only) */
+  --ds-accent: #5251da; /* indigo 600 — eyebrows, links, chart series */
+  /* The isometric view's three tints. Depth comes from three flat steps of one
+   * hue, never from a gradient or a shadow (design system §4). */
+  --ds-face-top: #c9d1ff; /* indigo 200 */
+  --ds-face-side: #abb6fe; /* indigo 300 */
+  --ds-face-end: #8792fe; /* indigo 400 */
+  /* Chart series, darkest first. Indigo only — clay is the CTA, not data. */
+  --ds-series-1: #423eba; /* indigo 700 */
+  --ds-series-2: #6467f2; /* indigo 500 */
+  --ds-series-3: #abb6fe; /* indigo 300 */
+  --ds-grain: 0.03;
+}
+
+:root[data-theme="dark"] {
+  --ds-page: #10121c;
+  --ds-card: #1b1d29;
+  --ds-sunk: #272936;
+  --ds-line: #272936;
+  --ds-rule: #272936;
+  --ds-heading: #f7f3eb; /* cream */
+  --ds-body: #d8d4cd; /* mist — design system §1 dark-band body text */
+  --ds-muted: #a8a49e; /* stone */
+  --ds-accent: #8792fe; /* indigo 400 — the dark-mode link tone */
+  --ds-face-top: #423eba; /* indigo 700 */
+  --ds-face-side: #332e96; /* indigo 800 */
+  --ds-face-end: #22206b; /* indigo 900 */
+  --ds-series-1: #abb6fe; /* indigo 300 — light-on-dark reverses the ramp */
+  --ds-series-2: #6467f2; /* indigo 500 */
+  --ds-series-3: #423eba; /* indigo 700 */
+  /* Grain over a near-black reads as sensor noise rather than paper. */
+  --ds-grain: 0.015;
+}
+
+/* `inline` is load-bearing: it makes the generated utilities emit
+ * `var(--ds-page)` rather than baking in the resolved value at build time,
+ * which is what lets [data-theme="dark"] swap them at runtime. */
+@theme inline {
+  --color-page: var(--ds-page);
+  --color-card: var(--ds-card);
+  --color-sunk: var(--ds-sunk);
+  --color-line: var(--ds-line);
+  --color-rule: var(--ds-rule);
+  --color-heading: var(--ds-heading);
+  --color-body: var(--ds-body);
+  --color-muted: var(--ds-muted);
+  --color-accent: var(--ds-accent);
+  --color-face-top: var(--ds-face-top);
+  --color-face-side: var(--ds-face-side);
+  --color-face-end: var(--ds-face-end);
+  --color-series-1: var(--ds-series-1);
+  --color-series-2: var(--ds-series-2);
+  --color-series-3: var(--ds-series-3);
+}
+
+@layer base {
+  body {
+    background-color: var(--ds-page);
+    color: var(--ds-body);
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    color: var(--ds-heading);
+  }
+
+  ::selection {
+    background-color: var(--color-indigo-100);
+    color: var(--color-ink);
+  }
+
+  /* Design system §5: the whole UI motion budget is 200ms hovers / 250ms
+   * panels, and reduced-motion collapses all of it. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+    }
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-indigo-500);
+    outline-offset: 2px;
+  }
+
+  /* Site-wide 3% grain (§4) — one layer, never per-component. Sits under the
+   * app chrome's z-index and takes no pointer events. */
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    pointer-events: none;
+    opacity: var(--ds-grain);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 300px 300px;
+  }
+}
+
+/* The BOQ sheet. Everything that is chrome carries `print:hidden`; what
+ * survives is the quantity document a client can be issued. Printing forces
+ * the light palette — a dark theme would empty a toner cartridge and read
+ * worse on paper. */
+@media print {
+  :root,
+  :root[data-theme="dark"] {
+    --ds-page: #ffffff;
+    --ds-card: #ffffff;
+    --ds-sunk: #ffffff;
+    --ds-line: #221d17;
+    --ds-rule: #d8d4cd;
+    --ds-heading: #221d17;
+    --ds-body: #221d17;
+    --ds-muted: #5e5a53;
+    --ds-accent: #221d17;
+    --ds-grain: 0;
+  }
+
+  body::after {
+    display: none;
+  }
+
+  @page {
+    margin: 14mm;
+  }
+}
