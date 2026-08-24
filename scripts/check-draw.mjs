@@ -60,7 +60,15 @@ function numbersIn(d) {
   return (d.match(/-?\d*\.?\d+(?:e[-+]?\d+)?/gi) ?? []).map(Number);
 }
 
-function audit(fitting, view, us, label) {
+/**
+ * `strictLabels` is off for the degenerate inputs, and that is a stated rule
+ * rather than a dodge: a fitting with a zero length or a one-degree sweep is
+ * not a drawing anybody reads, and it has no tidy annotation layout to have.
+ * What those cases must do is not CRASH — every other assertion here still
+ * runs on them. Geometries that are awkward but real — a 180° U-bend, a small
+ * branch off a large main — are checked strictly, in their own section.
+ */
+function audit(fitting, view, us, label, strictLabels = true) {
   let scene;
   try {
     scene = buildView(fitting, view, us);
@@ -101,6 +109,72 @@ function audit(fitting, view, us, label) {
   for (const c of scene.captions) {
     check(Number.isFinite(c.x) && Number.isFinite(c.y), `${label}: caption is positioned`);
   }
+
+  if (!strictLabels) return;
+
+  const labels = labelsOf(scene);
+  const clashes = [];
+  for (let i = 0; i < labels.length; i++) {
+    for (let j = i + 1; j < labels.length; j++) {
+      if (overlaps(labels[i].box, labels[j].box)) {
+        clashes.push(`${labels[i].what} over ${labels[j].what}`);
+      }
+    }
+  }
+  check(
+    clashes.length === 0,
+    `${label}: ${labels.length} labels, none overlapping${
+      clashes.length ? ` — ${clashes.slice(0, 3).join("; ")}` : ""
+    }`,
+  );
+}
+
+/* THE BUG THIS EXISTS TO CATCH, and it shipped once.
+ *
+ * Labels are sized in VIEW pixels — 16px text, offset 30px from the geometry —
+ * while the scenes that place them are laid out in MODEL millimetres. A flat
+ * pattern's gap between blanks was a fraction of the model's own size, so on
+ * any drawing that scaled down, two facing dimension lines and a caption all
+ * landed in a gap worth twenty pixels and printed over one another. Nothing
+ * threw, nothing looked wrong to any other check, and the numbers were
+ * unreadable.
+ *
+ * The box is estimated rather than measured — there is no text engine here —
+ * so it is deliberately a little narrower than the real glyphs to keep this
+ * from crying wolf. It catches labels ON each other, not labels merely close.
+ */
+const CHAR_W = 8.4;
+const LINE_H = 17;
+
+function labelBox(text, x, y, angle = 0) {
+  let w = String(text).length * CHAR_W + 4;
+  let h = LINE_H;
+  /* A rotated label occupies the other axis. Anything past 45° is closer to
+   * vertical than horizontal. */
+  const a = Math.abs(((angle % 180) + 180) % 180);
+  if (a > 45 && a < 135) [w, h] = [h, w];
+  /* Shrink slightly: the estimate is crude and touching is not overlapping. */
+  return { x0: x - w / 2 + 2, x1: x + w / 2 - 2, y0: y - h / 2 + 2, y1: y + h / 2 - 2 };
+}
+
+function overlaps(a, b) {
+  return a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
+}
+
+/* Declared before section 1 runs, because `audit` reaches for CHAR_W and a
+ * `const` in the temporal dead zone throws rather than reading as undefined. */
+function labelsOf(scene) {
+  const boxes = [];
+  for (const d of scene.dims) {
+    boxes.push({
+      what: `"${d.text}"`,
+      box: labelBox(d.text, d.x, d.y, d.t === "len" ? d.angle : 0),
+    });
+  }
+  for (const c of scene.captions) {
+    boxes.push({ what: `caption "${c.text}"`, box: labelBox(c.text, c.x, c.y) });
+  }
+  return boxes;
 }
 
 console.log("1. every fitting, every view, both unit systems");
@@ -159,7 +233,34 @@ const DEGENERATE = [
 ];
 for (const [label, fitting] of DEGENERATE) {
   for (const view of VIEWS) {
-    audit(fitting, view, "metric", `${label} (${view})`);
+    audit(fitting, view, "metric", `${label} (${view})`, false);
+  }
+}
+
+console.log("\n3b. awkward but real geometries keep their labels apart");
+
+/* These are fittings somebody will actually specify, and every one of them
+ * found a label collision the default sizes did not: a U-bend puts its radius
+ * callout on top of its angle, a small branch off a large main crowds its
+ * width dimension into the same corner, and a Y-piece develops into six blanks
+ * whose captions are wider than the blanks are. */
+const AWKWARD = [
+  ["180° U-bend", { kind: "elbow", w: 400, h: 300, r: 200, theta: 180 }],
+  ["45° elbow", { kind: "elbow", w: 600, h: 400, r: 300, theta: 45 }],
+  ["tight-radius elbow", { kind: "elbow", w: 800, h: 400, r: 150, theta: 90 }],
+  ["small branch off a large main", { kind: "wye", w1: 2000, h: 400, w2: 150, w3: 150, r: 150, theta: 30 }],
+  ["90° Y-piece", { kind: "wye", w1: 900, h: 400, w2: 450, w3: 450, r: 200, theta: 90 }],
+  ["deep flange collar", { kind: "collar", w: 250, h: 250, l: 150, f: 50 }],
+  ["big-ratio reducer", { kind: "reducer", w1: 1600, h1: 900, w2: 250, h2: 200, l: 500 }],
+  ["two-gore round elbow", { kind: "round-elbow", d: 500, r: 750, theta: 90, gores: 2 }],
+  ["six-gore round elbow", { kind: "round-elbow", d: 500, r: 750, theta: 90, gores: 6 }],
+  ["steep cone", { kind: "round-reducer", d1: 900, d2: 150, l: 200 }],
+];
+for (const [label, fitting] of AWKWARD) {
+  for (const view of VIEWS) {
+    for (const us of UNITS) {
+      audit(fitting, view, us, `${label} (${view}/${us})`);
+    }
   }
 }
 

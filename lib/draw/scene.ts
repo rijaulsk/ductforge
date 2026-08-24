@@ -51,8 +51,15 @@ export type Anchor = "start" | "middle" | "end";
 export type Scene = {
   shapes: Shape[];
   dims: Dim[];
-  /** Sub-drawing captions, e.g. "elevation" / "section" / "cheek ×2". */
-  captions?: { at: Pt; text: string; anchor?: Anchor }[];
+  /**
+   * Sub-drawing captions, e.g. "elevation" / "section" / "cheek ×2".
+   *
+   * `dy` nudges in VIEW pixels, not model units, and it exists because a
+   * caption's only real constraint is clearing the dimension lines — which are
+   * themselves offset in pixels. A caption placed a few millimetres above the
+   * geometry lands on top of a dimension whenever the drawing scales down.
+   */
+  captions?: { at: Pt; text: string; anchor?: Anchor; dy?: number }[];
 };
 
 export const deg = (d: number) => (d * Math.PI) / 180;
@@ -180,6 +187,16 @@ export type ViewScene = {
   shapes: ViewShape[];
   dims: ViewDim[];
   captions: { x: number; y: number; text: string; anchor: Anchor }[];
+  /**
+   * View pixels per model millimetre.
+   *
+   * Exposed because a scene laid out in MODEL units cannot know how much room
+   * its annotations will need — those are offset in VIEW pixels. The flat
+   * pattern lays several blanks side by side and has to leave a gap wide
+   * enough for two dimension lines and their labels, which is a view-space
+   * quantity; it projects once, reads this, and re-lays out. See buildView.
+   */
+  scale: number;
 };
 
 /** Base room outside the geometry, before the dimension offsets are counted. */
@@ -241,10 +258,15 @@ export function project(
 
   const captions = (scene.captions ?? []).map((c) => {
     const [x, y] = P(c.at);
-    return { x: n(x), y: n(y), text: c.text, anchor: c.anchor ?? "middle" };
+    return {
+      x: n(x),
+      y: n(y + (c.dy ?? 0)),
+      text: c.text,
+      anchor: c.anchor ?? "middle",
+    };
   });
 
-  return { width, height, shapes, dims, captions };
+  return { width, height, shapes, dims, captions, scale: s };
 }
 
 function primPath(p: Prim, P: (pt: Pt) => Pt, s: number, n: (v: number) => number): string {

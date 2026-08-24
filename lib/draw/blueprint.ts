@@ -339,8 +339,11 @@ function collar(w: number, h: number, l: number, f: number, L: Label): Scene {
       { t: "len", a: [sx + w, h], b: [sx + w, 0], text: L(h), off: 34 },
     ],
     captions: [
-      { at: [w / 2, -32], text: "elevation" },
-      { at: [sx + w / 2, -32], text: "section" },
+      /* Pinned to the top edge and lifted in PIXELS: the W dimension sits 32 px
+       * above this same edge, and a caption placed a few millimetres up landed
+       * on it at any scale where 32 px was more than a few millimetres. */
+      { at: [w / 2, 0], text: "elevation", dy: -58 },
+      { at: [sx + w / 2, 0], text: "section", dy: -34 },
     ],
   };
 }
@@ -392,8 +395,10 @@ function wye(
     ],
     dims: [
       { t: "len", a: [-mainLen, -w1 / 2], b: [-mainLen, w1 / 2], text: L(w1), off: 34 },
-      { t: "len", a: b1Inner, b: b1Outer, text: L(w2), off: -28 },
-      { t: "len", a: b2Outer, b: b2Inner, text: L(w3), off: -28 },
+      /* Pushed well clear: on a small branch off a large main these sit close
+       * to the radius callout, and 28px was not enough room for both. */
+      { t: "len", a: b1Inner, b: b1Outer, text: L(w2), off: -44 },
+      { t: "len", a: b2Outer, b: b2Inner, text: L(w3), off: -44 },
       { t: "rad", c: C1, r, at: 90 - theta / 2, text: `R ${L(r)}` },
       { t: "ang", c: C1, a0: 90 - theta, a1: 90, text: `${theta}°`, vr: 40 },
       { t: "len", a: [-w1 / 2, secY + h], b: [w1 / 2, secY + h], text: L(w1), off: 34 },

@@ -41,32 +41,71 @@ type Piece = {
   dims: Dim[];
 };
 
-/** Lay pieces left to right with a common baseline and one gap. */
-function layout(pieces: Piece[]): Scene {
+/**
+ * Lay the blanks out in rows.
+ *
+ * TWO THINGS HERE ARE LOAD-BEARING, and getting either wrong is what put
+ * numbers on top of each other.
+ *
+ * 1. THE GAP IS IN MODEL UNITS BUT HAS TO BE BOOKED IN VIEW PIXELS. A blank's
+ *    dimension line sits 30 px outside it and its label 16 px beyond that —
+ *    fixed sizes that do not shrink with the drawing. The gap used to be a
+ *    fraction of the model's own size, so on any scene that scaled down, two
+ *    facing dimension lines and a caption were all competing for a gap worth
+ *    twenty pixels. The caller passes a gap measured for the scale it actually
+ *    got; `buildView` projects, reads the scale back and re-lays out.
+ *
+ * 2. WRAPPING KEEPS THE PIECES BIG. A Y-piece develops into six blanks, and
+ *    six across one row makes every one of them a sixth of the width — so the
+ *    labels stay the same size while the thing they label shrinks. Three per
+ *    row doubles the scale.
+ *
+ * Captions hang a fixed share of the gap below their own piece, which is what
+ * keeps them clear of that piece's bottom dimension line rather than landing
+ * on it.
+ */
+export type FlatScene = Scene & { gap: number };
+
+const PER_ROW = 3;
+
+function layout(requestedGap: number | undefined, pieces: Piece[]): FlatScene {
   const measured = pieces.map((p) => ({ ...p, b: bounds(p.shapes) }));
   const widest = Math.max(...measured.map((m) => m.b.maxX - m.b.minX), 1);
   const tallest = Math.max(...measured.map((m) => m.b.maxY - m.b.minY), 1);
-  const gap = Math.max(widest, tallest) * 0.16;
+  const gap = requestedGap ?? Math.max(widest, tallest) * 0.22;
+
+  const perRow = pieces.length <= PER_ROW ? pieces.length : PER_ROW;
 
   const shapes: Shape[] = [];
   const dims: Dim[] = [];
   const captions: { at: Pt; text: string }[] = [];
-  let x = 0;
 
-  for (const m of measured) {
+  let x = 0;
+  let rowTop = 0;
+  let rowTallest = 0;
+
+  measured.forEach((m, i) => {
+    if (i > 0 && i % perRow === 0) {
+      /* A row's height plus room for its captions and the next row's own
+       * top-side annotations. */
+      rowTop += rowTallest + gap * 1.5;
+      x = 0;
+      rowTallest = 0;
+    }
+    const w = m.b.maxX - m.b.minX;
+    const h = m.b.maxY - m.b.minY;
     const dx = x - m.b.minX;
-    const dy = -m.b.minY;
+    const dy = rowTop - m.b.minY;
+
     shapes.push(...moveShapes(m.shapes, dx, dy));
     dims.push(...moveDims(m.dims, dx, dy));
-    const w = m.b.maxX - m.b.minX;
-    captions.push({
-      at: [x + w / 2, m.b.maxY - m.b.minY + tallest * 0.14 + 26],
-      text: m.caption,
-    });
-    x += w + gap;
-  }
+    captions.push({ at: [x + w / 2, rowTop + h + gap * 0.72], text: m.caption });
 
-  return { shapes, dims, captions };
+    x += w + gap;
+    rowTallest = Math.max(rowTallest, h);
+  });
+
+  return { shapes, dims, captions, gap };
 }
 
 /** A rectangular blank with its two extents dimensioned. */
@@ -84,11 +123,11 @@ function blank(w: number, h: number, caption: string, L: Label, folds: number[] 
   };
 }
 
-export function flat(f: Fitting, L: Label): Scene {
+export function flat(f: Fitting, L: Label, gap?: number): FlatScene {
   switch (f.kind) {
     case "straight": {
       const girth = 2 * (f.w + f.h);
-      return layout([
+      return layout(gap, [
         blank(girth, f.l, "wrapper ×1", L, [f.w, f.w + f.h, 2 * f.w + f.h]),
       ]);
     }
@@ -96,7 +135,7 @@ export function flat(f: Fitting, L: Label): Scene {
     case "reducer": {
       const slantTop = Math.hypot(f.l, (f.h1 - f.h2) / 2);
       const slantSide = Math.hypot(f.l, (f.w1 - f.w2) / 2);
-      return layout([
+      return layout(gap, [
         trapezoid(f.w1, f.w2, slantTop, "top & bottom ×2", L),
         trapezoid(f.h1, f.h2, slantSide, "sides ×2", L),
       ]);
@@ -105,7 +144,7 @@ export function flat(f: Fitting, L: Label): Scene {
     case "elbow": {
       const arcOuter = deg(f.theta) * (f.r + f.w);
       const arcInner = deg(f.theta) * f.r;
-      return layout([
+      return layout(gap, [
         cheek(f.r, f.w, f.theta, "cheek ×2", L),
         blank(arcOuter, f.h, "heel ×1", L),
         blank(arcInner, f.h, "throat ×1", L),
@@ -114,7 +153,7 @@ export function flat(f: Fitting, L: Label): Scene {
 
     case "dropper": {
       const slant = Math.hypot(f.l, f.o);
-      return layout([
+      return layout(gap, [
         {
           caption: "cheek ×2",
           shapes: [
@@ -137,7 +176,7 @@ export function flat(f: Fitting, L: Label): Scene {
 
     case "collar": {
       const girth = 2 * (f.w + f.h);
-      return layout([
+      return layout(gap, [
         {
           caption: "wrapper + flange band ×1",
           shapes: [
@@ -153,7 +192,9 @@ export function flat(f: Fitting, L: Label): Scene {
             { t: "len", a: [girth, f.l + f.f], b: [girth, f.l], text: L(f.f), off: 30 },
           ],
         },
-        blank(f.f, f.f, "corner square ×4", L),
+        /* No flange, no corner squares — a zero-sized blank is a blank whose
+         * two dimensions are both "0", printed on top of each other. */
+        ...(f.f > 0 ? [blank(f.f, f.f, "corner square ×4", L)] : []),
       ]);
     }
 
@@ -163,17 +204,17 @@ export function flat(f: Fitting, L: Label): Scene {
         blank(deg(f.theta) * (f.r + wn), f.h, `branch ${n} heel ×1`, L),
         blank(deg(f.theta) * f.r, f.h, `branch ${n} throat ×1`, L),
       ];
-      return layout([...branch(f.w2, 1), ...branch(f.w3, 2)]);
+      return layout(gap, [...branch(f.w2, 1), ...branch(f.w3, 2)]);
     }
 
     case "round-straight":
-      return layout([blank(Math.PI * f.d, f.l, "wrapper ×1", L)]);
+      return layout(gap, [blank(Math.PI * f.d, f.l, "wrapper ×1", L)]);
 
     case "round-elbow":
-      return layout(gores(f.d, f.r, f.theta, f.gores, L));
+      return layout(gap, gores(f.d, f.r, f.theta, f.gores, L));
 
     case "round-reducer":
-      return layout([cone(f.d1, f.d2, f.l, L)]);
+      return layout(gap, [cone(f.d1, f.d2, f.l, L)]);
   }
 }
 
@@ -230,13 +271,13 @@ function gorePiece(
     ],
     dims: [
       { t: "len", a: [0, 0], b: [width, 0], text: L(width), off: 30 },
-      { t: "len", a: [0, 0], b: [0, -tallest], text: L(tallest), off: 30 },
-      {
-        t: "note",
-        at: [width / 2, -shortest],
-        text: `throat ${L(shortest)}`,
-        dy: -12,
-      },
+      /* a→b runs UP the left edge, so the offset normal points left, away from
+       * the blank. Written the other way round it pointed straight into the
+       * gore and laid the heel figure over the wave. */
+      { t: "len", a: [0, -tallest], b: [0, 0], text: L(tallest), off: 30 },
+      /* The throat is called out on the right edge rather than in the middle
+       * of the blank, where it sat on the cut line it was measuring. */
+      { t: "len", a: [width, 0], b: [width, -shortest], text: L(shortest), off: -30 },
     ],
   };
 }
@@ -315,12 +356,26 @@ function trapezoid(a: number, b: number, slant: number, caption: string, L: Labe
   };
 }
 
-/** An elbow cheek: the annular sector between throat and heel radii. */
+/**
+ * An elbow cheek: the annular sector between throat and heel radii.
+ *
+ * THE ANGLE IS IN THE CAPTION, NOT ON THE DRAWING, and that is the fix for a
+ * collision class rather than a stylistic choice. A radius callout lands just
+ * outside the THROAT arc, so its distance from the centre is whatever R
+ * happens to be; an angle mark is held at a fixed radius in pixels. On a tight
+ * bend those two coincide, and no amount of separating them BY ANGLE helps,
+ * because the problem is radial. Moving the angle mark further out only chose
+ * a different set of radii to break on.
+ *
+ * The cheek's own dimensions are R and W. The sweep is already dimensioned on
+ * the blueprint view, where there is room for it, so printing it here as well
+ * was redundant before it was a collision.
+ */
 function cheek(r: number, w: number, theta: number, caption: string, L: Label): Piece {
   const c: Pt = [0, 0];
   const ro = r + w;
   return {
-    caption,
+    caption: `${caption} · ${theta}°`,
     shapes: [
       sector(c, r, ro, -theta, 0),
       line(c, [ro * 1.04, 0], "hidden"),
@@ -328,8 +383,7 @@ function cheek(r: number, w: number, theta: number, caption: string, L: Label): 
     ],
     dims: [
       { t: "len", a: [r, 0], b: [ro, 0], text: L(w), off: 30 },
-      { t: "rad", c, r, at: -theta / 2, text: `R ${L(r)}` },
-      { t: "ang", c, a0: -theta, a1: 0, text: `${theta}°`, vr: 38 },
+      { t: "rad", c, r, at: -theta * 0.55, text: `R ${L(r)}` },
     ],
   };
 }
