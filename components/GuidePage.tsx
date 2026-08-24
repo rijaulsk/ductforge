@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { GUIDE_LIST } from "@/lib/guide";
 import type { Guide } from "@/lib/guide/types";
+import GuideFigure from "./GuideFigure";
 import SiteFooter from "./SiteFooter";
+import SiteNav from "./SiteNav";
 import Wordmark from "./Wordmark";
 import { variantClasses } from "./ui";
 
@@ -23,7 +25,10 @@ export default function GuidePage({ guide }: { guide: Guide }) {
       <header className="border-b-[1.5px] border-line">
         <div className="mx-auto w-full max-w-canvas px-5 py-8 md:px-8 md:py-10">
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <Wordmark size="sm" />
+            <div className="flex flex-wrap items-center gap-4">
+              <Wordmark size="sm" />
+              <SiteNav current="guide" labels={guide.nav} />
+            </div>
             <nav aria-label={guide.switcherLabel} className="flex flex-wrap items-center gap-2">
               <span className="text-small text-muted">{guide.switcherLabel}</span>
               {GUIDE_LIST.map((g) => {
@@ -125,13 +130,22 @@ export default function GuidePage({ guide }: { guide: Guide }) {
                 >
                   {String(i + 1).padStart(2, "0")}
                 </span>
-                <div>
+                <div className="min-w-0">
                   <h3 className="text-h3 font-bold text-heading">{step.title}</h3>
                   {step.body.map((p) => (
                     <p key={p} className="mt-3 max-w-3xl">
                       {p}
                     </p>
                   ))}
+                  {step.figure && (
+                    <div className="max-w-3xl">
+                      <GuideFigure
+                        kind={step.figure}
+                        callouts={step.callouts}
+                        label={guide.figureLabel}
+                      />
+                    </div>
+                  )}
                 </div>
               </li>
             ))}

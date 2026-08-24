@@ -34,13 +34,20 @@ function Field({
   value: string;
   onChange: (v: string) => void;
 }) {
+  /* Label and hint on top, input pushed to the BOTTOM of the cell.
+   *
+   * Fields sit in a grid, and their hints are one line, two lines or none at
+   * all — so laying each cell out top-down put the boxes at three different
+   * heights across a row. `mt-auto` on the input lands every box on the same
+   * baseline whatever is written above it. */
   return (
-    <div>
+    <div className="flex h-full flex-col">
       <label htmlFor={id} className="flex items-baseline gap-2 font-medium text-heading">
         <span className="text-accent tabular-nums">{symbol}</span>
         <span>{label}</span>
       </label>
-      <div className="mt-2 flex items-center gap-2">
+      {hint && <p className="mt-1 text-small text-muted">{hint}</p>}
+      <div className="mt-auto flex items-center gap-2 pt-2">
         <input
           id={id}
           type="text"
@@ -50,9 +57,8 @@ function Field({
           onChange={(e) => onChange(e.target.value)}
           className="w-full rounded-card border-[1.5px] border-line bg-page px-4 py-2.5 font-medium tabular-nums text-heading placeholder:font-normal placeholder:text-muted"
         />
-        <span className="w-8 shrink-0 text-small text-muted">{unit}</span>
+        {unit && <span className="w-8 shrink-0 text-small text-muted">{unit}</span>}
       </div>
-      {hint && <p className="mt-1.5 text-small text-muted">{hint}</p>}
     </div>
   );
 }
@@ -188,8 +194,10 @@ export default function ParamForm({
         </div>
       </fieldset>
 
-      <div className="grid gap-5 sm:grid-cols-2">
-        <div>
+      {/* `items-stretch` plus `mt-auto` on each input: the two hints are
+        * different lengths, and without this the boxes sat at two heights. */}
+      <div className="grid items-stretch gap-5 sm:grid-cols-2">
+        <div className="flex h-full flex-col">
           <label htmlFor={`${uid}-zone`} className="font-medium text-heading">
             Zone <span className="font-normal text-muted">optional</span>
           </label>
@@ -204,7 +212,7 @@ export default function ParamForm({
             placeholder="AHU-1, Level 3, Kitchen…"
             value={draft.zone}
             onChange={(e) => onChange({ ...draft, zone: e.target.value })}
-            className="mt-2 w-full rounded-card border-[1.5px] border-line bg-page px-4 py-2.5 text-heading placeholder:text-muted"
+            className="mt-auto w-full rounded-card border-[1.5px] border-line bg-page px-4 py-2.5 text-heading placeholder:text-muted"
           />
           {/* Whatever zones the takeoff already uses, offered back — so a job
             * does not end up with AHU-1, AHU 1 and ahu-1 as three zones. */}
@@ -214,7 +222,7 @@ export default function ParamForm({
             ))}
           </datalist>
         </div>
-        <div>
+        <div className="flex h-full flex-col">
           <label htmlFor={`${uid}-note`} className="font-medium text-heading">
             Line note <span className="font-normal text-muted">optional</span>
           </label>
@@ -228,7 +236,7 @@ export default function ParamForm({
             placeholder="Riser drop, AHU discharge…"
             value={draft.note}
             onChange={(e) => onChange({ ...draft, note: e.target.value })}
-            className="mt-2 w-full rounded-card border-[1.5px] border-line bg-page px-4 py-2.5 text-heading placeholder:text-muted"
+            className="mt-auto w-full rounded-card border-[1.5px] border-line bg-page px-4 py-2.5 text-heading placeholder:text-muted"
           />
         </div>
       </div>

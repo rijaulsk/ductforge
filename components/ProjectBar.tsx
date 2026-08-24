@@ -4,6 +4,7 @@ import { Download, FilePlus2, Printer, Settings2, Trash2, Upload } from "lucide-
 import { useId, useRef, useState } from "react";
 import type { Mode, Project } from "@/lib/duct/types";
 import type { UnitSystem } from "@/lib/duct/units";
+import SiteNav from "./SiteNav";
 import ThemeToggle from "./ThemeToggle";
 import Wordmark from "./Wordmark";
 import { Button, Segmented } from "./ui";
@@ -225,7 +226,7 @@ export default function ProjectBar({
         * every tap to the disclosure instead of to the field. */}
       <div className="lg:hidden">
         <div className="flex items-center gap-3 px-5 py-3">
-          <Wordmark size="sm" hideBylineOnMobile />
+          <Wordmark size="sm" />
           <label htmlFor={`${uid}-name-m`} className="sr-only">
             Project name
           </label>
@@ -248,6 +249,7 @@ export default function ProjectBar({
 
         {panelOpen && (
           <div id={`${uid}-panel`} className="space-y-4 border-t-[1.5px] border-rule px-5 py-4">
+            <SiteNav current="calculator" />
             <div className="flex items-center gap-2">
               <label htmlFor={`${uid}-project-m`} className="sr-only">
                 Open a saved takeoff
@@ -281,6 +283,7 @@ export default function ProjectBar({
       <div className="mx-auto hidden w-full max-w-canvas px-8 py-3 lg:block">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
           <Wordmark size="sm" />
+          <SiteNav current="calculator" className="shrink-0" />
 
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <label htmlFor={`${uid}-name`} className="sr-only">

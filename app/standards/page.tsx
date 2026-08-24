@@ -14,6 +14,7 @@ import { MATERIALS, MATERIAL_KEYS } from "@/lib/duct/material";
 import { fmt } from "@/lib/duct/units";
 import { WASTE_PRESETS } from "@/lib/duct/waste";
 import SiteFooter from "@/components/SiteFooter";
+import SiteNav from "@/components/SiteNav";
 import Wordmark from "@/components/Wordmark";
 import { variantClasses } from "@/components/ui";
 
@@ -73,7 +74,10 @@ export default function StandardsPage() {
     <>
       <header className="border-b-[1.5px] border-line">
         <div className="mx-auto w-full max-w-canvas px-5 py-14 md:px-8 md:py-20">
-          <Wordmark size="sm" />
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <Wordmark size="sm" />
+            <SiteNav current="standards" />
+          </div>
           <div className="mt-10 grid gap-8 lg:grid-cols-12">
             <div className="lg:col-span-7">
               <p className="text-eyebrow uppercase text-accent">Reference</p>

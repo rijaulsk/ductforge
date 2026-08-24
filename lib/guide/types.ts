@@ -13,9 +13,31 @@
 
 export type Locale = "en" | "bn" | "hi";
 
+/* Which annotated figure a step shows.
+ *
+ * These are DRAWN, not screenshotted — built from the same tokens and the same
+ * component styles as the real interface, and in the case of `drawing`, from
+ * the real drawing engine. A screenshot of a workspace goes stale the first
+ * time a button moves, silently, in three languages at once; a figure that is
+ * code goes stale loudly, at the type level. It is also theme-aware, crisp at
+ * any zoom, and its callouts translate with the rest of the guide.
+ */
+export type FigureKind =
+  | "standard"
+  | "picker"
+  | "params"
+  | "drawing"
+  | "quantity"
+  | "schedule"
+  | "zones"
+  | "totals";
+
 export type GuideStep = {
   title: string;
   body: string[];
+  figure?: FigureKind;
+  /** Numbered callouts on that figure, in order. Localised like everything else. */
+  callouts?: string[];
 };
 
 export type GuideNote = {
@@ -53,6 +75,11 @@ export type Guide = {
   openApp: string;
   seeStandards: string;
   switcherLabel: string;
+  /** The three-section nav, translated. */
+  nav: { calculator: string; guide: string; standards: string };
+
+  /** Figure captions, keyed by the figure a step names. */
+  figureLabel: string;
 };
 
 export const LOCALES: readonly Locale[] = ["en", "bn", "hi"];
