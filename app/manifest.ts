@@ -25,7 +25,18 @@ export default function manifest(): MetadataRoute.Manifest {
     categories: ["productivity", "utilities", "business"],
     icons: [
       { src: "/icon.svg", type: "image/svg+xml", sizes: "any", purpose: "any" },
-      { src: "/apple-icon", type: "image/png", sizes: "180x180" },
+      { src: "/icons/icon-192.png", type: "image/png", sizes: "192x192", purpose: "any" },
+      { src: "/icons/icon-512.png", type: "image/png", sizes: "512x512", purpose: "any" },
+      /* Maskable is a separate entry, not a second purpose on the same file:
+       * a launcher crops it to its own shape, so it bleeds to the edges and
+       * keeps the mark inside the middle 80%. Declaring one icon as both
+       * "any maskable" gets it cropped when used as "any". */
+      {
+        src: "/icons/icon-maskable-512.png",
+        type: "image/png",
+        sizes: "512x512",
+        purpose: "maskable",
+      },
     ],
   };
 }

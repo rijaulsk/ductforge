@@ -182,8 +182,30 @@ export type ViewScene = {
   captions: { x: number; y: number; text: string; anchor: Anchor }[];
 };
 
-/** How much room the dimension lines need outside the geometry itself. */
-const PAD = 54;
+/** Base room outside the geometry, before the dimension offsets are counted. */
+const PAD = 46;
+
+/**
+ * How far outside the geometry this scene's annotations actually reach.
+ *
+ * The bounding box is built from MODEL points, but a dimension line is drawn
+ * at a perpendicular offset measured in VIEW pixels, and its label sits
+ * further out again. Padding by a fixed amount therefore clipped exactly the
+ * drawings whose dimensions were pushed furthest out — the ones with the most
+ * to say. This measures the reach instead.
+ */
+function annotationReach(scene: Scene): number {
+  let reach = 0;
+  for (const d of scene.dims) {
+    if (d.t === "len") reach = Math.max(reach, Math.abs(d.off) + 22);
+    else if (d.t === "ang") reach = Math.max(reach, (d.vr ?? 46) + 30);
+    else if (d.t === "rad") reach = Math.max(reach, 34);
+    else reach = Math.max(reach, Math.abs(d.dy ?? 0) + Math.abs(d.dx ?? 0) + 20);
+  }
+  /* Captions hang below the deepest piece. */
+  if (scene.captions?.length) reach = Math.max(reach, 34);
+  return reach;
+}
 
 export function project(
   scene: Scene,
@@ -191,6 +213,7 @@ export function project(
   height: number,
   pad = PAD,
 ): ViewScene {
+  const room = Math.max(pad, annotationReach(scene) + 10);
   let box = EMPTY;
   for (const s of scene.shapes) for (const p of primPoints(s.prim)) box = grow(box, p);
   for (const d of scene.dims) {
@@ -202,7 +225,7 @@ export function project(
 
   const bw = Math.max(box.maxX - box.minX, 1e-6);
   const bh = Math.max(box.maxY - box.minY, 1e-6);
-  const s = Math.min((width - pad * 2) / bw, (height - pad * 2) / bh);
+  const s = Math.min((width - room * 2) / bw, (height - room * 2) / bh);
   const tx = (width - bw * s) / 2 - box.minX * s;
   const ty = (height - bh * s) / 2 - box.minY * s;
 

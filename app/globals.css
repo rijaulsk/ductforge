@@ -72,8 +72,18 @@
   --color-dark-surface: #1b1d29;
   --color-dark-raised: #272936;
 
-  /* Typography — Satoshi only. Inter is banned. */
+  /* Typography — Satoshi only for Latin. Inter is banned. */
   --font-sans: var(--font-satoshi), ui-sans-serif, system-ui, sans-serif;
+
+  /* Indic faces, applied only on the guide pages that are written in them.
+   * Satoshi leads each stack so the English technical nouns those guides keep
+   * — duct, gauge, CSV — still render in the brand face, and Noto picks up
+   * only the characters Satoshi has no glyph for. */
+  --font-bengali:
+    var(--font-satoshi), var(--font-noto-bengali), "Noto Sans Bengali", ui-sans-serif, sans-serif;
+  --font-devanagari:
+    var(--font-satoshi), var(--font-noto-devanagari), "Noto Sans Devanagari", ui-sans-serif,
+    sans-serif;
 
   --text-display: 4.5rem;
   --text-display--line-height: 4.75rem;
@@ -129,6 +139,43 @@
   --ds-series-2: #6467f2; /* indigo 500 */
   --ds-series-3: #abb6fe; /* indigo 300 */
   --ds-grain: 0.03;
+}
+
+/* THREE STATES, NOT TWO, and the missing one was a bug.
+ *
+ * The dark palette used to live ONLY under [data-theme="dark"], so a machine
+ * set to dark mode still got the light page — while ThemeToggle, which falls
+ * back to `prefers-color-scheme` when no choice has been stored, believed the
+ * page was already dark. It showed the "switch to light" icon, the first click
+ * set an explicit light that changed nothing visible, and only the SECOND click
+ * did anything. That is the "toggle it twice" bug, and the fix is here rather
+ * than in the component: the stylesheet has to honour the system preference
+ * for the script's fallback to be telling the truth.
+ *
+ * So: system dark applies unless the user has explicitly chosen light, and an
+ * explicit dark wins everywhere. The two blocks are duplicated on purpose —
+ * CSS has no way to share a declaration list between a media query and an
+ * attribute selector, and a third indirection would cost more than the copy.
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ds-page: #10121c;
+    --ds-card: #1b1d29;
+    --ds-sunk: #272936;
+    --ds-line: #272936;
+    --ds-rule: #272936;
+    --ds-heading: #f7f3eb;
+    --ds-body: #d8d4cd;
+    --ds-muted: #a8a49e;
+    --ds-accent: #8792fe;
+    --ds-face-top: #423eba;
+    --ds-face-side: #332e96;
+    --ds-face-end: #22206b;
+    --ds-series-1: #abb6fe;
+    --ds-series-2: #6467f2;
+    --ds-series-3: #423eba;
+    --ds-grain: 0.015;
+  }
 }
 
 :root[data-theme="dark"] {
@@ -210,6 +257,23 @@
   :focus-visible {
     outline: 2px solid var(--color-indigo-500);
     outline-offset: 2px;
+  }
+
+  /* Indic scripts carry more above and below the baseline than Latin does, so
+   * they need looser leading to stop matras colliding with the line above.
+   * Applied on the guide article, never site-wide. */
+  .script-bn,
+  .script-hi {
+    line-height: 1.85;
+  }
+
+  .script-bn h1,
+  .script-bn h2,
+  .script-bn h3,
+  .script-hi h1,
+  .script-hi h2,
+  .script-hi h3 {
+    line-height: 1.45;
   }
 
   /* Site-wide 3% grain (§4) — one layer, never per-component. Sits under the

@@ -52,6 +52,20 @@ export default function AboutTheTool() {
               That is the whole design: a quantity nobody can audit is a quantity nobody should
               invoice.
             </p>
+            <h3 className="pt-2 text-h3 font-bold text-heading">Where your takeoffs are saved</h3>
+            <p>
+              In this browser&rsquo;s local storage, on this device, and nowhere else. There is no
+              server holding them, which is why they survive a refresh but do not follow you from
+              your phone to your desktop, and why clearing your browser data clears them.
+            </p>
+            <p>
+              Every job you start is kept, so a few days of use leaves several in the list — that is
+              the takeoffs you made, not a cache. Switch between them in the bar at the top, delete
+              one with the bin, or clear the lot from{" "}
+              <strong className="text-heading">Material and allowances</strong>. If a job matters,
+              use <strong className="text-heading">Save</strong>: it writes a project file you can
+              back up, move between machines, or hand to somebody else.
+            </p>
           </div>
 
           <div className="lg:col-span-5">

@@ -44,6 +44,19 @@ const DASH: Partial<Record<Role, string>> = {
   hidden: "6 6",
 };
 
+/* Every label is drawn with a halo of the page colour behind it.
+ *
+ * `paint-order: stroke` paints the stroke first and the fill over it, so a
+ * 5px stroke in the background colour knocks a clean hole in whatever the text
+ * crosses. Without it a dimension that happens to land on a cut line, an arc
+ * or another dimension is simply unreadable — and on a drawing where several
+ * annotations converge on the same corner, several of them do. */
+const LABEL =
+  "fill-accent stroke-page text-[16px] font-medium tabular-nums [paint-order:stroke]";
+const CAPTION =
+  "fill-muted stroke-page text-[13px] font-medium uppercase tracking-[0.06em] [paint-order:stroke]";
+const HALO = 5;
+
 export default function Drawing({
   scene,
   title,
@@ -82,7 +95,8 @@ export default function Drawing({
               x={d.x}
               y={d.y}
               textAnchor={d.anchor}
-              className="fill-accent text-[15px] font-medium tabular-nums"
+              strokeWidth={HALO}
+              className={LABEL}
             >
               {d.text}
             </text>
@@ -98,7 +112,8 @@ export default function Drawing({
                 y={d.y}
                 textAnchor="middle"
                 transform={`rotate(${d.angle} ${d.x} ${d.y})`}
-                className="fill-accent text-[15px] font-medium tabular-nums"
+                strokeWidth={HALO}
+                className={LABEL}
               >
                 {d.text}
               </text>
@@ -112,7 +127,8 @@ export default function Drawing({
               x={d.x}
               y={d.y}
               textAnchor={d.t === "rad" ? d.anchor : "middle"}
-              className="fill-accent text-[15px] font-medium tabular-nums"
+              strokeWidth={HALO}
+              className={LABEL}
             >
               {d.text}
             </text>
@@ -126,7 +142,8 @@ export default function Drawing({
           x={c.x}
           y={c.y}
           textAnchor={c.anchor}
-          className="fill-muted text-[13px] font-medium uppercase tracking-[0.06em]"
+          strokeWidth={HALO}
+          className={CAPTION}
         >
           {c.text}
         </text>

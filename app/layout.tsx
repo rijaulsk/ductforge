@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Noto_Sans_Bengali, Noto_Sans_Devanagari } from "next/font/google";
 import localFont from "next/font/local";
 import { SITE_URL } from "@/lib/site";
 import "./globals.css";
@@ -8,6 +9,28 @@ import "./globals.css";
 const satoshi = localFont({
   src: [{ path: "../public/fonts/Satoshi-Variable.woff2", weight: "300 900", style: "normal" }],
   variable: "--font-satoshi",
+  display: "swap",
+});
+
+/* Satoshi has no Bengali or Devanagari glyphs, so those guides were rendering
+ * in whatever the operating system happened to fall back to — Nirmala UI on
+ * Windows, at Satoshi's metrics, which is exactly as bad as it sounds. Noto is
+ * the right answer: it is designed for these scripts, it has the weights we
+ * use, and `next/font/google` downloads it at BUILD time and serves it from
+ * this origin, so the page still makes no off-origin request.
+ *
+ * Only the two guides that need them ever apply these. */
+const bengali = Noto_Sans_Bengali({
+  subsets: ["bengali"],
+  weight: ["400", "500", "700"],
+  variable: "--font-noto-bengali",
+  display: "swap",
+});
+
+const devanagari = Noto_Sans_Devanagari({
+  subsets: ["devanagari"],
+  weight: ["400", "500", "700"],
+  variable: "--font-noto-devanagari",
   display: "swap",
 });
 
@@ -78,7 +101,11 @@ const themeScript = `try{var t=localStorage.getItem("ductforge.theme.v1");if(t==
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${satoshi.variable} h-full antialiased`} suppressHydrationWarning>
+    <html
+      lang="en"
+      className={`${satoshi.variable} ${bengali.variable} ${devanagari.variable} h-full antialiased`}
+      suppressHydrationWarning
+    >
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         <script

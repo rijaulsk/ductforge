@@ -13,7 +13,7 @@ import { toCsv } from "@/lib/export/csv";
 import { safeFilename, triggerDownload } from "@/lib/export/download";
 import { useHasMounted } from "@/lib/hooks";
 import { blankProject, fromProjectFile, newId, toProjectFile } from "@/lib/project";
-import { initialState, saveActiveId, saveProjects } from "@/lib/storage";
+import { clearAll, initialState, saveActiveId, saveProjects } from "@/lib/storage";
 import BoqSheet from "./BoqSheet";
 import ChartsPanel from "./ChartsPanel";
 import FittingGlyph from "./FittingGlyph";
@@ -107,6 +107,18 @@ export default function Workspace() {
     });
     setEditingId(null);
     setNotice({ tone: "info", text: "Takeoff deleted." });
+  };
+
+  /* Wipes local storage and starts again from one empty job. The effect below
+   * would rewrite the keys from state anyway, so clearing the store without
+   * clearing state would put everything straight back. */
+  const clearEverything = () => {
+    clearAll();
+    const fresh = blankProject();
+    setStore({ projects: [fresh], activeId: fresh.id });
+    setDraft(newDraft("straight", fresh.waste, fresh.units));
+    setEditingId(null);
+    setNotice({ tone: "info", text: "Every saved takeoff on this device has been deleted." });
   };
 
   const importFile = async (file: File) => {
@@ -245,6 +257,11 @@ export default function Workspace() {
         hasEntries={project.entries.length > 0}
       />
 
+      {/* The workspace has no visible page title — the project bar's wordmark
+        * reads as branding, and it is rendered twice for the two layouts. So
+        * the document's one h1 lives here, where there is exactly one of it. */}
+      <h1 className="sr-only">DuctForge — HVAC duct takeoff calculator</h1>
+
       <main className="mx-auto w-full max-w-canvas px-5 pb-24 pt-8 md:px-8 md:pt-10 print:hidden">
         <div aria-live="polite">
           {notice && (
@@ -373,7 +390,9 @@ export default function Workspace() {
           <ProjectSettings
             key={`${project.id}-${project.units}`}
             project={project}
+            savedCount={store.projects.length}
             onPatch={patchProject}
+            onClearAll={clearEverything}
           />
         </div>
 

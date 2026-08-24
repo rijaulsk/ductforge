@@ -1,5 +1,6 @@
 "use client";
 
+import { Trash2 } from "lucide-react";
 import { useId, useState } from "react";
 import { MATERIALS, MATERIAL_KEYS } from "@/lib/duct/material";
 import { toNumber } from "@/lib/duct/parse";
@@ -12,7 +13,7 @@ import {
   massUnit,
   toMm,
 } from "@/lib/duct/units";
-import { Eyebrow, Note } from "./ui";
+import { Button, Eyebrow, Note } from "./ui";
 
 /* Everything that applies to the whole takeoff rather than to one line.
  *
@@ -146,12 +147,22 @@ function NumberField({
 
 export default function ProjectSettings({
   project,
+  savedCount,
   onPatch,
+  onClearAll,
 }: {
   project: Project;
+  /** How many takeoffs this browser is holding — the answer to "where did all
+   * these files come from?", which is localStorage and nowhere else. */
+  savedCount: number;
   onPatch: (patch: Partial<Project>) => void;
+  onClearAll: () => void;
 }) {
   const uid = useId();
+  /* Two taps to wipe everything, rather than a window.confirm: the native
+   * dialog is a different visual language, and an irreversible action deserves
+   * a deliberate second press either way. */
+  const [armed, setArmed] = useState(false);
   const us = project.units;
   const len = lengthUnit(us);
 
@@ -353,6 +364,41 @@ export default function ProjectSettings({
               and the takeoff prints quantities only.
             </Note>
           </div>
+        </fieldset>
+
+        <fieldset className="border-0 p-0">
+          <legend className="mb-3">
+            <Eyebrow>Where this is saved</Eyebrow>
+          </legend>
+          <p className="max-w-3xl text-small text-body">
+            {savedCount === 1 ? "One takeoff is" : `${savedCount} takeoffs are`} stored in this
+            browser&rsquo;s local storage, on this device only. Nothing is uploaded, and nothing is
+            shared between your phone and your desktop — use <strong>Save</strong> to write a
+            project file if you need to move a job or keep a backup. Clearing your browser data
+            clears these.
+          </p>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <Button
+              size="sm"
+              onClick={() => (armed ? onClearAll() : setArmed(true))}
+              className={armed ? "border-danger-500" : undefined}
+            >
+              <Trash2 size={16} strokeWidth={1.5} />
+              {armed ? "Tap again to delete everything" : "Delete every saved takeoff"}
+            </Button>
+            {armed && (
+              <Button size="sm" variant="quiet" onClick={() => setArmed(false)}>
+                Cancel
+              </Button>
+            )}
+          </div>
+          {armed && (
+            <p className="mt-3 max-w-3xl text-small text-body">
+              <span className="font-bold text-heading">This cannot be undone.</span> Every saved
+              takeoff in this browser is removed and you start with one empty job. Files you have
+              already saved to disk are untouched.
+            </p>
+          )}
         </fieldset>
       </div>
     </details>

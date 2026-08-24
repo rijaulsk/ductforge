@@ -2,6 +2,7 @@ import Link from "next/link";
 import { GUIDE_LIST } from "@/lib/guide";
 import type { Guide } from "@/lib/guide/types";
 import SiteFooter from "./SiteFooter";
+import Wordmark from "./Wordmark";
 import { variantClasses } from "./ui";
 
 /* One component, three languages.
@@ -22,9 +23,7 @@ export default function GuidePage({ guide }: { guide: Guide }) {
       <header className="border-b-[1.5px] border-line">
         <div className="mx-auto w-full max-w-canvas px-5 py-8 md:px-8 md:py-10">
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <Link href="/" className="text-h3 font-bold tracking-tight text-heading">
-              Duct<span className="text-accent">Forge</span>
-            </Link>
+            <Wordmark size="sm" />
             <nav aria-label={guide.switcherLabel} className="flex flex-wrap items-center gap-2">
               <span className="text-small text-muted">{guide.switcherLabel}</span>
               {GUIDE_LIST.map((g) => {
@@ -51,7 +50,19 @@ export default function GuidePage({ guide }: { guide: Guide }) {
         </div>
       </header>
 
-      <article lang={guide.htmlLang}>
+      {/* The script class does two things: swaps in a face that HAS glyphs for
+        * this writing system, and loosens the leading, because Bengali and
+        * Devanagari carry more above and below the baseline than Latin. */}
+      <article
+        lang={guide.htmlLang}
+        className={
+          guide.locale === "bn"
+            ? "script-bn font-bengali"
+            : guide.locale === "hi"
+              ? "script-hi font-devanagari"
+              : undefined
+        }
+      >
         <div className="mx-auto w-full max-w-canvas px-5 py-14 md:px-8 md:py-20">
           <div className="grid gap-x-16 gap-y-10 lg:grid-cols-12">
             <div className="lg:col-span-7">

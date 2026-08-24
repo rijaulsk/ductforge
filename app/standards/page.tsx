@@ -14,6 +14,7 @@ import { MATERIALS, MATERIAL_KEYS } from "@/lib/duct/material";
 import { fmt } from "@/lib/duct/units";
 import { WASTE_PRESETS } from "@/lib/duct/waste";
 import SiteFooter from "@/components/SiteFooter";
+import Wordmark from "@/components/Wordmark";
 import { variantClasses } from "@/components/ui";
 
 /* Everything the calculator believes, written out.
@@ -72,9 +73,7 @@ export default function StandardsPage() {
     <>
       <header className="border-b-[1.5px] border-line">
         <div className="mx-auto w-full max-w-canvas px-5 py-14 md:px-8 md:py-20">
-          <Link href="/" className="text-h3 font-bold tracking-tight text-heading">
-            Duct<span className="text-accent">Forge</span>
-          </Link>
+          <Wordmark size="sm" />
           <div className="mt-10 grid gap-8 lg:grid-cols-12">
             <div className="lg:col-span-7">
               <p className="text-eyebrow uppercase text-accent">Reference</p>
