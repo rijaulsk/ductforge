@@ -21,6 +21,7 @@ import ParamForm from "./ParamForm";
 import ProjectBar from "./ProjectBar";
 import ResultPanel from "./ResultPanel";
 import Schedule from "./Schedule";
+import SiteFooter from "./SiteFooter";
 import Totals from "./Totals";
 import Viewer from "./Viewer";
 import { Button, Card, Eyebrow, Note, PanelHeading } from "./ui";
@@ -189,11 +190,35 @@ export default function Workspace() {
   const totals = computeTotals(project.entries, project.mode, project.units);
   const spec = SPECS[draft.kind];
 
+  /* Everything below the fold of this branch is what a crawler and a slow first
+   * paint actually get, because the workspace itself cannot render until the
+   * saved takeoff has been read out of localStorage. It used to be the four
+   * words "Loading the workspace…" and nothing else — correct for hydration,
+   * useless as a page. This is the same page saying what it is, not cloaked
+   * content: it is replaced by the real thing the moment React takes over. */
   if (!mounted) {
     return (
-      <main className="mx-auto w-full max-w-canvas px-5 py-24 md:px-8">
-        <p className="text-body text-muted">Loading the workspace…</p>
-      </main>
+      <>
+        <main className="mx-auto w-full max-w-canvas px-5 py-16 md:px-8 md:py-24">
+          <p className="text-eyebrow uppercase text-accent">HVAC takeoff</p>
+          <h1 className="mt-3 max-w-3xl text-h1-mobile font-bold text-heading md:text-h1">
+            Duct surface area, sheet weight and gauge
+          </h1>
+          <p className="mt-5 max-w-2xl">
+            Enter a fitting&rsquo;s dimensions and get its surface area, GI sheet weight, SMACNA
+            gauge and a BOM schedule you can export. Six fittings — straight duct, reducer, elbow,
+            dropper, collar and Y-piece — measured to either the commercial billing standard (mean
+            perimeter × centreline length) or the true shop flat pattern. Metric or imperial.
+          </p>
+          <p className="mt-6">
+            <Link href="/standards" className="text-accent underline-offset-4 hover:underline">
+              Every formula, gauge band and constant it uses →
+            </Link>
+          </p>
+          <p className="mt-10 text-small text-muted">Loading the workspace…</p>
+        </main>
+        <SiteFooter />
+      </>
     );
   }
 
@@ -393,6 +418,8 @@ export default function Workspace() {
           </div>
         </section>
       </main>
+
+      <SiteFooter className="print:hidden" />
 
       <BoqSheet project={project} />
     </>

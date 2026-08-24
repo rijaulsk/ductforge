@@ -47,9 +47,15 @@ export default function ProjectBar({
     <header className="sticky top-0 z-40 border-b-[1.5px] border-line bg-page/95 backdrop-blur print:hidden">
       <div className="mx-auto w-full max-w-canvas px-5 py-3 md:px-8">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-          <p className="text-h3 font-bold tracking-tight text-heading">
+          {/* The page's h1. It reads as a wordmark, but the workspace panels
+            * below all start at h2, and after hydration this bar is the only
+            * thing left that could hold the top of the heading order — without
+            * it the document jumps straight to level two. The sr-only tail
+            * gives a screen reader the page's subject rather than a brand. */}
+          <h1 className="text-h3 font-bold tracking-tight text-heading">
             Duct<span className="text-accent">Forge</span>
-          </p>
+            <span className="sr-only"> — HVAC duct takeoff calculator</span>
+          </h1>
 
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <label htmlFor={`${uid}-name`} className="sr-only">

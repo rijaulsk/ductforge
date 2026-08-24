@@ -4,6 +4,7 @@ import { GAUGE_BANDS, SHEET_AREA_FT2, SHEET_AREA_M2, STEEL_DENSITY_KG_M3, bandRa
 import { FITTING_KINDS, SPECS } from "@/lib/duct/formulas";
 import { fmt } from "@/lib/duct/units";
 import { WASTE_PRESETS } from "@/lib/duct/waste";
+import SiteFooter from "@/components/SiteFooter";
 import { variantClasses } from "@/components/ui";
 
 /* Everything the calculator believes, written out.
@@ -22,6 +23,7 @@ export const metadata: Metadata = {
   title: "Standards, formulas and constants",
   description:
     "Every formula DuctForge uses for duct surface area, both the commercial billing standard and the true shop flat pattern, plus the SMACNA gauge bands, sheet densities, waste allowances and the assumptions behind them.",
+  alternates: { canonical: "/standards" },
 };
 
 const th = "border-b-[1.5px] border-line py-3 pr-4 text-left text-small font-medium text-body";
@@ -313,6 +315,8 @@ export default function StandardsPage() {
           </Link>
         </div>
       </section>
+
+      <SiteFooter />
     </>
   );
 }

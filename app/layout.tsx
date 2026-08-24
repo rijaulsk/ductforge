@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
+import { SITE_URL } from "@/lib/site";
 import "./globals.css";
 
 /* Satoshi only — Inter is banned (design system §2). One variable file,
@@ -11,6 +12,10 @@ const satoshi = localFont({
 });
 
 export const metadata: Metadata = {
+  /* Without this, every openGraph url and canonical resolves relative and Next
+   * warns at build. DuctForge is on its own subdomain rather than proxied into
+   * debugswift.com, so this is a real origin, not a path prefix. */
+  metadataBase: new URL(SITE_URL),
   title: {
     default: "DuctForge — HVAC duct takeoff & sheet metal calculator",
     template: "%s — DuctForge",
