@@ -1,9 +1,10 @@
 # CLAUDE.md — DuctForge
 
-An HVAC ductwork takeoff and surface-area calculator: rectangular duct area, GI sheet weight,
-SMACNA gauge and a BOM schedule for six fittings, to either the **commercial billing** standard
-or the **true shop flat pattern**, in metric or imperial. Next.js App Router + TypeScript +
-Tailwind v4. Built on the DebugSwift design system.
+An HVAC ductwork takeoff and surface-area calculator: duct area, sheet weight, SMACNA gauge and a
+BOM schedule for **nine fittings** — six rectangular, three round — to either the **commercial
+billing** standard or the **true shop flat pattern**, in metric or imperial. Also counts
+insulation, flange ends and hangers, groups by zone, and prices at the estimator's own rates.
+Next.js App Router + TypeScript + Tailwind v4. Built on the DebugSwift design system.
 
 **This is a standalone repo.** It is not part of `E:\debugswift` (the marketing site),
 `E:\debugswift-tools` (the proxied free tools) or `E:\debugswift-blog`. Nothing here is proxied
@@ -44,19 +45,27 @@ Decided 24 August 2026 with the owner. Recorded here because a future session wi
 ### 1. The numbers
 
 `lib/duct/` is framework-free and is the only place arithmetic happens. `npm run check:duct`
-runs 300 assertions over it and **must pass before any commit that touches it**: an independent
-second transcription of all twelve formulas fuzzed against the engine, hand-computed anchors,
+runs 399 assertions over it and **must pass before any commit that touches it**: an independent
+second transcription of all eighteen formulas fuzzed against the engine, hand-computed anchors,
 the gauge band edges in both unit systems, the published density table reproduced from
 thickness alone, and the rounding rule below.
 
 Non-obvious things it pins, which are properties rather than bugs — do not "fix" them:
 
-- **Straight duct and elbow: billing === shop, exactly.** The elbow's 2·cheek + heel + throat
-  development simplifies to mean perimeter × centreline arc. That is Pappus's theorem, not a
-  coincidence.
+- **Straight duct, elbow, round duct and round elbow: billing === shop, exactly.** The elbow's
+  2·cheek + heel + throat development simplifies to mean perimeter × centreline arc. That is
+  Pappus's theorem, not a coincidence, and it is why every swept constant section here agrees.
 - **Dropper: shop < billing.** The side cheeks are parallelograms and shearing one adds no area.
 - **Y-piece: the two standards cross over at Wₙ = W₁/2.** A branch narrower than half the main
   bills for more than it cuts.
+- **Round cone: shop > billing wherever there is a taper, equal where there is not.**
+- **A gored bend's blanks total ~1% more than its area.** A gored elbow is a chain of mitred
+  cylinders; the formula is a smooth torus. Said out loud in the UI rather than reconciled away.
+
+**`material` is the one argument to `computeEntry` with no default**, and it must stay that way.
+Defaulting the allowances to off yields zero, which is visibly nothing. Defaulting the material
+to GI yields a *weight* — an aluminium job would print plausible steel figures. Any component
+that needs a result takes the whole `Project` (`computeFor`), never `(entries, mode, units)`.
 
 **Rounding discipline**: every figure is rounded once, in `compute.ts`, to the precision it is
 displayed at, and totals are summed from those rounded line values — so a schedule's total is
@@ -71,8 +80,9 @@ only. No formula branches on unit system; a duplicated formula is a formula that
 `lib/draw/` builds a scene in millimetres and projects it into a fixed 1000 × 640 viewBox.
 `npm run check:draw` asserts the property that actually fails in practice: a NaN in a
 coordinate makes SVG discard the whole path silently, and the viewer renders an empty box with
-no error anywhere. 2174 assertions across six fittings × three views × both unit systems, plus
-seventeen degenerate geometries.
+no error anywhere. 2825 assertions across nine fittings × three views × both unit systems, plus
+twenty-six degenerate geometries — including a cone with no taper, which divides by zero unless
+the degenerate branch catches it.
 
 It does **not** claim the drawings are correct. That is a visual review, and the owner does it.
 
@@ -84,9 +94,13 @@ It does **not** claim the drawings are correct. That is a visual review, and the
   That is why `formulas.ts` returns a substituted string, not just a total.
 - **Name the simplifications out loud**, in the UI and not only in a comment: gauge is selected
   from the largest dimension only (real SMACNA also depends on pressure class and reinforcement
-  spacing); sheet counts are a nesting estimate; reducers are concentric; the Y-piece shop
-  formula is *our stated interpretation* of an under-specified source and excludes the crotch
-  plate; weight is bare steel and excludes the galvanising coating.
+  spacing); **round duct is graded on the rectangular table**, which over-specifies it; sheet
+  counts are a nesting estimate; reducers and cones are concentric; the Y-piece shop formula is
+  *our stated interpretation* of an under-specified source and excludes the crotch plate; weight
+  is bare metal and excludes any coating.
+- **Derived quantities default to OFF.** Insulation, flanges and hangers stay at zero until
+  someone sets them. A schedule that arrives with insulation counted at a thickness nobody chose
+  contains a number no human decided.
 - **Every export is self-describing.** The CSV and the printed sheet carry every input, the
   standard, the units, the allowance and the assumptions block — from one shared function
   (`assumptions()` in `lib/export/csv.ts`) so the two can never disagree.
@@ -103,6 +117,18 @@ components write `bg-card`/`border-line`/`text-heading` and never `bg-paper`/`bo
 
 **Do not run Playwright or take screenshots unprompted** — the owner reviews visuals himself and
 will say when.
+
+## The guide, in three languages
+
+`/guide`, `/guide/bn`, `/guide/hi` — one typed shape (`lib/guide/types.ts`), three content files,
+one component. A step added to `en.ts` is a visible hole in the other two rather than a silent
+divergence, and all three carry hreflang plus `x-default` and appear in the sitemap.
+
+Written in **native script and conversational register** — Kolkata spoken Bengali, not formal
+সাধু ভাষা; bolchaal Hindi-Urdu, not textbook शुद्ध हिन्दी. **Technical nouns stay in English**
+(duct, gauge, standard, area, flange, CSV) because that is how the trade actually talks on a
+site here; inventing native equivalents would make the guide harder to read for the exact person
+it is for. That is a decision, not an omission — do not "finish" the translation.
 
 ## Code conventions
 
