@@ -9,6 +9,29 @@ Tailwind v4. Built on the DebugSwift design system.
 `E:\debugswift-tools` (the proxied free tools) or `E:\debugswift-blog`. Nothing here is proxied
 onto debugswift.com, and no work here touches those repos.
 
+## Where it lives, and why not in the tools repo
+
+Decided 24 August 2026 with the owner. Recorded here because a future session will be tempted to
+"restore consistency" by folding this into `/tools`:
+
+- **Address: `ductforge.debugswift.com`** — its own Vercel project, its own repo. A subdomain, not
+  a proxied subdirectory. That is why this repo ships its own `app/robots.ts` and `app/sitemap.ts`
+  (a separate host must; the proxied repos cannot) and why `E:\debugswift\app\robots.ts` must
+  **not** list them. No basePath, no rewrite, nothing touching the production marketing deploy.
+  `rijaul.debugswift.com` is the precedent.
+- **Not a tenth entry in `E:\debugswift-tools\lib\tools.ts`.** Every tool there carries a
+  `relatedService`, and that file states the link to the service page is *"half the point of the
+  tools existing."* Those nine are horizontal small wins for the visitor's own business; this is a
+  full application for one trade. It also cannot fit their route shape (hero → `max-w-3xl` widget →
+  explainer → FAQ → CtaBand), the hub is cream-only with no theme toggle, and that repo's defining
+  property is "adding a tool changes nothing in the marketing repo".
+- **debugswift.com points here from `/services/web-apps-saas`** as proof of the Custom Web Apps &
+  SaaS service — a real application anyone can click and use. Not from the tools hub, not from the
+  footer, and **not** from `lib/work.ts`, which is client work only and stays empty.
+- **The byline is attribution, not a funnel.** One muted footer line in `components/SiteFooter.tsx`.
+  No services list, no diagnosis pitch, no second clay element. Do not grow it into a marketing
+  footer — an estimator who feels baited is worth less than one who trusts the numbers.
+
 ## Commands
 
 - `npm run dev` — dev server on **localhost:3005**
