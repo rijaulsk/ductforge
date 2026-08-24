@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import { SITE_URL } from "@/lib/site";
 import "./globals.css";
@@ -28,8 +28,46 @@ export const metadata: Metadata = {
     siteName: "DuctForge",
     title: "DuctForge — HVAC duct takeoff & sheet metal calculator",
     description:
-      "Duct surface area, sheet weight and gauge for six fittings — billing standard or shop flat pattern, metric or imperial.",
+      "Duct surface area, sheet weight and gauge for nine fittings — billing standard or shop flat pattern, metric or imperial.",
   },
+  twitter: { card: "summary_large_image" },
+  appleWebApp: { capable: true, title: "DuctForge", statusBarStyle: "default" },
+};
+
+export const viewport: Viewport = {
+  /* Matches the two page grounds, so the browser chrome on a phone does not
+   * sit as a bright band above a dark app or the other way round. */
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#F7F3EB" },
+    { media: "(prefers-color-scheme: dark)", color: "#10121C" },
+  ],
+};
+
+/* What this is, for the machines that ask. A calculator with no sign-up and no
+ * price is a WebApplication with a zero-cost offer — stating that plainly is
+ * both true and the thing a search engine wants to know. */
+const appJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  name: "DuctForge",
+  url: SITE_URL,
+  applicationCategory: "BusinessApplication",
+  applicationSubCategory: "HVAC estimating",
+  operatingSystem: "Any — runs in a web browser",
+  description:
+    "Calculates rectangular and round duct surface area, GI sheet weight, SMACNA gauge and a BOM schedule for nine fittings, to either the commercial billing standard or the true shop flat pattern.",
+  offers: { "@type": "Offer", price: 0, priceCurrency: "USD" },
+  featureList: [
+    "Rectangular and round duct fittings",
+    "Commercial billing and shop fabrication measurement standards",
+    "Metric and imperial",
+    "SMACNA gauge selection and sheet weight",
+    "Dimensioned drawings, flat patterns and isometric views",
+    "Insulation, flange and hanger quantities",
+    "CSV export and a printable BOQ sheet",
+  ],
+  isAccessibleForFree: true,
+  browserRequirements: "Requires JavaScript.",
 };
 
 /* Set the theme before first paint. Without this the page renders in the
@@ -43,6 +81,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en" className={`${satoshi.variable} h-full antialiased`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(appJsonLd) }}
+        />
       </head>
       <body className="flex min-h-full flex-col bg-page font-sans" suppressHydrationWarning>
         {children}

@@ -22,7 +22,6 @@ import ProjectBar from "./ProjectBar";
 import ProjectSettings from "./ProjectSettings";
 import ResultPanel from "./ResultPanel";
 import Schedule from "./Schedule";
-import SiteFooter from "./SiteFooter";
 import Totals from "./Totals";
 import Viewer from "./Viewer";
 import { Button, Card, Eyebrow, Note, PanelHeading } from "./ui";
@@ -226,7 +225,6 @@ export default function Workspace() {
           </p>
           <p className="mt-10 text-small text-muted">Loading the workspace…</p>
         </main>
-        <SiteFooter />
       </>
     );
   }
@@ -451,8 +449,6 @@ export default function Workspace() {
           </div>
         </section>
       </main>
-
-      <SiteFooter className="print:hidden" />
 
       <BoqSheet project={project} />
     </>

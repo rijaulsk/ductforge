@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { GUIDE_LIST, guideLanguages } from "@/lib/guide";
 import { SITE_URL } from "@/lib/site";
 
 /* Two routes, and only two. Add a line here in the SAME change that makes the
@@ -16,6 +17,7 @@ import { SITE_URL } from "@/lib/site";
  */
 export default function sitemap(): MetadataRoute.Sitemap {
   const lastModified = new Date();
+  const languages = guideLanguages();
   return [
     {
       url: SITE_URL,
@@ -29,5 +31,16 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly",
       priority: 0.9,
     },
+    /* Each guide is its own entry AND declares the other two as alternates.
+     * Listing only English would leave the Bengali and Hindi pages to be found
+     * by luck, and they are the two with the least competition for their
+     * terms — a Bengali search for duct area has almost nothing in it. */
+    ...GUIDE_LIST.map((g) => ({
+      url: `${SITE_URL}${g.path}`,
+      lastModified,
+      changeFrequency: "monthly" as const,
+      priority: 0.8,
+      alternates: { languages },
+    })),
   ];
 }

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!--
+    The mark is an elbow, because a bend is the one duct fitting whose
+    silhouette is still legible at sixteen pixels: a straight duct is a
+    rectangle and a reducer is a trapezoid, and neither says anything.
+    Indigo 500 ground, Cream stroke — both straight from the token table.
+  -->
+  <rect width="32" height="32" rx="7" fill="#6467F2" />
+  <path
+    d="M9 25V16a7 7 0 0 1 7-7h9"
+    fill="none"
+    stroke="#F7F3EB"
+    stroke-width="4.5"
+    stroke-linecap="round"
+  />
+</svg>
