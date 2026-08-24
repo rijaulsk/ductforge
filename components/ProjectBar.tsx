@@ -128,12 +128,12 @@ export default function ProjectBar({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <Button onClick={onNew} className="!px-4 !py-2 !text-small">
+            <Button onClick={onNew} size="sm">
               <FilePlus2 size={16} strokeWidth={1.5} /> New
             </Button>
             <Button
               onClick={() => fileRef.current?.click()}
-              className="!px-4 !py-2 !text-small"
+              size="sm"
               title="Open a .json takeoff exported from DuctForge"
             >
               <Upload size={16} strokeWidth={1.5} /> Open
@@ -151,13 +151,13 @@ export default function ProjectBar({
                 e.target.value = "";
               }}
             />
-            <Button onClick={onExportJson} className="!px-4 !py-2 !text-small">
+            <Button onClick={onExportJson} size="sm">
               <Download size={16} strokeWidth={1.5} /> Save
             </Button>
             <Button
               onClick={onExportCsv}
               disabled={!hasEntries}
-              className="!px-4 !py-2 !text-small"
+              size="sm"
               title={hasEntries ? "Export the schedule as CSV" : "Add a fitting first"}
             >
               CSV
@@ -165,7 +165,7 @@ export default function ProjectBar({
             <Button
               onClick={onPrint}
               disabled={!hasEntries}
-              className="!px-4 !py-2 !text-small"
+              size="sm"
               title={hasEntries ? "Print the BOQ sheet" : "Add a fitting first"}
             >
               <Printer size={16} strokeWidth={1.5} /> Print
@@ -173,7 +173,7 @@ export default function ProjectBar({
             <Button
               onClick={onDelete}
               disabled={projects.length < 2}
-              className="!px-4 !py-2 !text-small"
+              size="sm"
               title={
                 projects.length < 2
                   ? "The last takeoff can't be deleted"
