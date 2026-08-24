@@ -1,10 +1,26 @@
 "use client";
 
-import { computeEntry, computeTotals } from "@/lib/duct/compute";
+import {
+  computeFor,
+  computeTotals,
+  hasAncillaries,
+  hasRates,
+  hasZones,
+} from "@/lib/duct/compute";
 import { describeFitting } from "@/lib/duct/describe";
 import { SPECS } from "@/lib/duct/formulas";
+import { MATERIALS } from "@/lib/duct/material";
 import type { Project } from "@/lib/duct/types";
-import { areaUnit, fmt, fmtArea, fmtMass, massUnit } from "@/lib/duct/units";
+import {
+  areaUnit,
+  fmt,
+  fmtArea,
+  fmtMass,
+  fmtRun,
+  fmtValue,
+  massUnit,
+  runUnit,
+} from "@/lib/duct/units";
 import { assumptions } from "@/lib/export/csv";
 
 /* The issuable document.
@@ -21,7 +37,11 @@ export default function BoqSheet({ project }: { project: Project }) {
   const { units: us, mode } = project;
   const au = areaUnit(us);
   const mu = massUnit(us);
-  const totals = computeTotals(project.entries, mode, us);
+  const ru = runUnit(us);
+  const totals = computeTotals(project);
+  const showZone = hasZones(totals);
+  const showRates = hasRates(project.rates);
+  const showAnc = hasAncillaries(project.ancillaries);
   const th = "border-b border-ink py-1.5 pr-2 text-left text-[10pt] font-bold";
   const td = "border-b border-mist py-1.5 pr-2 text-[10pt]";
 
@@ -53,6 +73,10 @@ export default function BoqSheet({ project }: { project: Project }) {
             <dt className="font-bold">Units</dt>
             <dd>{us === "metric" ? "Metric (mm, m², kg)" : "Imperial (in, ft², lb)"}</dd>
           </div>
+          <div className="flex gap-2">
+            <dt className="font-bold">Material</dt>
+            <dd>{MATERIALS[project.material].name}</dd>
+          </div>
         </dl>
       </header>
 
@@ -60,6 +84,7 @@ export default function BoqSheet({ project }: { project: Project }) {
         <thead>
           <tr>
             <th className={th}>#</th>
+            {showZone && <th className={th}>Zone</th>}
             <th className={th}>Fitting</th>
             <th className={th}>Dimensions</th>
             <th className={`${th} text-right`}>Qty</th>
@@ -72,10 +97,11 @@ export default function BoqSheet({ project }: { project: Project }) {
         </thead>
         <tbody>
           {project.entries.map((entry, i) => {
-            const r = computeEntry(entry, mode, us);
+            const r = computeFor(project, entry);
             return (
               <tr key={entry.id}>
                 <td className={td}>{i + 1}</td>
+                {showZone && <td className={td}>{entry.zone}</td>}
                 <td className={td}>
                   {SPECS[entry.fitting.kind].name}
                   {entry.note && <span className="block text-[8.5pt]">{entry.note}</span>}
@@ -93,7 +119,10 @@ export default function BoqSheet({ project }: { project: Project }) {
         </tbody>
         <tfoot>
           <tr>
-            <td className="border-t-[1.5px] border-ink py-2 pr-2 text-[10pt] font-bold" colSpan={3}>
+            <td
+              className="border-t-[1.5px] border-ink py-2 pr-2 text-[10pt] font-bold"
+              colSpan={showZone ? 4 : 3}
+            >
               Total
             </td>
             <td className="border-t-[1.5px] border-ink py-2 pr-2 text-right text-[10pt] font-bold tabular-nums">
@@ -141,6 +170,86 @@ export default function BoqSheet({ project }: { project: Project }) {
               ))}
             </tbody>
           </table>
+        </>
+      )}
+
+      {showZone && (
+        <>
+          <h2 className="mt-6 text-[12pt] font-bold text-ink">By zone</h2>
+          <table className="mt-2 w-full border-collapse">
+            <thead>
+              <tr>
+                <th className={th}>Zone</th>
+                <th className={`${th} text-right`}>Lines</th>
+                <th className={`${th} text-right`}>Pieces</th>
+                <th className={`${th} text-right`}>Gross {au}</th>
+                <th className={`${th} text-right`}>Weight {mu}</th>
+                {showRates && (
+                  <th className={`${th} text-right`}>Value {project.rates.label}</th>
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {totals.byZone.map((z) => (
+                <tr key={z.zone || "__none"}>
+                  <td className={td}>{z.zone || "Not assigned"}</td>
+                  <td className={`${td} text-right tabular-nums`}>{z.lines}</td>
+                  <td className={`${td} text-right tabular-nums`}>{z.pieces}</td>
+                  <td className={`${td} text-right tabular-nums`}>{fmtArea(z.grossAreaMinor)}</td>
+                  <td className={`${td} text-right tabular-nums`}>{fmtMass(z.massMinor)}</td>
+                  {showRates && (
+                    <td className={`${td} text-right tabular-nums`}>{fmtValue(z.valueMinor)}</td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+
+      {(showAnc || showRates) && (
+        <>
+          <h2 className="mt-6 text-[12pt] font-bold text-ink">Also counted</h2>
+          <dl className="mt-2 grid grid-cols-2 gap-x-8 gap-y-1 text-[10pt]">
+            {totals.insulationAreaMinor > 0 && (
+              <div className="flex justify-between border-b border-mist py-1">
+                <dt>Insulation, outer face</dt>
+                <dd className="tabular-nums">
+                  {fmtArea(totals.insulationAreaMinor)} {au}
+                </dd>
+              </div>
+            )}
+            {totals.flangeEnds > 0 && (
+              <>
+                <div className="flex justify-between border-b border-mist py-1">
+                  <dt>Flange</dt>
+                  <dd className="tabular-nums">
+                    {fmtRun(totals.flangeRunMinor)} {ru} over {totals.flangeEnds} ends
+                  </dd>
+                </div>
+                {totals.corners > 0 && (
+                  <div className="flex justify-between border-b border-mist py-1">
+                    <dt>Corner pieces</dt>
+                    <dd className="tabular-nums">{totals.corners}</dd>
+                  </div>
+                )}
+              </>
+            )}
+            {totals.supports > 0 && (
+              <div className="flex justify-between border-b border-mist py-1">
+                <dt>Hangers</dt>
+                <dd className="tabular-nums">{totals.supports}</dd>
+              </div>
+            )}
+            {showRates && (
+              <div className="flex justify-between border-b border-ink py-1 font-bold">
+                <dt>Value at the stated rates</dt>
+                <dd className="tabular-nums">
+                  {fmtValue(totals.valueMinor)} {project.rates.label}
+                </dd>
+              </div>
+            )}
+          </dl>
         </>
       )}
 

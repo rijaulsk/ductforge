@@ -1,7 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { GAUGE_BANDS, SHEET_AREA_FT2, SHEET_AREA_M2, STEEL_DENSITY_KG_M3, bandRange, densityDisplay } from "@/lib/duct/gauge";
+import {
+  GAUGE_BANDS,
+  ROUND_GAUGE_CAVEAT,
+  SHEET_AREA_FT2,
+  SHEET_AREA_M2,
+  STEEL_DENSITY_KG_M3,
+  bandRange,
+  densityDisplay,
+} from "@/lib/duct/gauge";
 import { FITTING_KINDS, SPECS } from "@/lib/duct/formulas";
+import { MATERIALS, MATERIAL_KEYS } from "@/lib/duct/material";
 import { fmt } from "@/lib/duct/units";
 import { WASTE_PRESETS } from "@/lib/duct/waste";
 import SiteFooter from "@/components/SiteFooter";
@@ -242,8 +251,103 @@ export default function StandardsPage() {
         </p>
         <p className="mt-4 max-w-3xl text-body">
           Densities are not transcribed, they are derived: thickness × {STEEL_DENSITY_KG_M3} kg/m³,
-          which reproduces the published table exactly. That is bare steel — it excludes the
-          galvanising coating, stiffeners, flanges, gaskets and fixings.
+          which reproduces the published table exactly. That is bare metal — it excludes any
+          coating, stiffeners, flange steel, gaskets and fixings.
+        </p>
+        <p className="mt-4 max-w-3xl text-body">
+          <span className="font-bold text-heading">Round duct carries an extra caveat. </span>
+          {ROUND_GAUGE_CAVEAT}
+        </p>
+
+        <h3 className="mt-10 text-h3 font-bold text-heading">Material</h3>
+        <p className="mt-3 max-w-3xl text-body">
+          A gauge is a <em>thickness</em>, so the band table above survives a change of material
+          untouched — only the density moves, and with it the weight.
+        </p>
+        <div className="mt-6 overflow-x-auto">
+          <table className="w-full min-w-[36rem] border-collapse">
+            <thead>
+              <tr>
+                <th scope="col" className={th}>
+                  Material
+                </th>
+                <th scope="col" className={`${th} text-right`}>
+                  Density
+                </th>
+                <th scope="col" className={th}>
+                  Note
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {MATERIAL_KEYS.map((key) => (
+                <tr key={key}>
+                  <th scope="row" className={`${td} whitespace-nowrap font-bold text-heading`}>
+                    {MATERIALS[key].name}
+                  </th>
+                  <td className={`${td} text-right tabular-nums text-body`}>
+                    {MATERIALS[key].density} kg/m³
+                  </td>
+                  <td className={`${td} text-small text-body`}>{MATERIALS[key].note}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Section>
+
+      <Section
+        band="card"
+        eyebrow="Also counted"
+        title="Insulation, flanges and hangers"
+        lede="Three quantities an estimator has to price alongside the sheet. Every one of them is DERIVED from the geometry you already typed — none is a new measurement, and each is off until you switch it on."
+      >
+        <div className="grid gap-6 lg:grid-cols-3">
+          <div className="rounded-card border-[1.5px] border-line bg-card p-6">
+            <p className="text-eyebrow uppercase text-accent">Insulation</p>
+            <h3 className="mt-2 text-h3 font-bold text-heading">The billing formula, on a fatter duct</h3>
+            <p className="mt-3">
+              The same billing formula re-run with every cross-section dimension grown by twice the
+              thickness. Lagging a 600 × 400 duct with 25 mm measures it as 650 × 450.
+            </p>
+            <p className="mt-3 text-small text-body">
+              The centreline never moves. A rectangular elbow&rsquo;s R is its <em>throat</em>
+              radius, so it shrinks by the thickness while the width grows by twice it — get that
+              backwards and insulating a bend silently lengthens it. A round elbow&rsquo;s R is
+              already a centreline radius, so it is left alone.
+            </p>
+          </div>
+          <div className="rounded-card border-[1.5px] border-line bg-card p-6">
+            <p className="text-eyebrow uppercase text-accent">Flanges</p>
+            <h3 className="mt-2 text-h3 font-bold text-heading">Two ends per piece</h3>
+            <p className="mt-3">
+              Every piece is counted with a flange at each end, and a straight run is as many pieces
+              as the supplied length divides into — a 6 m run of 1.2 m duct is five pieces, so ten
+              ends.
+            </p>
+            <p className="mt-3 text-small text-body">
+              Two flanges meet at every joint and both are material you buy, which is why this
+              counts ends rather than joints. Corner pieces are four per rectangular end; a round
+              flange has none.
+            </p>
+          </div>
+          <div className="rounded-card border-[1.5px] border-line bg-card p-6">
+            <p className="text-eyebrow uppercase text-accent">Hangers</p>
+            <h3 className="mt-2 text-h3 font-bold text-heading">One per piece, plus spacing</h3>
+            <p className="mt-3">
+              One support for every piece, plus one more for each further full spacing of centreline
+              run.
+            </p>
+            <p className="mt-3 text-small text-body">
+              A rule of thumb rather than a structural calculation. Real hanger spacing depends on
+              duct size, weight and the building — check it against the specification.
+            </p>
+          </div>
+        </div>
+        <p className="mt-8 max-w-3xl text-body">
+          Rates are the same idea in reverse: your figure per {""}
+          <span className="whitespace-nowrap">kg or per m²</span>, applied to the quantities above.
+          This app has no prices of its own and never will.
         </p>
       </Section>
 

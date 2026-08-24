@@ -11,7 +11,9 @@ export function describeFitting(f: Fitting, us: UnitSystem): string {
   return spec.fields
     .map((field) => {
       const raw = source[field.key] ?? 0;
-      return `${field.symbol} ${field.angle ? `${raw}°` : fmtLength(raw, us)}`;
+      if (field.angle) return `${field.symbol} ${raw}°`;
+      if (field.count) return `${field.symbol} ${raw}`;
+      return `${field.symbol} ${fmtLength(raw, us)}`;
     })
     .join(" · ");
 }

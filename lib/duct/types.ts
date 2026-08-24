@@ -1,6 +1,6 @@
 import type { UnitSystem } from "./units";
 
-/* The six fittings, as data.
+/* The fittings, as data.
  *
  * Every dimension below is MILLIMETRES and every angle DEGREES, regardless of
  * what the user is typing — see units.ts for why. A stored project is
@@ -16,7 +16,10 @@ export type FittingKind =
   | "elbow"
   | "dropper"
   | "collar"
-  | "wye";
+  | "wye"
+  | "round-straight"
+  | "round-elbow"
+  | "round-reducer";
 
 /** W × H duct, L long. */
 export type Straight = { kind: "straight"; w: number; h: number; l: number };
@@ -72,7 +75,48 @@ export type Wye = {
   theta: number;
 };
 
-export type Fitting = Straight | Reducer | Elbow | Dropper | Collar | Wye;
+/* ---- round / spiral ------------------------------------------------------
+ *
+ * Round duct is measured on the same two standards, but its geometry is kinder:
+ * a cylinder and a cone both develop exactly, so for every round fitting here
+ * the billing and shop areas agree. See formulas.ts for why that is Pappus
+ * rather than a coincidence, and gauge.ts for the one place round duct needs a
+ * caveat the rectangular fittings do not.
+ */
+
+/** D diameter, L long. */
+export type RoundStraight = { kind: "round-straight"; d: number; l: number };
+
+/** Gored bend. R is the CENTRELINE radius — the convention for round duct,
+ * where a bend is specified as a multiple of diameter (commonly 1.5 D). */
+export type RoundElbow = {
+  kind: "round-elbow";
+  d: number;
+  r: number;
+  theta: number;
+  /** Segments the bend is made from. Affects the flat pattern and the cutting
+   * waste, never the surface area. */
+  gores: number;
+};
+
+/** Concentric cone: D1 to D2 over length L. */
+export type RoundReducer = {
+  kind: "round-reducer";
+  d1: number;
+  d2: number;
+  l: number;
+};
+
+export type Fitting =
+  | Straight
+  | Reducer
+  | Elbow
+  | Dropper
+  | Collar
+  | Wye
+  | RoundStraight
+  | RoundElbow
+  | RoundReducer;
 
 /** Which numeric fields a fitting has, in the order the form shows them. */
 export type FieldKey =
@@ -87,7 +131,11 @@ export type FieldKey =
   | "h1"
   | "w2"
   | "h2"
-  | "w3";
+  | "w3"
+  | "d"
+  | "d1"
+  | "d2"
+  | "gores";
 
 export type FieldSpec = {
   key: FieldKey;
@@ -96,6 +144,8 @@ export type FieldSpec = {
   label: string;
   /** Degrees rather than a length — no unit conversion, different input step. */
   angle?: boolean;
+  /** A plain count, not a measurement. Never converted, never inflated. */
+  count?: boolean;
   hint?: string;
 };
 
@@ -109,7 +159,34 @@ export type Entry = {
   waste: number;
   /** null = selected automatically from the largest dimension. */
   gauge: GaugeName | null;
+  /** System, floor or area this line belongs to. "" = ungrouped. */
+  zone: string;
   note: string;
+};
+
+/** Sheet metal the duct is made from. The gauge table is a table of
+ * THICKNESSES, so it survives the material change; only the density moves. */
+export type MaterialKey = "gi" | "ss" | "alu";
+
+/** What an estimator wants counted alongside the sheet. All three are derived
+ * from the same geometry the areas come from — none is a new measurement. */
+export type Ancillaries = {
+  /** Insulation thickness in mm. 0 = not insulated. */
+  insulationMm: number;
+  /** Length a straight duct is supplied in, which is what sets the joint
+   * count. 0 = don't count joints. */
+  standardLengthMm: number;
+  /** Hanger spacing along a run. 0 = don't count supports. */
+  supportSpacingMm: number;
+};
+
+/** The estimator's own rates. Never a price this app invented. */
+export type Rates = {
+  perKg: number;
+  perM2: number;
+  /** Free text: "₹", "AED", "GBP". The user typed the rate; they know what it
+   * is denominated in, and we will not guess a currency for them. */
+  label: string;
 };
 
 export type Project = {
@@ -120,6 +197,9 @@ export type Project = {
   mode: Mode;
   /** Default waste for newly added entries. */
   waste: number;
+  material: MaterialKey;
+  ancillaries: Ancillaries;
+  rates: Rates;
   entries: Entry[];
   updatedAt: number;
 };

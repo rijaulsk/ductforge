@@ -1,13 +1,26 @@
 import { bandFor, densityDisplay, selectGauge, sheetCount } from "./gauge";
-import { specFor } from "./formulas";
-import type { Entry, FittingKind, GaugeName, Mode } from "./types";
+import { isRound, specFor } from "./formulas";
+import type {
+  Ancillaries,
+  Entry,
+  FittingKind,
+  GaugeName,
+  MaterialKey,
+  Mode,
+  Project,
+  Rates,
+} from "./types";
 import {
   type UnitSystem,
   areaFromMm2,
   fromAreaMinor,
+  fromMassMinor,
+  runFromMm,
   squareLengthFromMm2,
   toAreaMinor,
   toMassMinor,
+  toRunMinor,
+  toValueMinor,
 } from "./units";
 
 /* Turning a schedule into quantities.
@@ -24,7 +37,17 @@ import {
  *   net area  = formula, rounded to 3 dp
  *   gross     = net × (1 + waste%), rounded to 3 dp
  *   weight    = gross × the density shown on screen, rounded to 2 dp
- * Multiply the two numbers the app shows you and you get the third.
+ *   value     = weight × your rate per kg + gross × your rate per m²
+ * Multiply the numbers the app shows you and you get the next one down.
+ *
+ * THE ANCILLARIES ARE DERIVED, NOT MEASURED. Insulation, flange ends and
+ * hangers all come out of the same geometry the areas do; none of them is a
+ * new input, and each one states its rule in the UI:
+ *   insulation — the BILLING formula re-run on the fitting with every
+ *                cross-section dimension grown by twice the thickness
+ *   flanges    — two ends per piece, a straight run being as many pieces as
+ *                the standard supplied length divides into
+ *   hangers    — one per piece, plus one per further full spacing of run
  */
 
 export type EntryResult = {
@@ -43,18 +66,58 @@ export type EntryResult = {
   gauge: GaugeName;
   /** false when the estimator has overridden the size-only table. */
   gaugeAuto: boolean;
+  /** Round duct is graded on the rectangular table — see gauge.ts. */
+  gaugeCaveat: boolean;
   thicknessMm: number;
   /** kg/m² or lb/ft², at the precision it is printed. */
   density: number;
   /** Hundredths of kg/lb, the whole line. */
   massMinor: number;
+  /** Hundredths of the rate's own unit. 0 when no rate is set. */
+  valueMinor: number;
+
+  /* Derived quantities. Zero when the project has that option switched off. */
+  insulationAreaMinor: number;
+  pieces: number;
+  flangeEnds: number;
+  /** Hundredths of a metre / foot. */
+  flangeRunMinor: number;
+  corners: number;
+  supports: number;
+
   /** The formula with this entry's numbers in it. */
   substitution: string;
   expression: string;
   note?: string;
 };
 
-export function computeEntry(entry: Entry, mode: Mode, us: UnitSystem): EntryResult {
+const STRAIGHT_RUNS: readonly FittingKind[] = ["straight", "round-straight"];
+
+const NO_ANCILLARIES: Ancillaries = {
+  insulationMm: 0,
+  standardLengthMm: 0,
+  supportSpacingMm: 0,
+};
+const NO_RATES: Rates = { perKg: 0, perM2: 0, label: "" };
+
+/**
+ * `material` is deliberately REQUIRED while the two below are not.
+ *
+ * Defaulting the allowances and the rates to "off" produces a zero — a caller
+ * that forgets them gets no ancillary quantities, which is visibly nothing.
+ * Defaulting the material to GI produces a WEIGHT: an aluminium job would
+ * silently print steel figures that look entirely plausible. The difference
+ * between "obviously missing" and "quietly wrong" is the whole reason this
+ * argument has no default.
+ */
+export function computeEntry(
+  entry: Entry,
+  mode: Mode,
+  us: UnitSystem,
+  material: MaterialKey,
+  ancillaries: Ancillaries = NO_ANCILLARIES,
+  rates: Rates = NO_RATES,
+): EntryResult {
   const spec = specFor(entry.fitting.kind);
   const formula = mode === "billing" ? spec.billing : spec.shop;
 
@@ -68,11 +131,50 @@ export function computeEntry(entry: Entry, mode: Mode, us: UnitSystem): EntryRes
   const maxDimMm = spec.maxDim(entry.fitting);
   const gauge = entry.gauge ?? selectGauge(maxDimMm, us);
   const band = bandFor(gauge);
-  const density = densityDisplay(band.thicknessMm, us);
+  const density = densityDisplay(band.thicknessMm, us, material);
 
   /* Weight from the ROUNDED gross area × the density as printed — see the
    * header. Gross, not net: waste is material bought and carried to site. */
-  const massMinor = toMassMinor(fromAreaMinor(grossAreaMinor) * density);
+  const grossArea = fromAreaMinor(grossAreaMinor);
+  const massMinor = toMassMinor(grossArea * density);
+  const valueMinor = toValueMinor(
+    fromMassMinor(massMinor) * rates.perKg + grossArea * rates.perM2,
+  );
+
+  /* ---- derived quantities ---- */
+
+  /* Insulation is a NOMINAL area measurement, so it is always taken on the
+   * billing formula regardless of which standard the sheet is measured to.
+   * Measuring lagging on a shop blank would be measuring the wrong object. */
+  const insulationAreaMinor =
+    ancillaries.insulationMm > 0
+      ? toAreaMinor(
+          areaFromMm2(
+            spec.billing.compute(spec.inflate(entry.fitting, ancillaries.insulationMm * 2)),
+            us,
+          ) * entry.qty,
+        )
+      : 0;
+
+  const centrelineMm = spec.centreline(entry.fitting);
+  const isStraightRun = STRAIGHT_RUNS.includes(entry.fitting.kind);
+  const pieces =
+    isStraightRun && ancillaries.standardLengthMm > 0
+      ? Math.max(1, Math.ceil(centrelineMm / ancillaries.standardLengthMm - 1e-9))
+      : 1;
+
+  const flangeEnds = ancillaries.standardLengthMm > 0 ? 2 * pieces * entry.qty : 0;
+  const flangeRunMinor = toRunMinor(
+    runFromMm(flangeEnds * spec.perimeter(entry.fitting), us),
+  );
+  /* Corner pieces are a rectangular-duct item: a round flange has no corners. */
+  const corners = isRound(entry.fitting.kind) ? 0 : flangeEnds * 4;
+
+  const supports =
+    ancillaries.supportSpacingMm > 0
+      ? entry.qty *
+        Math.max(1, Math.ceil(centrelineMm / ancillaries.supportSpacingMm - 1e-9))
+      : 0;
 
   return {
     netEachMm2,
@@ -84,13 +186,34 @@ export function computeEntry(entry: Entry, mode: Mode, us: UnitSystem): EntryRes
     maxDimMm,
     gauge,
     gaugeAuto: entry.gauge === null,
+    gaugeCaveat: isRound(entry.fitting.kind),
     thicknessMm: band.thicknessMm,
     density,
     massMinor,
+    valueMinor,
+    insulationAreaMinor,
+    pieces,
+    flangeEnds,
+    flangeRunMinor,
+    corners,
+    supports,
     substitution: formula.substitute(entry.fitting, us),
     expression: formula.expression,
     note: spec.note,
   };
+}
+
+/** Compute one entry using a project's settings. The form the app actually
+ * calls, so a caller cannot forget to pass the material or the allowances. */
+export function computeFor(project: Project, entry: Entry): EntryResult {
+  return computeEntry(
+    entry,
+    project.mode,
+    project.units,
+    project.material,
+    project.ancillaries,
+    project.rates,
+  );
 }
 
 export type GaugeGroup = {
@@ -113,6 +236,16 @@ export type KindGroup = {
   massMinor: number;
 };
 
+export type ZoneGroup = {
+  zone: string;
+  lines: number;
+  pieces: number;
+  netAreaMinor: number;
+  grossAreaMinor: number;
+  massMinor: number;
+  valueMinor: number;
+};
+
 export type Totals = {
   lines: number;
   pieces: number;
@@ -120,40 +253,57 @@ export type Totals = {
   grossAreaMinor: number;
   wasteAreaMinor: number;
   massMinor: number;
+  valueMinor: number;
+  insulationAreaMinor: number;
+  flangeEnds: number;
+  flangeRunMinor: number;
+  corners: number;
+  supports: number;
   byGauge: GaugeGroup[];
   byKind: KindGroup[];
+  byZone: ZoneGroup[];
   /** Sum of the per-gauge sheet estimates. */
   sheets: number;
 };
 
-export function computeTotals(
-  entries: Entry[],
-  mode: Mode,
-  us: UnitSystem,
-): Totals {
+export function computeTotals(project: Project): Totals {
   const byGauge = new Map<GaugeName, GaugeGroup>();
   const byKind = new Map<FittingKind, KindGroup>();
+  const byZone = new Map<string, ZoneGroup>();
 
   const totals: Totals = {
-    lines: entries.length,
+    lines: project.entries.length,
     pieces: 0,
     netAreaMinor: 0,
     grossAreaMinor: 0,
     wasteAreaMinor: 0,
     massMinor: 0,
+    valueMinor: 0,
+    insulationAreaMinor: 0,
+    flangeEnds: 0,
+    flangeRunMinor: 0,
+    corners: 0,
+    supports: 0,
     byGauge: [],
     byKind: [],
+    byZone: [],
     sheets: 0,
   };
 
-  for (const entry of entries) {
-    const r = computeEntry(entry, mode, us);
+  for (const entry of project.entries) {
+    const r = computeFor(project, entry);
 
     totals.pieces += entry.qty;
     totals.netAreaMinor += r.netAreaMinor;
     totals.grossAreaMinor += r.grossAreaMinor;
     totals.wasteAreaMinor += r.wasteAreaMinor;
     totals.massMinor += r.massMinor;
+    totals.valueMinor += r.valueMinor;
+    totals.insulationAreaMinor += r.insulationAreaMinor;
+    totals.flangeEnds += r.flangeEnds;
+    totals.flangeRunMinor += r.flangeRunMinor;
+    totals.corners += r.corners;
+    totals.supports += r.supports;
 
     const g = byGauge.get(r.gauge) ?? {
       gauge: r.gauge,
@@ -183,16 +333,55 @@ export function computeTotals(
     k.grossAreaMinor += r.grossAreaMinor;
     k.massMinor += r.massMinor;
     byKind.set(entry.fitting.kind, k);
+
+    const zoneKey = entry.zone.trim();
+    const z = byZone.get(zoneKey) ?? {
+      zone: zoneKey,
+      lines: 0,
+      pieces: 0,
+      netAreaMinor: 0,
+      grossAreaMinor: 0,
+      massMinor: 0,
+      valueMinor: 0,
+    };
+    z.lines += 1;
+    z.pieces += entry.qty;
+    z.netAreaMinor += r.netAreaMinor;
+    z.grossAreaMinor += r.grossAreaMinor;
+    z.massMinor += r.massMinor;
+    z.valueMinor += r.valueMinor;
+    byZone.set(zoneKey, z);
   }
 
   for (const g of byGauge.values()) {
-    g.sheets = sheetCount(fromAreaMinor(g.grossAreaMinor), us);
+    g.sheets = sheetCount(fromAreaMinor(g.grossAreaMinor), project.units);
     totals.sheets += g.sheets;
   }
 
   /* Heaviest gauge first — the order a purchase order is written in. */
   totals.byGauge = [...byGauge.values()].sort((a, b) => b.thicknessMm - a.thicknessMm);
   totals.byKind = [...byKind.values()].sort((a, b) => b.grossAreaMinor - a.grossAreaMinor);
+  /* Zones alphabetically, with the ungrouped bucket last — an unnamed zone is
+   * the leftovers, not the headline. */
+  totals.byZone = [...byZone.values()].sort((a, b) => {
+    if (a.zone === "") return 1;
+    if (b.zone === "") return -1;
+    return a.zone.localeCompare(b.zone);
+  });
 
   return totals;
+}
+
+/** Has the estimator actually asked for any of the derived quantities? */
+export function hasAncillaries(a: Ancillaries): boolean {
+  return a.insulationMm > 0 || a.standardLengthMm > 0 || a.supportSpacingMm > 0;
+}
+
+export function hasRates(r: Rates): boolean {
+  return r.perKg > 0 || r.perM2 > 0;
+}
+
+/** More than the unnamed bucket — i.e. the estimator is actually using zones. */
+export function hasZones(totals: Totals): boolean {
+  return totals.byZone.some((z) => z.zone !== "");
 }

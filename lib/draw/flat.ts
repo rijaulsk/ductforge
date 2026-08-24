@@ -4,6 +4,7 @@ import {
   type Pt,
   type Scene,
   type Shape,
+  at,
   bounds,
   deg,
   line,
@@ -164,7 +165,133 @@ export function flat(f: Fitting, L: Label): Scene {
       ];
       return layout([...branch(f.w2, 1), ...branch(f.w3, 2)]);
     }
+
+    case "round-straight":
+      return layout([blank(Math.PI * f.d, f.l, "wrapper ×1", L)]);
+
+    case "round-elbow":
+      return layout(gores(f.d, f.r, f.theta, f.gores, L));
+
+    case "round-reducer":
+      return layout([cone(f.d1, f.d2, f.l, L)]);
   }
+}
+
+/* ---- the gored bend ------------------------------------------------------
+ *
+ * The one development in this app that is worth the trouble of drawing.
+ *
+ * A gore is a cylinder cut by two planes, and a cut cylinder unrolls with a
+ * COSINE edge — so the blank is a wave, not a trapezoid. At a point ψ around
+ * the tube the segment's axial length is 2·tan(φ/2)·(R + (D/2)·cos ψ): longest
+ * at the heel, shortest at the throat.
+ *
+ * The piece count follows the standard construction rather than dividing the
+ * angle evenly. A bend of n pieces is two HALF gores at the ends — cut square
+ * so the elbow's openings are perpendicular to the duct, which is the whole
+ * point — and n−2 full gores between them, each turning φ = θ/(n−1).
+ *
+ * Worth knowing: these blanks total slightly MORE than the surface area
+ * printed beside them, because a gored bend is a chain of mitred cylinders and
+ * the area formula is a smooth torus. It is about 1% on a four-piece 90°, and
+ * it is part of what the waste allowance is for.
+ */
+function goreEdge(d: number, r: number, phiDeg: number, half: boolean): Pt[] {
+  const steps = 60;
+  const k = (half ? 1 : 2) * Math.tan(deg(phiDeg) / 2);
+  const pts: Pt[] = [];
+  for (let i = 0; i <= steps; i++) {
+    const u = (Math.PI * d * i) / steps;
+    const psi = (2 * u) / d;
+    pts.push([u, -k * (r + (d / 2) * Math.cos(psi))]);
+  }
+  return pts;
+}
+
+function gorePiece(
+  d: number,
+  r: number,
+  phiDeg: number,
+  half: boolean,
+  caption: string,
+  L: Label,
+): Piece {
+  const edge = goreEdge(d, r, phiDeg, half);
+  const width = Math.PI * d;
+  const tallest = -Math.min(...edge.map((p) => p[1]));
+  const shortest = -Math.max(...edge.map((p) => p[1]));
+  return {
+    caption,
+    shapes: [
+      /* Square edge along the bottom, wave along the top. A half gore is the
+       * same wave at half amplitude — that square edge is the elbow's opening. */
+      poly([[0, 0], ...edge.map((p): Pt => [p[0], p[1]]), [width, 0]], "cut", true),
+      line([0, 0], [width, 0], "fold"),
+    ],
+    dims: [
+      { t: "len", a: [0, 0], b: [width, 0], text: L(width), off: 30 },
+      { t: "len", a: [0, 0], b: [0, -tallest], text: L(tallest), off: 30 },
+      {
+        t: "note",
+        at: [width / 2, -shortest],
+        text: `throat ${L(shortest)}`,
+        dy: -12,
+      },
+    ],
+  };
+}
+
+function gores(d: number, r: number, theta: number, count: number, L: Label): Piece[] {
+  const n = Math.max(2, Math.round(count));
+  /* n pieces means n−1 mitred joints, so each full gore turns θ/(n−1) and the
+   * two end pieces turn half that. */
+  const phi = theta / (n - 1);
+  const pieces: Piece[] = [gorePiece(d, r, phi, true, "end gore ×2", L)];
+  if (n > 2) {
+    pieces.push(gorePiece(d, r, phi, false, `full gore ×${n - 2}`, L));
+  }
+  return pieces;
+}
+
+/* ---- the cone ------------------------------------------------------------
+ *
+ * A frustum develops to an annular sector, and the arithmetic falls out
+ * exactly: sector area = π(r₁+r₂)·slant, which is the shop formula to the
+ * digit. When the two diameters are equal there is no cone at all and the
+ * development degenerates to the cylinder's rectangle — handled, because a
+ * reducer with nothing to reduce is a thing people type.
+ */
+function cone(d1: number, d2: number, l: number, L: Label): Piece {
+  const r1 = Math.max(d1, d2) / 2;
+  const r2 = Math.min(d1, d2) / 2;
+  const dr = r1 - r2;
+  const slant = Math.hypot(l, dr);
+
+  if (dr < 1e-6 || slant < 1e-6) {
+    return blank(Math.PI * d1, l, "wrapper ×1 — no taper", L);
+  }
+
+  /* Distances from the apex along the slant to each opening. */
+  const big = (slant * r1) / dr;
+  const small = (slant * r2) / dr;
+  const sweep = (360 * dr) / slant;
+  const c: Pt = [0, 0];
+  const a0 = -sweep / 2;
+  const a1 = sweep / 2;
+
+  return {
+    caption: "cone blank ×1",
+    shapes: [
+      sector(c, small, big, a0, a1),
+      line(c, at(c, big * 1.06, a0), "hidden"),
+      line(c, at(c, big * 1.06, a1), "hidden"),
+    ],
+    dims: [
+      { t: "len", a: at(c, small, a1), b: at(c, big, a1), text: `${L(slant)} slant`, off: 30 },
+      { t: "rad", c, r: big, at: 0, text: `R ${L(big)}` },
+      { t: "ang", c, a0, a1, text: `${Math.round(sweep)}°`, vr: 34 },
+    ],
+  };
 }
 
 /** A transition panel: two parallel edges joined over a slant height. */

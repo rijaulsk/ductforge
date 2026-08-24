@@ -94,6 +94,51 @@ function sweep(
   return faces;
 }
 
+/**
+ * A round duct as flat facets.
+ *
+ * `ring(x)` gives the circle of radius r(x) at station x, and consecutive
+ * rings are joined by quads. The tint follows the facet's own orientation —
+ * a face pointing up the screen reads as top, one pointing sideways as side —
+ * which shades a cylinder into three flat steps without a gradient or a light
+ * source, exactly as the design system requires depth to be built.
+ */
+function tube(
+  ring: (t: number, psi: number) => P3,
+  steps: number,
+  facets = 20,
+): Face[] {
+  const faces: Face[] = [];
+  for (let i = 0; i < steps; i++) {
+    for (let j = 0; j < facets; j++) {
+      const p0 = (j / facets) * 360;
+      const p1 = ((j + 1) / facets) * 360;
+      const mid = deg((p0 + p1) / 2);
+      /* The facet's outward normal in the tube's own cross-section plane. */
+      const role: Role = Math.abs(Math.sin(mid)) > 0.72 ? "face-top" : "face-side";
+      faces.push(
+        quad(
+          ring(i / steps, p0),
+          ring((i + 1) / steps, p0),
+          ring((i + 1) / steps, p1),
+          ring(i / steps, p1),
+          role,
+        ),
+      );
+    }
+  }
+  /* The two openings, as flat discs, so an end reads as closed rather than as
+   * a hole you can see the far wall through. */
+  for (const t of [0, 1]) {
+    const disc: P3[] = [];
+    for (let j = 0; j < facets; j++) disc.push(ring(t, (j / facets) * 360));
+    for (let j = 1; j < facets - 1; j++) {
+      faces.push(quad(disc[0], disc[j], disc[j + 1], disc[j + 1], "face-end"));
+    }
+  }
+  return faces;
+}
+
 /** A label pinned to the midpoint of a model edge. Isometric drawings do not
  * take dimension lines well — the extension lines cross the object — so the
  * three principal sizes are called out where the eye already is. */
@@ -237,6 +282,63 @@ export function isometric(f: Fitting, L: Label): Scene {
             text: `W₃ ${L(w3)}`,
             dy: 22,
           },
+        ],
+      };
+    }
+
+    case "round-straight": {
+      const { d, l } = f;
+      const rr = d / 2;
+      return {
+        shapes: paint(
+          tube((t, psi) => [t * l, rr * Math.cos(deg(psi)), rr * Math.sin(deg(psi))], 1),
+        ),
+        dims: [
+          tag([0, 0, rr], [l, 0, rr], `L ${L(l)}`, 0, -14),
+          tag([l, -rr, 0], [l, rr, 0], `⌀ ${L(d)}`, 20, 14),
+        ],
+      };
+    }
+
+    case "round-elbow": {
+      const { d, r, theta } = f;
+      const rr = d / 2;
+      const a0 = 90 - theta;
+      const a1 = 90;
+      /* Sweep the circle around the bend: the centre travels the centreline
+       * arc, and the tube's cross-section stands in the plane containing the
+       * bend's axis and the vertical. */
+      const ring = (t: number, psi: number): P3 => {
+        const a = deg(a0 + (a1 - a0) * t);
+        const cr = r + rr * Math.cos(deg(psi));
+        return [cr * Math.cos(a), cr * Math.sin(a), rr * Math.sin(deg(psi))];
+      };
+      return {
+        shapes: paint(tube(ring, 18)),
+        dims: [
+          tag([0, r - rr, 0], [0, r + rr, 0], `⌀ ${L(d)}`, 0, -14),
+          {
+            t: "note",
+            at: iso([r * Math.cos(deg((a0 + a1) / 2)), r * Math.sin(deg((a0 + a1) / 2)), rr]),
+            text: `R ${L(r)} · ${theta}°`,
+            dy: -18,
+          },
+        ],
+      };
+    }
+
+    case "round-reducer": {
+      const { d1, d2, l } = f;
+      const ring = (t: number, psi: number): P3 => {
+        const rr = (d1 / 2) * (1 - t) + (d2 / 2) * t;
+        return [t * l, rr * Math.cos(deg(psi)), rr * Math.sin(deg(psi))];
+      };
+      return {
+        shapes: paint(tube(ring, 1)),
+        dims: [
+          tag([0, 0, d1 / 2], [l, 0, d2 / 2], `L ${L(l)}`, 0, -14),
+          tag([0, -d1 / 2, 0], [0, d1 / 2, 0], `⌀ ${L(d1)}`, -22, 10),
+          tag([l, -d2 / 2, 0], [l, d2 / 2, 0], `⌀ ${L(d2)}`, 22, 12),
         ],
       };
     }

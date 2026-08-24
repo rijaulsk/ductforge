@@ -117,6 +117,19 @@ const ORACLE = {
       return branch(f.w2) + branch(f.w3);
     },
   },
+  "round-straight": {
+    billing: (f) => Math.PI * f.d * f.l,
+    shop: (f) => Math.PI * f.d * f.l,
+  },
+  "round-elbow": {
+    billing: (f) => Math.PI * f.d * rad(f.theta) * f.r,
+    shop: (f) => Math.PI * f.d * rad(f.theta) * f.r,
+  },
+  "round-reducer": {
+    billing: (f) => ((Math.PI * (f.d1 + f.d2)) / 2) * f.l,
+    shop: (f) =>
+      ((Math.PI * (f.d1 + f.d2)) / 2) * hyp(f.l, (f.d1 - f.d2) / 2),
+  },
 };
 
 /* Deterministic pseudo-random geometry, so a failure is reproducible. */
@@ -146,6 +159,18 @@ function randomFitting(kind) {
       return { kind, w: dim(100, 2000), h: dim(100, 2000), l: dim(200, 3000), o: dim(50, 1500) };
     case "collar":
       return { kind, w: dim(100, 900), h: dim(100, 900), l: dim(100, 800), f: dim(20, 50) };
+    case "round-straight":
+      return { kind, d: dim(100, 1600), l: dim(300, 6000) };
+    case "round-elbow":
+      return {
+        kind,
+        d: dim(100, 1200),
+        r: dim(150, 2000),
+        theta: dim(15, 180),
+        gores: dim(2, 8),
+      };
+    case "round-reducer":
+      return { kind, d1: dim(200, 1600), d2: dim(100, 1200), l: dim(150, 1500) };
     default:
       return {
         kind: "wye",
@@ -159,8 +184,18 @@ function randomFitting(kind) {
   }
 }
 
-section("1. engine vs independent transcription (240 random geometries)");
-const KINDS = ["straight", "reducer", "elbow", "dropper", "collar", "wye"];
+section("1. engine vs independent transcription (360 random geometries)");
+const KINDS = [
+  "straight",
+  "reducer",
+  "elbow",
+  "dropper",
+  "collar",
+  "wye",
+  "round-straight",
+  "round-elbow",
+  "round-reducer",
+];
 for (const kind of KINDS) {
   let worst = 0;
   for (let i = 0; i < 20; i++) {
@@ -184,6 +219,9 @@ const A = {
   dropper: { kind: "dropper", w: 600, h: 400, l: 900, o: 300 },
   collar: { kind: "collar", w: 300, h: 300, l: 250, f: 35 },
   wye: { kind: "wye", w1: 800, h: 400, w2: 500, w3: 400, r: 250, theta: 45 },
+  "round-straight": { kind: "round-straight", d: 400, l: 3000 },
+  "round-elbow": { kind: "round-elbow", d: 400, r: 600, theta: 90, gores: 4 },
+  "round-reducer": { kind: "round-reducer", d1: 500, d2: 300, l: 400 },
 };
 const area = (kind, mode) => SPECS[kind][mode].compute(A[kind]);
 
@@ -199,6 +237,15 @@ near(area("collar", "billing"), 342_000, 1e-9, "collar billing 1200×285");
 near(area("collar", "shop"), 346_900, 1e-9, "collar shop 300000 + 42000 + 4900");
 near(area("wye", "billing"), (Math.PI / 4) * 1_570_000, 1e-6, "wye billing (π/4)×1,570,000");
 near(area("wye", "shop"), (Math.PI / 4) * 1_620_000, 1e-6, "wye shop (π/4)×1,620,000");
+near(area("round-straight", "billing"), 1_200_000 * Math.PI, 1e-6, "round duct π×400×3000");
+near(area("round-elbow", "billing"), 120_000 * Math.PI ** 2, 1e-6, "round elbow 120,000π²");
+near(area("round-reducer", "billing"), 160_000 * Math.PI, 1e-6, "round reducer billing 160,000π");
+near(
+  area("round-reducer", "shop"),
+  400 * Math.PI * Math.sqrt(170_000),
+  1e-6,
+  "round reducer shop π×400×√170000 slant",
+);
 
 /* ---- 3. identities and invariants -------------------------------------- */
 
@@ -218,6 +265,36 @@ for (let i = 0; i < 10; i++) {
   check(
     SPECS.straight.billing.compute(f) === SPECS.straight.shop.compute(f),
     "straight billing === shop",
+  );
+}
+/* Round duct is Pappus twice over: a cylinder and a swept circle both develop
+ * exactly, so neither standard can read higher than the other. */
+for (const kind of ["round-straight", "round-elbow"]) {
+  for (let i = 0; i < 15; i++) {
+    const f = randomFitting(kind);
+    check(
+      Math.abs(SPECS[kind].billing.compute(f) - SPECS[kind].shop.compute(f)) < 1e-6,
+      `${kind} billing === shop`,
+    );
+  }
+}
+{
+  let ok = true;
+  for (let i = 0; i < 20; i++) {
+    const f = randomFitting("round-reducer");
+    /* A cone is the one round fitting with a slant, so it is the one where the
+     * two standards part company. */
+    if (SPECS["round-reducer"].shop.compute(f) <= SPECS["round-reducer"].billing.compute(f)) {
+      ok = false;
+    }
+  }
+  check(ok, "round reducer shop > billing wherever there is a taper");
+  const noTaper = { kind: "round-reducer", d1: 400, d2: 400, l: 600 };
+  near(
+    SPECS["round-reducer"].shop.compute(noTaper),
+    SPECS["round-reducer"].billing.compute(noTaper),
+    1e-9,
+    "…and equal when there is none",
   );
 }
 
@@ -364,18 +441,40 @@ near(units.areaFromMm2(1e6, "imperial"), 10.763_910_416_709_722, 1e-9, "1 m² = 
 near(units.squareLengthFromMm2(645.16, "imperial"), 1, 1e-9, "645.16 mm² = 1 in²");
 
 /* The same physical duct, entered in either system, must weigh the same. */
+/** A schedule line. `zone` and the material are part of every entry now, so
+ * the helper carries them rather than letting each test invent its own. */
+const line = (fitting, qty = 1, waste = 0, extra = {}) => ({
+  id: "t",
+  fitting,
+  qty,
+  waste,
+  gauge: null,
+  zone: "",
+  note: "",
+  ...extra,
+});
+
+/** A project wrapper, for the totals. */
+const proj = (entries, over = {}) => ({
+  id: "p",
+  name: "check",
+  reference: "",
+  units: "metric",
+  mode: "billing",
+  waste: 12,
+  material: "gi",
+  ancillaries: { insulationMm: 0, standardLengthMm: 0, supportSpacingMm: 0 },
+  rates: { perKg: 0, perM2: 0, label: "" },
+  entries,
+  updatedAt: 0,
+  ...over,
+});
+
 section("9. the same duct in both unit systems");
 {
-  const metricEntry = {
-    id: "m",
-    fitting: { kind: "straight", w: 609.6, h: 406.4, l: 3048 },
-    qty: 1,
-    waste: 0,
-    gauge: null,
-    note: "",
-  };
-  const m = computeEntry(metricEntry, "billing", "metric");
-  const i = computeEntry(metricEntry, "billing", "imperial");
+  const metricEntry = line({ kind: "straight", w: 609.6, h: 406.4, l: 3048 });
+  const m = computeEntry(metricEntry, "billing", "metric", "gi");
+  const i = computeEntry(metricEntry, "billing", "imperial", "gi");
   /* Tolerance is one rounding step, not zero, and it has to be. Each system
    * rounds to 3 dp in ITS OWN unit, and 0.001 m² is 0.0108 ft² — so the two
    * answers can legitimately differ by up to about a hundredth of a square
@@ -396,26 +495,24 @@ section("9. the same duct in both unit systems");
 
 section("10. rounding: the printed total is the sum of the printed rows");
 {
-  const entry = (kind, qty, waste) => ({
-    id: kind,
-    fitting: A[kind],
-    qty,
-    waste,
-    gauge: null,
-    note: "",
-  });
+  const entry = (kind, qty, waste, zone) =>
+    line(A[kind], qty, waste, { id: kind, zone });
   const entries = [
-    entry("straight", 3, 12),
-    entry("elbow", 4, 15),
-    entry("collar", 12, 8),
-    entry("reducer", 2, 12),
-    entry("dropper", 1, 20),
-    entry("wye", 2, 15),
+    entry("straight", 3, 12, "AHU-1"),
+    entry("elbow", 4, 15, "AHU-1"),
+    entry("collar", 12, 8, "AHU-2"),
+    entry("reducer", 2, 12, "AHU-2"),
+    entry("dropper", 1, 20, ""),
+    entry("wye", 2, 15, ""),
+    entry("round-straight", 5, 12, "AHU-2"),
+    entry("round-elbow", 6, 15, "AHU-1"),
+    entry("round-reducer", 3, 12, ""),
   ];
   for (const us of ["metric", "imperial"]) {
     for (const mode of ["billing", "shop"]) {
-      const results = entries.map((e) => computeEntry(e, mode, us));
-      const totals = computeTotals(entries, mode, us);
+      const project = proj(entries, { units: us, mode });
+      const results = entries.map((e) => computeEntry(e, mode, us, "gi"));
+      const totals = computeTotals(project);
       const label = `${us}/${mode}`;
       eq(
         totals.netAreaMinor,
@@ -447,7 +544,18 @@ section("10. rounding: the printed total is the sum of the printed rows");
         totals.byKind.reduce((s, k) => s + k.grossAreaMinor, 0),
         `${label}: fitting-type groups carry every square`,
       );
-      eq(totals.pieces, 24, `${label}: piece count`);
+      eq(totals.pieces, 38, `${label}: piece count`);
+      eq(
+        totals.grossAreaMinor,
+        totals.byZone.reduce((s, z) => s + z.grossAreaMinor, 0),
+        `${label}: zones carry every square`,
+      );
+      eq(totals.byZone.length, 3, `${label}: two named zones plus the ungrouped bucket`);
+      eq(
+        totals.byZone[totals.byZone.length - 1].zone,
+        "",
+        `${label}: the ungrouped bucket sorts last`,
+      );
 
       /* Every row must be re-derivable from the two numbers next to it. */
       for (const r of results) {
@@ -460,15 +568,7 @@ section("10. rounding: the printed total is the sum of the printed rows");
 
 section("11. one line, checked by hand end to end");
 {
-  const e = {
-    id: "x",
-    fitting: A.straight,
-    qty: 1,
-    waste: 12,
-    gauge: null,
-    note: "",
-  };
-  const r = computeEntry(e, "billing", "metric");
+  const r = computeEntry(line(A.straight, 1, 12), "billing", "metric", "gi");
   eq(r.gauge, "24", "600 mm max dimension → 24 ga");
   eq(r.thicknessMm, 0.7, "24 ga is 0.70 mm");
   eq(r.density, 5.5, "0.70 mm is 5.50 kg/m²");
@@ -482,12 +582,117 @@ section("11. one line, checked by hand end to end");
 
 section("12. gauge override");
 {
-  const e = { id: "o", fitting: A.straight, qty: 1, waste: 0, gauge: "16", note: "" };
-  const r = computeEntry(e, "billing", "metric");
+  const r = computeEntry(line(A.straight, 1, 0, { gauge: "16" }), "billing", "metric", "gi");
   eq(r.gauge, "16", "the estimator's override wins over the table");
   eq(r.gaugeAuto, false, "and is flagged as manual");
   eq(r.density, 12.56, "16 ga density follows the override");
   eq(units.fmtMass(r.massMinor), "75.36", "6.000 × 12.56 = 75.36 kg");
+}
+
+/* ---- 12b. material ------------------------------------------------------- */
+
+section("12b. material changes the weight and nothing else");
+{
+  const e = line(A.straight, 1, 0);
+  const gi = computeEntry(e, "billing", "metric", "gi");
+  const alu = computeEntry(e, "billing", "metric", "alu");
+  const ss = computeEntry(e, "billing", "metric", "ss");
+
+  eq(gi.netAreaMinor, alu.netAreaMinor, "area does not depend on the material");
+  eq(gi.gauge, alu.gauge, "nor does the gauge — a gauge is a thickness");
+  eq(gi.thicknessMm, alu.thicknessMm, "nor the thickness");
+
+  eq(gauge.densityDisplay(0.55, "metric", "alu"), 1.49, "26 ga aluminium is 1.49 kg/m²");
+  eq(gauge.densityDisplay(0.7, "metric", "ss"), 5.6, "24 ga stainless is 5.60 kg/m²");
+  eq(gauge.densityDisplay(0.7, "metric", "gi"), 5.5, "…against 5.50 for steel");
+
+  /* Weight has to track the density ratio, within the rounding of both. */
+  near(
+    units.fromMassMinor(alu.massMinor) / units.fromMassMinor(gi.massMinor),
+    2700 / 7850,
+    0.005,
+    "aluminium weighs 2700/7850 of the steel",
+  );
+  check(
+    units.fromMassMinor(ss.massMinor) > units.fromMassMinor(gi.massMinor),
+    "stainless is heavier than galvanised",
+  );
+}
+
+/* ---- 12c. the derived quantities ----------------------------------------- */
+
+section("12c. insulation is the billing formula on a fatter duct");
+{
+  const anc = { insulationMm: 25, standardLengthMm: 0, supportSpacingMm: 0 };
+  const r = computeEntry(line(A.straight, 1, 0), "billing", "metric", "gi", anc);
+  /* 600×400 lagged 25 mm all round is 650×450: 2(650+450)×3000 = 6.6 m². */
+  eq(units.fmtArea(r.insulationAreaMinor), "6.600", "600×400×3000 at 25 mm = 6.600 m²");
+  eq(units.fmtArea(r.netAreaMinor), "6.000", "…while the sheet area is untouched at 6.000");
+
+  const off = computeEntry(line(A.straight, 1, 0), "billing", "metric", "gi");
+  eq(off.insulationAreaMinor, 0, "no insulation set, no insulation counted");
+
+  /* THE BUG THIS EXISTS TO CATCH. An elbow's R is its THROAT radius, so
+   * lagging it must shrink R by the thickness while the width grows by twice
+   * it — otherwise the centreline moves and the bend silently gets longer. */
+  for (const kind of KINDS) {
+    const spec = SPECS[kind];
+    const before = spec.centreline(A[kind]);
+    const after = spec.centreline(spec.inflate(A[kind], 50));
+    near(after, before, 1e-9, `${kind}: insulating does not move the centreline`);
+  }
+
+  /* Round elbow R is already a CENTRELINE radius, so it must NOT shrink. */
+  const re = A["round-elbow"];
+  eq(SPECS["round-elbow"].inflate(re, 50).r, re.r, "a round elbow's R is left alone");
+  eq(SPECS.elbow.inflate(A.elbow, 50).r, A.elbow.r - 25, "a rectangular elbow's throat shrinks");
+}
+
+section("12d. flanges and hangers");
+{
+  const anc = { insulationMm: 0, standardLengthMm: 1200, supportSpacingMm: 2400 };
+  const long = line({ kind: "straight", w: 600, h: 400, l: 6000 }, 2, 0);
+  const r = computeEntry(long, "billing", "metric", "gi", anc);
+  eq(r.pieces, 5, "6 m of duct is five 1.2 m pieces");
+  eq(r.flangeEnds, 20, "…each with two flange ends, × 2 lengths");
+  eq(r.corners, 80, "…and four corner pieces per end");
+  /* 20 ends × 2(600+400) mm of flange = 40 m. */
+  eq(units.fmtRun(r.flangeRunMinor), "40.00", "20 ends × 2 m perimeter = 40.00 m");
+  eq(r.supports, 6, "one hanger per 2.4 m of run, per length");
+
+  const fitting = computeEntry(line(A.elbow, 1, 0), "billing", "metric", "gi", anc);
+  eq(fitting.pieces, 1, "a fitting is one piece however long its centreline");
+  eq(fitting.flangeEnds, 2, "…with an end each side");
+
+  const round = computeEntry(line(A["round-straight"], 1, 0), "billing", "metric", "gi", anc);
+  eq(round.corners, 0, "a round flange has no corner pieces");
+
+  const off = computeEntry(long, "billing", "metric", "gi");
+  eq(off.flangeEnds, 0, "no standard length set, no flanges counted");
+  eq(off.supports, 0, "no spacing set, no hangers counted");
+}
+
+section("12e. rates");
+{
+  const rates = { perKg: 240, perM2: 0, label: "₹" };
+  const anc = { insulationMm: 0, standardLengthMm: 0, supportSpacingMm: 0 };
+  const r = computeEntry(line(A.straight, 1, 12), "billing", "metric", "gi", anc, rates);
+  /* 36.96 kg × 240 = 8,870.40 */
+  eq(units.fmtValue(r.valueMinor), "8,870.40", "weight × rate per kg");
+
+  const both = computeEntry(
+    line(A.straight, 1, 12),
+    "billing",
+    "metric",
+    "gi",
+    anc,
+    { perKg: 240, perM2: 100, label: "" },
+  );
+  /* …plus 6.720 m² × 100 = 672.00 */
+  eq(units.fmtValue(both.valueMinor), "9,542.40", "…plus area × rate per m²");
+
+  const none = computeEntry(line(A.straight, 1, 12), "billing", "metric", "gi");
+  eq(none.valueMinor, 0, "no rate set, no value invented");
 }
 
 /* ---- 13. input parsing -------------------------------------------------- */

@@ -52,7 +52,121 @@ export function blueprint(f: Fitting, L: Label): Scene {
       return collar(f.w, f.h, f.l, f.f, L);
     case "wye":
       return wye(f.w1, f.h, f.w2, f.w3, f.r, f.theta, L);
+    case "round-straight":
+      return roundStraight(f.d, f.l, L);
+    case "round-elbow":
+      return roundElbow(f.d, f.r, f.theta, f.gores, L);
+    case "round-reducer":
+      return roundReducer(f.d1, f.d2, f.l, L);
   }
+}
+
+/* ---- round straight ------------------------------------------------------ */
+
+function roundStraight(d: number, l: number, L: Label): Scene {
+  const gap = Math.max(l * 0.18, d * 1.2);
+  const sx = l + gap;
+  return {
+    shapes: [
+      rect(0, 0, l, d),
+      line([-l * 0.04, d / 2], [l * 1.04, d / 2], "centre"),
+      /* The end view is what tells a reader this is round rather than a
+       * rectangle drawn without its second dimension. */
+      arc([sx + d / 2, d / 2], d / 2, 0, 180),
+      arc([sx + d / 2, d / 2], d / 2, 180, 360),
+      line([sx + d / 2, -d * 0.08], [sx + d / 2, d * 1.08], "centre"),
+      line([sx - d * 0.08, d / 2], [sx + d * 1.08, d / 2], "centre"),
+    ],
+    dims: [
+      { t: "len", a: [0, d], b: [l, d], text: L(l), off: 34 },
+      { t: "len", a: [0, 0], b: [0, d], text: `⌀ ${L(d)}`, off: 34 },
+      { t: "len", a: [sx, d], b: [sx + d, d], text: `⌀ ${L(d)}`, off: 34 },
+    ],
+    captions: [
+      { at: [l / 2, -d * 0.22 - 14], text: "elevation" },
+      { at: [sx + d / 2, -d * 0.22 - 14], text: "end view" },
+    ],
+  };
+}
+
+/* ---- round elbow --------------------------------------------------------- */
+
+function roundElbow(
+  d: number,
+  r: number,
+  theta: number,
+  gores: number,
+  L: Label,
+): Scene {
+  /* R is the CENTRELINE radius for round duct, so the walls sit half a
+   * diameter either side of it — the opposite of the rectangular elbow, where
+   * R is the throat. */
+  const ri = Math.max(0, r - d / 2);
+  const ro = r + d / 2;
+  const C: Pt = [0, 0];
+  const a1 = 180;
+  const a0 = 180 - theta;
+  const s = stubOf(d);
+
+  const inDir: Pt = [0, -1];
+  const outDir: Pt = [Math.sin(deg(a0)), -Math.cos(deg(a0))];
+
+  /* One line per gore seam, drawn across the bend at each division. */
+  const seams: Shape[] = [];
+  for (let i = 1; i < Math.max(1, gores); i++) {
+    const a = a0 + ((a1 - a0) * i) / Math.max(1, gores);
+    seams.push(line(at(C, ri, a), at(C, ro, a), "fold"));
+  }
+
+  return {
+    shapes: [
+      sector(C, ri, ro, a0, a1),
+      stub([-ro, 0], [-ri, 0], inDir, s),
+      stub(at(C, ro, a0), at(C, ri, a0), outDir, s),
+      arc(C, r, a0, a1, "centre"),
+      ...seams,
+      line(C, at(C, ro * 1.08, a1), "hidden"),
+      line(C, at(C, ro * 1.08, a0), "hidden"),
+    ],
+    dims: [
+      { t: "len", a: [-ro, 0], b: [-ri, 0], text: `⌀ ${L(d)}`, off: -30 },
+      { t: "rad", c: C, r, at: a0 + theta / 2, text: `R ${L(r)}` },
+      { t: "ang", c: C, a0, a1, text: `${theta}°` },
+      {
+        t: "note",
+        at: at(C, ro * 0.72, a0 + theta / 2),
+        text: `${gores} gores`,
+        dy: 4,
+      },
+    ],
+  };
+}
+
+/* ---- round reducer ------------------------------------------------------- */
+
+function roundReducer(d1: number, d2: number, l: number, L: Label): Scene {
+  return {
+    shapes: [
+      poly([
+        [0, -d1 / 2],
+        [l, -d2 / 2],
+        [l, d2 / 2],
+        [0, d1 / 2],
+      ]),
+      line([-l * 0.05, 0], [l * 1.05, 0], "centre"),
+      /* The two openings, seen edge-on: a round reducer's elevation is the
+       * same trapezoid as a rectangular one, so the end ellipses are what
+       * distinguish them. */
+      line([0, -d1 / 2], [0, d1 / 2], "hidden"),
+      line([l, -d2 / 2], [l, d2 / 2], "hidden"),
+    ],
+    dims: [
+      { t: "len", a: [0, -d1 / 2], b: [0, d1 / 2], text: `⌀ ${L(d1)}`, off: 34 },
+      { t: "len", a: [l, d2 / 2], b: [l, -d2 / 2], text: `⌀ ${L(d2)}`, off: 34 },
+      { t: "len", a: [0, d1 / 2], b: [l, d1 / 2], text: L(l), off: 40 },
+    ],
+    captions: [{ at: [l / 2, -d1 / 2 - 22], text: "elevation" }],
+  };
 }
 
 /* ---- straight ----------------------------------------------------------- */

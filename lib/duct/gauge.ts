@@ -1,4 +1,5 @@
-import type { GaugeName } from "./types";
+import { material } from "./material";
+import type { GaugeName, MaterialKey } from "./types";
 import { MM_PER_INCH, type UnitSystem, densityFromKgM2 } from "./units";
 
 /* Sheet gauge selection and sheet weight.
@@ -22,7 +23,25 @@ import { MM_PER_INCH, type UnitSystem, densityFromKgM2 } from "./units";
  * the one matching its own units.
  */
 
+/** Kept as a named constant because it is the figure the published SMACNA
+ * density column is derived from, and /standards says so. Other materials come
+ * from material.ts. */
 export const STEEL_DENSITY_KG_M3 = 7850;
+
+/**
+ * The caveat round duct carries and rectangular duct does not.
+ *
+ * SMACNA publishes a SEPARATE, generally lighter gauge table for round and
+ * spiral duct, because a cylinder is far stiffer than a flat panel of the same
+ * span. Grading round duct on the rectangular table — which is what this app
+ * does, having only that table — therefore OVER-specifies it. That is the safe
+ * direction to be wrong in, but it is still wrong, and an estimator pricing
+ * spiral will notice the weight is high.
+ *
+ * Stated in the UI beside the gauge, on /standards, and in every export.
+ */
+export const ROUND_GAUGE_CAVEAT =
+  "Round duct is graded on the rectangular table here, because that is the table this app has. SMACNA publishes a separate and generally lighter one for round and spiral duct — a cylinder is stiffer than a flat panel — so this over-specifies. Override the gauge on any line where your specification differs.";
 
 /** Nominal commercial sheet: 1200 × 2400 mm / 4' × 8'. */
 export const SHEET_AREA_M2 = 2.88;
@@ -62,14 +81,14 @@ export function densityDecimals(us: UnitSystem): number {
 }
 
 /** Exact sheet mass per unit area before rounding, kg/m². */
-export function densityKgM2Exact(thicknessMm: number): number {
-  return (thicknessMm / 1000) * STEEL_DENSITY_KG_M3;
+export function densityKgM2Exact(thicknessMm: number, mat: MaterialKey = "gi"): number {
+  return (thicknessMm / 1000) * material(mat).density;
 }
 
-/** The published metric figure: exact density rounded to 2 dp. 0.55 mm gives
- * 4.3175, which is the table's 4.32. */
-export function densityKgM2(thicknessMm: number): number {
-  return Number(densityKgM2Exact(thicknessMm).toFixed(2));
+/** The published metric figure: exact density rounded to 2 dp. At 7850 kg/m³,
+ * 0.55 mm gives 4.3175, which is the table's 4.32. */
+export function densityKgM2(thicknessMm: number, mat: MaterialKey = "gi"): number {
+  return Number(densityKgM2Exact(thicknessMm, mat).toFixed(2));
 }
 
 /**
@@ -80,8 +99,12 @@ export function densityKgM2(thicknessMm: number): number {
  * 1.929 / 2.572 exactly. Converting from the unrounded density instead gives
  * 0.884 for 26 ga, which is off the table by a digit nobody would ever trace.
  */
-export function densityDisplay(thicknessMm: number, us: UnitSystem): number {
-  const metric = densityKgM2(thicknessMm);
+export function densityDisplay(
+  thicknessMm: number,
+  us: UnitSystem,
+  mat: MaterialKey = "gi",
+): number {
+  const metric = densityKgM2(thicknessMm, mat);
   if (us === "metric") return metric;
   return Number(densityFromKgM2(metric, us).toFixed(3));
 }

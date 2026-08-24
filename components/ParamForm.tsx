@@ -60,10 +60,13 @@ function Field({
 export default function ParamForm({
   draft,
   units,
+  zones,
   onChange,
 }: {
   draft: Draft;
   units: UnitSystem;
+  /** Zone names already in this takeoff, offered back as suggestions. */
+  zones: string[];
   onChange: (next: Draft) => void;
 }) {
   const uid = useId();
@@ -85,7 +88,7 @@ export default function ParamForm({
               symbol={f.symbol}
               label={f.label}
               hint={f.hint}
-              unit={f.angle ? "deg" : len}
+              unit={f.angle ? "deg" : f.count ? "" : len}
               value={draft.values[f.key] ?? ""}
               onChange={(v) => setValue(f.key, v)}
             />
@@ -185,19 +188,49 @@ export default function ParamForm({
         </div>
       </fieldset>
 
-      <div>
-        <label htmlFor={`${uid}-note`} className="font-medium text-heading">
-          Line note <span className="font-normal text-muted">optional</span>
-        </label>
-        <input
-          id={`${uid}-note`}
-          type="text"
-          autoComplete="off"
-          placeholder="Level 3 riser, AHU-2 discharge…"
-          value={draft.note}
-          onChange={(e) => onChange({ ...draft, note: e.target.value })}
-          className="mt-2 w-full rounded-card border-[1.5px] border-line bg-page px-4 py-2.5 text-heading placeholder:text-muted"
-        />
+      <div className="grid gap-5 sm:grid-cols-2">
+        <div>
+          <label htmlFor={`${uid}-zone`} className="font-medium text-heading">
+            Zone <span className="font-normal text-muted">optional</span>
+          </label>
+          <p className="mt-1 text-small text-muted">
+            System, floor or area. Lines with the same name are totalled together.
+          </p>
+          <input
+            id={`${uid}-zone`}
+            type="text"
+            autoComplete="off"
+            list={`${uid}-zones`}
+            placeholder="AHU-1, Level 3, Kitchen…"
+            value={draft.zone}
+            onChange={(e) => onChange({ ...draft, zone: e.target.value })}
+            className="mt-2 w-full rounded-card border-[1.5px] border-line bg-page px-4 py-2.5 text-heading placeholder:text-muted"
+          />
+          {/* Whatever zones the takeoff already uses, offered back — so a job
+            * does not end up with AHU-1, AHU 1 and ahu-1 as three zones. */}
+          <datalist id={`${uid}-zones`}>
+            {zones.map((z) => (
+              <option key={z} value={z} />
+            ))}
+          </datalist>
+        </div>
+        <div>
+          <label htmlFor={`${uid}-note`} className="font-medium text-heading">
+            Line note <span className="font-normal text-muted">optional</span>
+          </label>
+          <p className="mt-1 text-small text-muted">
+            Anything that helps you recognise this line later.
+          </p>
+          <input
+            id={`${uid}-note`}
+            type="text"
+            autoComplete="off"
+            placeholder="Riser drop, AHU discharge…"
+            value={draft.note}
+            onChange={(e) => onChange({ ...draft, note: e.target.value })}
+            className="mt-2 w-full rounded-card border-[1.5px] border-line bg-page px-4 py-2.5 text-heading placeholder:text-muted"
+          />
+        </div>
       </div>
     </div>
   );

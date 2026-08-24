@@ -17,6 +17,7 @@ export type Draft = {
   qty: string;
   waste: string;
   gauge: GaugeName | null;
+  zone: string;
   note: string;
 };
 
@@ -32,7 +33,9 @@ export function valuesFromFitting(f: Fitting, us: UnitSystem): Partial<Record<Fi
   const out: Partial<Record<FieldKey, string>> = {};
   for (const field of spec.fields) {
     const raw = source[field.key] ?? 0;
-    out[field.key] = field.angle ? String(raw) : toInputValue(raw, us);
+    /* Angles and plain counts are not lengths and must never be converted —
+     * a 90° elbow does not become a 3.54° elbow in imperial. */
+    out[field.key] = field.angle || field.count ? String(raw) : toInputValue(raw, us);
   }
   return out;
 }
@@ -46,18 +49,27 @@ export function fittingFromValues(
   const out: Record<string, number | string> = { kind };
   for (const field of spec.fields) {
     const raw = values[field.key] ?? "";
-    out[field.key] = field.angle ? toAngle(raw) : toMm(toNumber(raw), us);
+    if (field.angle) out[field.key] = toAngle(raw);
+    /* A gore count of 1 is not a bend, and 2 is the minimum that develops. */
+    else if (field.count) out[field.key] = Math.max(2, Math.round(toNumber(raw, 64)));
+    else out[field.key] = toMm(toNumber(raw), us);
   }
   return out as unknown as Fitting;
 }
 
-export function newDraft(kind: FittingKind, waste: number, us: UnitSystem): Draft {
+export function newDraft(
+  kind: FittingKind,
+  waste: number,
+  us: UnitSystem,
+  zone = "",
+): Draft {
   return {
     kind,
     values: valuesFromFitting(SPECS[kind].defaults, us),
     qty: "1",
     waste: String(waste),
     gauge: null,
+    zone,
     note: "",
   };
 }
@@ -69,6 +81,7 @@ export function draftFromEntry(entry: Entry, us: UnitSystem): Draft {
     qty: String(entry.qty),
     waste: String(entry.waste),
     gauge: entry.gauge,
+    zone: entry.zone,
     note: entry.note,
   };
 }
@@ -87,7 +100,8 @@ export function convertDraft(draft: Draft, from: UnitSystem, to: UnitSystem): Dr
   const values: Partial<Record<FieldKey, string>> = {};
   for (const field of spec.fields) {
     const raw = draft.values[field.key] ?? "";
-    values[field.key] = field.angle ? raw : toInputValue(toMm(toNumber(raw), from), to);
+    values[field.key] =
+      field.angle || field.count ? raw : toInputValue(toMm(toNumber(raw), from), to);
   }
   return { ...draft, values };
 }

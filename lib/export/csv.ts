@@ -1,5 +1,6 @@
-import { computeEntry, computeTotals } from "../duct/compute";
+import { computeFor, computeTotals } from "../duct/compute";
 import { SPECS } from "../duct/formulas";
+import { MATERIALS } from "../duct/material";
 import type { Project } from "../duct/types";
 import {
   areaUnit,
@@ -7,8 +8,11 @@ import {
   fromAreaMinor,
   fromMassMinor,
   fromMm,
+  fromRunMinor,
+  fromValueMinor,
   lengthUnit,
   massUnit,
+  runUnit,
 } from "../duct/units";
 import { wasteDetail } from "../duct/waste";
 
@@ -38,7 +42,30 @@ function cell(value: string | number): string {
 const row = (cells: (string | number)[]) => cells.map(cell).join(",");
 
 /** Every dimension key any fitting uses, so the columns line up across kinds. */
-const DIM_COLUMNS = ["w", "h", "l", "r", "theta", "o", "f", "w1", "h1", "w2", "h2", "w3"] as const;
+const DIM_COLUMNS = [
+  "w",
+  "h",
+  "l",
+  "r",
+  "theta",
+  "o",
+  "f",
+  "w1",
+  "h1",
+  "w2",
+  "h2",
+  "w3",
+  "d",
+  "d1",
+  "d2",
+  "gores",
+] as const;
+
+function dimUnit(key: string, len: string): string {
+  if (key === "theta") return "deg";
+  if (key === "gores") return "count";
+  return len;
+}
 
 export function toCsv(project: Project): string {
   const { units: us, mode } = project;
@@ -60,12 +87,19 @@ export function toCsv(project: Project): string {
   lines.push(row(["Units", us === "metric" ? "Metric (mm, m2, kg)" : "Imperial (in, ft2, lb)"]));
   lines.push("");
 
+  lines.push(row(["Material", MATERIALS[project.material].name]));
+  if (project.ancillaries.insulationMm > 0) {
+    lines.push(row(["Insulation", `${project.ancillaries.insulationMm} mm on the outer face`]));
+  }
+  lines.push("");
+
   lines.push(
     row([
       "#",
+      "Zone",
       "Fitting",
       "Qty",
-      ...DIM_COLUMNS.map((d) => `${d.toUpperCase()} (${d === "theta" ? "deg" : len})`),
+      ...DIM_COLUMNS.map((d) => `${d.toUpperCase()} (${dimUnit(d, len)})`),
       "Max dim",
       "Gauge",
       "Gauge source",
@@ -75,6 +109,13 @@ export function toCsv(project: Project): string {
       "Waste %",
       `Gross area (${areaUnit(us)})`,
       `Weight (${massUnit(us)})`,
+      `Insulation (${areaUnit(us)})`,
+      "Pieces",
+      "Flange ends",
+      `Flange (${runUnit(us)})`,
+      "Corners",
+      "Hangers",
+      `Value (${project.rates.label || "rate"})`,
       "Formula",
       "Working",
       "Note",
@@ -82,28 +123,38 @@ export function toCsv(project: Project): string {
   );
 
   project.entries.forEach((entry, i) => {
-    const r = computeEntry(entry, mode, us);
+    const r = computeFor(project, entry);
     const spec = SPECS[entry.fitting.kind];
     const dims = entry.fitting as unknown as Record<string, number | undefined>;
     lines.push(
       row([
         i + 1,
+        entry.zone,
         spec.name,
         entry.qty,
         ...DIM_COLUMNS.map((d) => {
           const v = dims[d];
           if (v === undefined) return "";
-          return d === "theta" ? v : Number(fromMm(v, us).toFixed(us === "metric" ? 1 : 3));
+          /* Angles and counts are not lengths and must not be converted. */
+          if (d === "theta" || d === "gores") return v;
+          return Number(fromMm(v, us).toFixed(us === "metric" ? 1 : 3));
         }),
         Number(fromMm(r.maxDimMm, us).toFixed(us === "metric" ? 1 : 3)),
         `${r.gauge} ga`,
-        r.gaugeAuto ? "table" : "manual override",
+        r.gaugeAuto ? (r.gaugeCaveat ? "table (rectangular, see notes)" : "table") : "manual override",
         r.thicknessMm,
         r.density,
         fromAreaMinor(r.netAreaMinor),
         entry.waste,
         fromAreaMinor(r.grossAreaMinor),
         fromMassMinor(r.massMinor),
+        r.insulationAreaMinor ? fromAreaMinor(r.insulationAreaMinor) : "",
+        r.pieces,
+        r.flangeEnds || "",
+        r.flangeRunMinor ? fromRunMinor(r.flangeRunMinor) : "",
+        r.corners || "",
+        r.supports || "",
+        r.valueMinor ? fromValueMinor(r.valueMinor) : "",
         r.expression,
         r.substitution,
         entry.note,
@@ -111,14 +162,54 @@ export function toCsv(project: Project): string {
     );
   });
 
-  const totals = computeTotals(project.entries, mode, us);
+  const totals = computeTotals(project);
 
   lines.push("");
-  lines.push(row(["Totals", "", totals.pieces, ...DIM_COLUMNS.map(() => "")]));
+  lines.push(row(["Totals"]));
+  lines.push(row(["Pieces", totals.pieces]));
   lines.push(row(["Net area", fromAreaMinor(totals.netAreaMinor), areaUnit(us)]));
   lines.push(row(["Waste", fromAreaMinor(totals.wasteAreaMinor), areaUnit(us)]));
   lines.push(row(["Gross area", fromAreaMinor(totals.grossAreaMinor), areaUnit(us)]));
   lines.push(row(["Weight", fromMassMinor(totals.massMinor), massUnit(us)]));
+  if (totals.insulationAreaMinor > 0) {
+    lines.push(row(["Insulation", fromAreaMinor(totals.insulationAreaMinor), areaUnit(us)]));
+  }
+  if (totals.flangeEnds > 0) {
+    lines.push(row(["Flange ends", totals.flangeEnds]));
+    lines.push(row(["Flange", fromRunMinor(totals.flangeRunMinor), runUnit(us)]));
+    if (totals.corners > 0) lines.push(row(["Corner pieces", totals.corners]));
+  }
+  if (totals.supports > 0) lines.push(row(["Hangers", totals.supports]));
+  if (totals.valueMinor > 0) {
+    lines.push(row(["Value", fromValueMinor(totals.valueMinor), project.rates.label]));
+  }
+
+  if (totals.byZone.some((z) => z.zone !== "")) {
+    lines.push("");
+    lines.push(row(["By zone"]));
+    lines.push(
+      row([
+        "Zone",
+        "Lines",
+        "Pieces",
+        `Gross area (${areaUnit(us)})`,
+        `Weight (${massUnit(us)})`,
+        `Value (${project.rates.label || "rate"})`,
+      ]),
+    );
+    for (const z of totals.byZone) {
+      lines.push(
+        row([
+          z.zone || "Not assigned",
+          z.lines,
+          z.pieces,
+          fromAreaMinor(z.grossAreaMinor),
+          fromMassMinor(z.massMinor),
+          z.valueMinor ? fromValueMinor(z.valueMinor) : "",
+        ]),
+      );
+    }
+  }
 
   lines.push("");
   lines.push(row(["By gauge"]));
@@ -154,13 +245,40 @@ export function toCsv(project: Project): string {
  * CSV footer and the printed BOQ sheet so the two can never disagree. */
 export function assumptions(project: Project): string[] {
   const detail = wasteDetail(project.waste);
+  const anc = project.ancillaries;
+  const hasRound = project.entries.some((e) => e.fitting.kind.startsWith("round-"));
   return [
+    ...(hasRound
+      ? [
+          "Round duct is graded on the RECTANGULAR gauge table, because that is the table this app has. SMACNA publishes a separate and generally lighter one for round and spiral duct, so these figures over-specify it. Override the gauge on any line where your specification differs.",
+        ]
+      : []),
+    ...(anc.insulationMm > 0
+      ? [
+          `Insulation is measured on the outer face at ${anc.insulationMm} mm: the billing formula re-run with every cross-section dimension grown by twice the thickness, with the centreline unmoved.`,
+        ]
+      : []),
+    ...(anc.standardLengthMm > 0
+      ? [
+          `Flanges are counted as two ends per piece, a straight run being as many pieces as a ${anc.standardLengthMm} mm supplied length divides into. Corner pieces are four per rectangular end; round flanges have none.`,
+        ]
+      : []),
+    ...(anc.supportSpacingMm > 0
+      ? [
+          `Hangers are one per piece plus one for every further full ${anc.supportSpacingMm} mm of centreline run.`,
+        ]
+      : []),
+    ...(project.rates.perKg > 0 || project.rates.perM2 > 0
+      ? [
+          "Values are the estimator's own rates applied to these quantities. They are not a price this app produced.",
+        ]
+      : []),
     project.mode === "billing"
       ? "Areas are measured to the commercial billing standard: nominal mean perimeter x centreline length (BOQ / IS 655 / DW144 practice)."
       : "Areas are the true unfolded sheet blank, including slant hypotenuses and heel arc expansion. They are not a billing quantity.",
     `Default waste allowance ${project.waste}%${detail ? ` - ${detail}` : ""}. Individual lines may override it; each row states its own.`,
     "Gauge is selected from the largest single duct dimension only. Real SMACNA selection also depends on pressure class and reinforcement spacing - check against the project specification. Any line may override the gauge by hand.",
-    "Sheet weight is bare steel at 7850 kg/m3 and excludes the galvanising coating, stiffeners, flanges, gaskets and fixings.",
+    `Sheet weight is ${MATERIALS[project.material].name.toLowerCase()} at ${MATERIALS[project.material].density} kg/m3, on the gross area. It excludes any coating, stiffeners, flange steel, gaskets and fixings.`,
     "Sheet counts are a nesting estimate: gross area divided by one 1200x2400 mm (4x8 ft) sheet, rounded up, per gauge. They ignore offcut reuse and blank shape.",
     "Reducers are calculated as concentric transitions. Y-piece shop areas develop each branch as an elbow on its own width and exclude the crotch plate.",
   ];

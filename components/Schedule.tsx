@@ -1,11 +1,11 @@
 "use client";
 
 import { Copy, Pencil, X } from "lucide-react";
-import { computeEntry } from "@/lib/duct/compute";
+import { computeFor } from "@/lib/duct/compute";
 import { describeFitting } from "@/lib/duct/describe";
 import { SPECS } from "@/lib/duct/formulas";
-import type { Entry, Mode } from "@/lib/duct/types";
-import { type UnitSystem, areaUnit, fmtArea, fmtMass, massUnit } from "@/lib/duct/units";
+import type { Project } from "@/lib/duct/types";
+import { areaUnit, fmtArea, fmtMass, massUnit } from "@/lib/duct/units";
 import FittingGlyph from "./FittingGlyph";
 
 /* The takeoff schedule.
@@ -53,29 +53,31 @@ function Actions({
 }
 
 export default function Schedule({
-  entries,
-  mode,
-  units,
+  project,
   editingId,
   onEdit,
   onDuplicate,
   onRemove,
 }: {
-  entries: Entry[];
-  mode: Mode;
-  units: UnitSystem;
+  /* The whole project, not (entries, mode, units): the weight depends on the
+   * material and the value on the rates, and a component that took only the
+   * three obvious props would compute a plausible wrong number for an
+   * aluminium job. */
+  project: Project;
   editingId: string | null;
   onEdit: (id: string) => void;
   onDuplicate: (id: string) => void;
   onRemove: (id: string) => void;
 }) {
+  const units = project.units;
   const au = areaUnit(units);
   const mu = massUnit(units);
+  const showZone = project.entries.some((e) => e.zone.trim() !== "");
 
-  const rows = entries.map((entry, i) => ({
+  const rows = project.entries.map((entry, i) => ({
     entry,
     index: i + 1,
-    result: computeEntry(entry, mode, units),
+    result: computeFor(project, entry),
     name: SPECS[entry.fitting.kind].name,
     dims: describeFitting(entry.fitting, units),
   }));
@@ -86,7 +88,7 @@ export default function Schedule({
       <div className="hidden overflow-x-auto lg:block">
         <table className="w-full border-collapse text-left">
           <caption className="sr-only">
-            Takeoff schedule, {mode === "billing" ? "billing" : "shop"} standard
+            Takeoff schedule, {project.mode === "billing" ? "billing" : "shop"} standard
           </caption>
           <thead>
             <tr className="border-b-[1.5px] border-line text-small">
@@ -132,7 +134,14 @@ export default function Schedule({
                   <div className="flex items-start gap-3">
                     <FittingGlyph kind={entry.fitting.kind} className="mt-0.5 shrink-0 text-accent" />
                     <div>
-                      <p className="font-medium text-heading">{name}</p>
+                      <p className="font-medium text-heading">
+                        {name}
+                        {showZone && entry.zone.trim() && (
+                          <span className="ml-2 rounded-full border border-rule px-2 py-0.5 text-small font-normal text-body">
+                            {entry.zone.trim()}
+                          </span>
+                        )}
+                      </p>
                       <p className="text-small tabular-nums text-body">{dims}</p>
                       {entry.note && <p className="text-small text-muted">{entry.note}</p>}
                     </div>
@@ -182,6 +191,9 @@ export default function Schedule({
                     {name} <span className="tabular-nums text-body">×{entry.qty}</span>
                   </p>
                   <p className="text-small tabular-nums text-body">{dims}</p>
+                  {showZone && entry.zone.trim() && (
+                    <p className="text-small text-body">{entry.zone.trim()}</p>
+                  )}
                   {entry.note && <p className="text-small text-muted">{entry.note}</p>}
                 </div>
               </div>

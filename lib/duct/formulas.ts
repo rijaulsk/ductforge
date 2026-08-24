@@ -6,6 +6,9 @@ import type {
   Fitting,
   FittingKind,
   Reducer,
+  RoundElbow,
+  RoundReducer,
+  RoundStraight,
   Straight,
   Wye,
 } from "./types";
@@ -19,9 +22,9 @@ import {
 /* THE FORMULA REGISTRY — the single source of truth for the arithmetic.
  *
  * Everything that talks about a formula reads from here: the calculator, the
- * "show your working" line under the result, and the /standards page. There is
- * no second copy of a formula anywhere in this repo, because the day there is,
- * one of them starts being wrong.
+ * "show your working" line under the result, the ancillary quantities and the
+ * /standards page. There is no second copy of a formula anywhere in this repo,
+ * because the day there is, one of them starts being wrong.
  *
  * TWO MEASUREMENT STANDARDS, deliberately kept apart:
  *
@@ -53,12 +56,32 @@ type Formula<T extends Fitting> = {
 
 type Spec<T extends Fitting> = {
   kind: T["kind"];
+  /** Which picker group it belongs to. */
+  group: "rectangular" | "round";
   name: string;
   blurb: string;
   fields: FieldSpec[];
   defaults: T;
   /** Largest single duct dimension — what the gauge table is graded on. */
   maxDim: (f: T) => number;
+  /**
+   * Length along the duct this piece occupies. Drives the hanger count and,
+   * for straight runs, how many standard-length pieces it is made from.
+   */
+  centreline: (f: T) => number;
+  /** Mean end perimeter — the flange material one end connection needs. */
+  perimeter: (f: T) => number;
+  /**
+   * The same fitting with every CROSS-SECTION dimension grown by `delta`,
+   * used to measure insulation on its outer face.
+   *
+   * Radii shrink by half the delta and lengths do not move, which is what
+   * keeps the duct's centreline where it is: an elbow of inside radius R and
+   * width W has centreline radius R + W/2, and lagging it gives (R − t) with
+   * width (W + 2t) — the same R + W/2. Get this wrong and insulating a bend
+   * silently lengthens it.
+   */
+  inflate: (f: T, delta: number) => T;
   billing: Formula<T>;
   shop: Formula<T>;
   /** One honest sentence about a non-obvious behaviour, shown beside the result. */
@@ -72,10 +95,14 @@ const mk = (us: UnitSystem) => {
   return { L, S };
 };
 
+/** Insulation must never drive a radius negative. */
+const shrink = (r: number, delta: number) => Math.max(0, r - delta / 2);
+
 /* ---- straight duct ---------------------------------------------------- */
 
 const straight: Spec<Straight> = {
   kind: "straight",
+  group: "rectangular",
   name: "Straight duct",
   blurb: "A plain rectangular run.",
   fields: [
@@ -85,6 +112,9 @@ const straight: Spec<Straight> = {
   ],
   defaults: { kind: "straight", w: 600, h: 400, l: 3000 },
   maxDim: (f) => Math.max(f.w, f.h),
+  centreline: (f) => f.l,
+  perimeter: (f) => 2 * (f.w + f.h),
+  inflate: (f, d) => ({ ...f, w: f.w + d, h: f.h + d }),
   billing: {
     expression: "A = 2(W + H) × L",
     compute: (f) => 2 * (f.w + f.h) * f.l,
@@ -108,6 +138,7 @@ const straight: Spec<Straight> = {
 
 const reducer: Spec<Reducer> = {
   kind: "reducer",
+  group: "rectangular",
   name: "Reducer",
   blurb: "Transition between two rectangular sizes.",
   fields: [
@@ -119,6 +150,15 @@ const reducer: Spec<Reducer> = {
   ],
   defaults: { kind: "reducer", w1: 800, h1: 400, w2: 500, h2: 300, l: 600 },
   maxDim: (f) => Math.max(f.w1, f.h1, f.w2, f.h2),
+  centreline: (f) => f.l,
+  perimeter: (f) => f.w1 + f.h1 + f.w2 + f.h2,
+  inflate: (f, d) => ({
+    ...f,
+    w1: f.w1 + d,
+    h1: f.h1 + d,
+    w2: f.w2 + d,
+    h2: f.h2 + d,
+  }),
   billing: {
     expression: "A = (W₁ + H₁ + W₂ + H₂) × L",
     compute: (f) => (f.w1 + f.h1 + f.w2 + f.h2) * f.l,
@@ -155,6 +195,7 @@ const elbowThroat = (f: Elbow) => rad(f.theta) * f.r * f.h;
 
 const elbow: Spec<Elbow> = {
   kind: "elbow",
+  group: "rectangular",
   name: "Elbow",
   blurb: "Radiused bend through an angle.",
   fields: [
@@ -170,6 +211,9 @@ const elbow: Spec<Elbow> = {
   ],
   defaults: { kind: "elbow", w: 600, h: 400, r: 300, theta: 90 },
   maxDim: (f) => Math.max(f.w, f.h),
+  centreline: (f) => rad(f.theta) * (f.r + f.w / 2),
+  perimeter: (f) => 2 * (f.w + f.h),
+  inflate: (f, d) => ({ ...f, w: f.w + d, h: f.h + d, r: shrink(f.r, d) }),
   billing: {
     expression: "A = 2(W + H) × [θπ/180 × (R + W/2)]",
     compute: (f) => 2 * (f.w + f.h) * rad(f.theta) * (f.r + f.w / 2),
@@ -195,6 +239,7 @@ const elbow: Spec<Elbow> = {
 
 const dropper: Spec<Dropper> = {
   kind: "dropper",
+  group: "rectangular",
   name: "Dropper",
   blurb: "Offset or swan neck.",
   fields: [
@@ -205,6 +250,9 @@ const dropper: Spec<Dropper> = {
   ],
   defaults: { kind: "dropper", w: 600, h: 400, l: 900, o: 300 },
   maxDim: (f) => Math.max(f.w, f.h),
+  centreline: (f) => Math.hypot(f.l, f.o),
+  perimeter: (f) => 2 * (f.w + f.h),
+  inflate: (f, d) => ({ ...f, w: f.w + d, h: f.h + d }),
   billing: {
     expression: "A = 2(W + H) × √(L² + O²)",
     compute: (f) => 2 * (f.w + f.h) * Math.hypot(f.l, f.o),
@@ -228,6 +276,7 @@ const dropper: Spec<Dropper> = {
 
 const collar: Spec<Collar> = {
   kind: "collar",
+  group: "rectangular",
   name: "Collar",
   blurb: "Branch takeoff with a flange lip.",
   fields: [
@@ -238,6 +287,9 @@ const collar: Spec<Collar> = {
   ],
   defaults: { kind: "collar", w: 300, h: 300, l: 250, f: 35 },
   maxDim: (f) => Math.max(f.w, f.h),
+  centreline: (f) => f.l,
+  perimeter: (f) => 2 * (f.w + f.h),
+  inflate: (f, d) => ({ ...f, w: f.w + d, h: f.h + d }),
   billing: {
     expression: "A = 2(W + H) × (L + F)",
     compute: (f) => 2 * (f.w + f.h) * (f.l + f.f),
@@ -269,6 +321,7 @@ const wyeBranchShop = (h: number, wn: number, r: number, theta: number) =>
 
 const wye: Spec<Wye> = {
   kind: "wye",
+  group: "rectangular",
   name: "Y-piece",
   blurb: "Trouser splitting one duct into two.",
   fields: [
@@ -281,6 +334,16 @@ const wye: Spec<Wye> = {
   ],
   defaults: { kind: "wye", w1: 800, h: 400, w2: 500, w3: 400, r: 250, theta: 45 },
   maxDim: (f) => Math.max(f.w1, f.h, f.w2, f.w3),
+  centreline: (f) => rad(f.theta) * (f.r + Math.max(f.w2, f.w3) / 2),
+  perimeter: (f) => 2 * (f.w1 + f.h),
+  inflate: (f, d) => ({
+    ...f,
+    w1: f.w1 + d,
+    h: f.h + d,
+    w2: f.w2 + d,
+    w3: f.w3 + d,
+    r: shrink(f.r, d),
+  }),
   billing: {
     expression:
       "A = A_B1 + A_B2,  A_Bn = (W₁/2 + H + Wₙ + H) × θπ/180·(R + Wₙ/2)",
@@ -305,12 +368,134 @@ const wye: Spec<Wye> = {
   note: "OUR STATED INTERPRETATION, not a published formula: the source specification gives the Y-piece shop area only as “sectors + heels + throats” with no sub-formulas, so each branch is developed as an elbow on its own width. The crotch (splitter) plate is NOT included — add it as a separate straight entry if your shop cuts one. Note also that the two standards cross over at Wₙ = W₁/2: a branch narrower than half the main duct bills for more than it cuts, because the billing perimeter averages in the main's half width.",
 };
 
+/* ---- round straight ------------------------------------------------------ */
+
+const roundStraight: Spec<RoundStraight> = {
+  kind: "round-straight",
+  group: "round",
+  name: "Round duct",
+  blurb: "A plain round or spiral run.",
+  fields: [
+    { key: "d", symbol: "D", label: "Diameter" },
+    { key: "l", symbol: "L", label: "Length" },
+  ],
+  defaults: { kind: "round-straight", d: 400, l: 3000 },
+  maxDim: (f) => f.d,
+  centreline: (f) => f.l,
+  perimeter: (f) => Math.PI * f.d,
+  inflate: (f, d) => ({ ...f, d: f.d + d }),
+  billing: {
+    expression: "A = πD × L",
+    compute: (f) => Math.PI * f.d * f.l,
+    substitute: (f, us) => {
+      const { L } = mk(us);
+      return `π × ${L(f.d)} × ${L(f.l)}`;
+    },
+  },
+  shop: {
+    expression: "A = πD × L",
+    compute: (f) => Math.PI * f.d * f.l,
+    substitute: (f, us) => {
+      const { L } = mk(us);
+      return `π × ${L(f.d)} × ${L(f.l)}`;
+    },
+  },
+  note: "A cylinder unrolls flat with no distortion at all, so the blank is exactly πD wide by L long and both standards agree. Spiral-wound duct is made from a continuous strip rather than this blank — the AREA is the same, the cutting is not.",
+};
+
+/* ---- round elbow --------------------------------------------------------- */
+
+const roundElbow: Spec<RoundElbow> = {
+  kind: "round-elbow",
+  group: "round",
+  name: "Round elbow",
+  blurb: "Gored bend in round duct.",
+  fields: [
+    { key: "d", symbol: "D", label: "Diameter" },
+    {
+      key: "r",
+      symbol: "R",
+      label: "Centreline radius",
+      hint: "Round duct convention — commonly 1.5 × D",
+    },
+    { key: "theta", symbol: "θ", label: "Angle", angle: true },
+    {
+      key: "gores",
+      symbol: "n",
+      label: "Gores",
+      count: true,
+      hint: "Segments the bend is welded from. Changes the blanks, not the area.",
+    },
+  ],
+  defaults: { kind: "round-elbow", d: 400, r: 600, theta: 90, gores: 4 },
+  maxDim: (f) => f.d,
+  centreline: (f) => rad(f.theta) * f.r,
+  perimeter: (f) => Math.PI * f.d,
+  /* R is already the CENTRELINE radius here, so lagging the duct does not move
+   * it — unlike the rectangular elbow, whose R is the throat. */
+  inflate: (f, d) => ({ ...f, d: f.d + d }),
+  billing: {
+    expression: "A = πD × [θπ/180 × R]",
+    compute: (f) => Math.PI * f.d * rad(f.theta) * f.r,
+    substitute: (f, us) => {
+      const { L } = mk(us);
+      return `π × ${L(f.d)} × ${L(rad(f.theta) * f.r)} centreline`;
+    },
+  },
+  shop: {
+    expression: "A = πD × [θπ/180 × R]",
+    compute: (f) => Math.PI * f.d * rad(f.theta) * f.r,
+    substitute: (f, us) => {
+      const { L } = mk(us);
+      return `π × ${L(f.d)} × ${L(rad(f.theta) * f.r)} centreline`;
+    },
+  },
+  note: "Both standards agree, by Pappus's theorem: a constant section swept about an axis develops to exactly its perimeter times the path of its centroid. The gore count changes the BLANKS — each gore is a cylinder cut at an angle, so its edges unroll as sine curves — and therefore the cutting waste, but never the surface area.",
+};
+
+/* ---- round reducer ------------------------------------------------------- */
+
+const roundReducer: Spec<RoundReducer> = {
+  kind: "round-reducer",
+  group: "round",
+  name: "Round reducer",
+  blurb: "Concentric cone between two diameters.",
+  fields: [
+    { key: "d1", symbol: "D₁", label: "Inlet diameter" },
+    { key: "d2", symbol: "D₂", label: "Outlet diameter" },
+    { key: "l", symbol: "L", label: "Length" },
+  ],
+  defaults: { kind: "round-reducer", d1: 500, d2: 300, l: 400 },
+  maxDim: (f) => Math.max(f.d1, f.d2),
+  centreline: (f) => f.l,
+  perimeter: (f) => (Math.PI * (f.d1 + f.d2)) / 2,
+  inflate: (f, d) => ({ ...f, d1: f.d1 + d, d2: f.d2 + d }),
+  billing: {
+    expression: "A = π(D₁ + D₂)/2 × L",
+    compute: (f) => ((Math.PI * (f.d1 + f.d2)) / 2) * f.l,
+    substitute: (f, us) => {
+      const { L } = mk(us);
+      return `π × (${L(f.d1)} + ${L(f.d2)})/2 × ${L(f.l)}`;
+    },
+  },
+  shop: {
+    expression: "A = π(D₁ + D₂)/2 × √(L² + ((D₁−D₂)/2)²)",
+    compute: (f) =>
+      ((Math.PI * (f.d1 + f.d2)) / 2) * Math.hypot(f.l, (f.d1 - f.d2) / 2),
+    substitute: (f, us) => {
+      const { L } = mk(us);
+      return `π × (${L(f.d1)} + ${L(f.d2)})/2 × ${L(Math.hypot(f.l, (f.d1 - f.d2) / 2))} slant`;
+    },
+  },
+  note: "The blank is an annular sector — the classic cone development — so the shop area is the mean circumference times the SLANT height, not the length. Concentric only: an eccentric cone has a different development on each side and is not modelled here.",
+};
+
 /* ---- the registry ------------------------------------------------------ */
 
 /* The generic is erased exactly here, once. `SPECS[f.kind]` is the only way to
  * reach a spec, and the key IS the discriminant, so a spec can never be handed
  * a fitting of another kind. Writing the union into the Spec type instead would
- * make every `compute` contravariant and force six casts inside the formulas —
+ * make every `compute` contravariant and force casts inside the formulas —
  * where a mistake would be a wrong number rather than a type error. */
 type AnySpec = Spec<Fitting>;
 
@@ -321,6 +506,9 @@ export const SPECS: Record<FittingKind, AnySpec> = {
   dropper: dropper as unknown as AnySpec,
   collar: collar as unknown as AnySpec,
   wye: wye as unknown as AnySpec,
+  "round-straight": roundStraight as unknown as AnySpec,
+  "round-elbow": roundElbow as unknown as AnySpec,
+  "round-reducer": roundReducer as unknown as AnySpec,
 };
 
 export const FITTING_KINDS: readonly FittingKind[] = [
@@ -330,8 +518,20 @@ export const FITTING_KINDS: readonly FittingKind[] = [
   "dropper",
   "collar",
   "wye",
+  "round-straight",
+  "round-elbow",
+  "round-reducer",
 ];
+
+export const RECTANGULAR_KINDS = FITTING_KINDS.filter(
+  (k) => SPECS[k].group === "rectangular",
+);
+export const ROUND_KINDS = FITTING_KINDS.filter((k) => SPECS[k].group === "round");
 
 export function specFor(kind: FittingKind): AnySpec {
   return SPECS[kind];
+}
+
+export function isRound(kind: FittingKind): boolean {
+  return SPECS[kind].group === "round";
 }

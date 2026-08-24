@@ -4,8 +4,8 @@ import { Plus, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { ViewKind } from "@/lib/draw";
-import { computeEntry, computeTotals } from "@/lib/duct/compute";
-import { FITTING_KINDS, SPECS } from "@/lib/duct/formulas";
+import { computeFor, computeTotals } from "@/lib/duct/compute";
+import { RECTANGULAR_KINDS, ROUND_KINDS, SPECS } from "@/lib/duct/formulas";
 import { toQty, toWaste } from "@/lib/duct/parse";
 import type { Entry, FittingKind, Project } from "@/lib/duct/types";
 import { type Draft, convertDraft, draftFromEntry, fittingFromValues, newDraft } from "@/lib/draft";
@@ -19,6 +19,7 @@ import ChartsPanel from "./ChartsPanel";
 import FittingGlyph from "./FittingGlyph";
 import ParamForm from "./ParamForm";
 import ProjectBar from "./ProjectBar";
+import ProjectSettings from "./ProjectSettings";
 import ResultPanel from "./ResultPanel";
 import Schedule from "./Schedule";
 import SiteFooter from "./SiteFooter";
@@ -125,8 +126,10 @@ export default function Workspace() {
 
   /* ---- the draft --------------------------------------------------------- */
 
+  /* The zone carries across a fitting change. Someone taking off AHU-1 works
+   * through a dozen fittings in that zone and should not retype it each time. */
   const pickKind = (kind: FittingKind) => {
-    setDraft(newDraft(kind, project.waste, project.units));
+    setDraft(newDraft(kind, project.waste, project.units, draft.zone));
     setEditingId(null);
   };
 
@@ -137,9 +140,10 @@ export default function Workspace() {
     qty: toQty(draft.qty),
     waste: toWaste(draft.waste),
     gauge: draft.gauge,
+    zone: draft.zone.trim(),
     note: draft.note.trim(),
   };
-  const preview = computeEntry(previewEntry, project.mode, project.units);
+  const preview = computeFor(project, previewEntry);
 
   const commit = () => {
     if (editingId) {
@@ -187,8 +191,13 @@ export default function Workspace() {
       safeFilename(project.name, "json"),
     );
 
-  const totals = computeTotals(project.entries, project.mode, project.units);
+  const totals = computeTotals(project);
   const spec = SPECS[draft.kind];
+  /* Zone names already in play, offered back on the form so a job does not end
+   * up with AHU-1, AHU 1 and ahu-1 as three separate zones. */
+  const zones = [
+    ...new Set(project.entries.map((e) => e.zone.trim()).filter(Boolean)),
+  ].sort();
 
   /* Everything below the fold of this branch is what a crawler and a slow first
    * paint actually get, because the workspace itself cannot render until the
@@ -257,27 +266,37 @@ export default function Workspace() {
         <div className="grid gap-6 lg:grid-cols-12 lg:gap-8">
           <Card as="section" className="lg:col-span-5">
             <PanelHeading eyebrow="Step one" title="Choose a fitting" />
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {FITTING_KINDS.map((kind) => {
-                const on = kind === draft.kind;
-                return (
-                  <button
-                    key={kind}
-                    type="button"
-                    aria-pressed={on}
-                    onClick={() => pickKind(kind)}
-                    className={`flex flex-col items-center gap-2 rounded-card border-[1.5px] px-3 py-3 text-small font-medium transition duration-200 ease-out ${
-                      on
-                        ? "border-line bg-heading text-page"
-                        : "border-rule text-heading hover:border-line hover:bg-sunk"
-                    }`}
-                  >
-                    <FittingGlyph kind={kind} />
-                    {SPECS[kind].name}
-                  </button>
-                );
-              })}
-            </div>
+            {(
+              [
+                ["Rectangular", RECTANGULAR_KINDS],
+                ["Round and spiral", ROUND_KINDS],
+              ] as const
+            ).map(([groupLabel, kinds]) => (
+              <div key={groupLabel} className="mb-5 last:mb-0">
+                <p className="mb-2 text-small text-muted">{groupLabel}</p>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {kinds.map((kind) => {
+                    const on = kind === draft.kind;
+                    return (
+                      <button
+                        key={kind}
+                        type="button"
+                        aria-pressed={on}
+                        onClick={() => pickKind(kind)}
+                        className={`flex flex-col items-center gap-2 rounded-card border-[1.5px] px-3 py-3 text-center text-small font-medium transition duration-200 ease-out ${
+                          on
+                            ? "border-line bg-heading text-page"
+                            : "border-rule text-heading hover:border-line hover:bg-sunk"
+                        }`}
+                      >
+                        <FittingGlyph kind={kind} />
+                        {SPECS[kind].name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
 
             <div className="mt-7 border-t-[1.5px] border-rule pt-7">
               <div className="mb-5 text-center lg:text-left">
@@ -285,7 +304,12 @@ export default function Workspace() {
                 <h2 className="mt-2 text-h3 font-bold text-heading">{spec.name} dimensions</h2>
                 <p className="mt-1 text-small text-body">{spec.blurb}</p>
               </div>
-              <ParamForm draft={draft} units={project.units} onChange={setDraft} />
+              <ParamForm
+                draft={draft}
+                units={project.units}
+                zones={zones}
+                onChange={setDraft}
+              />
             </div>
 
             <div className="mt-7 flex flex-wrap items-center gap-3 border-t-[1.5px] border-rule pt-7">
@@ -298,7 +322,7 @@ export default function Workspace() {
                 <Button
                   onClick={() => {
                     setEditingId(null);
-                    setDraft(newDraft(draft.kind, project.waste, project.units));
+                    setDraft(newDraft(draft.kind, project.waste, project.units, draft.zone));
                   }}
                 >
                   <RotateCcw size={16} strokeWidth={1.5} /> Cancel
@@ -344,6 +368,17 @@ export default function Workspace() {
           </Card>
         </div>
 
+        {/* Keyed on the unit system so switching metric ↔ imperial remounts it
+          * and its raw-string inputs re-seed from the project. Cheaper and
+          * clearer than an effect syncing props into state. */}
+        <div className="mt-8">
+          <ProjectSettings
+            key={`${project.id}-${project.units}`}
+            project={project}
+            onPatch={patchProject}
+          />
+        </div>
+
         <section className="mt-10 lg:mt-14">
           <PanelHeading
             eyebrow="Schedule"
@@ -365,9 +400,7 @@ export default function Workspace() {
             </div>
           ) : (
             <Schedule
-              entries={project.entries}
-              mode={project.mode}
-              units={project.units}
+              project={project}
               editingId={editingId}
               onEdit={editEntry}
               onDuplicate={duplicateEntry}
@@ -380,7 +413,7 @@ export default function Workspace() {
           <>
             <section className="mt-10 lg:mt-14">
               <PanelHeading eyebrow="Totals" title="Material to order" />
-              <Totals totals={totals} units={project.units} />
+              <Totals totals={totals} project={project} />
             </section>
 
             <section className="mt-10 lg:mt-14">

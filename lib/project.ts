@@ -1,6 +1,17 @@
 import { GAUGE_NAMES } from "./duct/gauge";
 import { SPECS } from "./duct/formulas";
-import type { Entry, Fitting, FittingKind, GaugeName, Mode, Project } from "./duct/types";
+import { MATERIAL_KEYS } from "./duct/material";
+import type {
+  Ancillaries,
+  Entry,
+  Fitting,
+  FittingKind,
+  GaugeName,
+  MaterialKey,
+  Mode,
+  Project,
+  Rates,
+} from "./duct/types";
 import type { UnitSystem } from "./duct/units";
 import { DEFAULT_WASTE } from "./duct/waste";
 
@@ -22,6 +33,20 @@ export function newId(): string {
   return crypto.randomUUID();
 }
 
+/* Every derived quantity is OFF by default.
+ *
+ * A takeoff that arrives with insulation already counted, at a thickness
+ * nobody chose, is a takeoff with a number in it that no human decided. The
+ * estimator switches each of these on and says what it is; until then the
+ * schedule contains only what they typed. */
+export const NO_ANCILLARIES: Ancillaries = {
+  insulationMm: 0,
+  standardLengthMm: 0,
+  supportSpacingMm: 0,
+};
+
+export const NO_RATES: Rates = { perKg: 0, perM2: 0, label: "" };
+
 export function blankProject(name = "Untitled takeoff"): Project {
   return {
     id: newId(),
@@ -30,18 +55,22 @@ export function blankProject(name = "Untitled takeoff"): Project {
     units: "metric",
     mode: "billing",
     waste: DEFAULT_WASTE,
+    material: "gi",
+    ancillaries: { ...NO_ANCILLARIES },
+    rates: { ...NO_RATES },
     entries: [],
     updatedAt: Date.now(),
   };
 }
 
-export function newEntry(kind: FittingKind, waste: number): Entry {
+export function newEntry(kind: FittingKind, waste: number, zone = ""): Entry {
   return {
     id: newId(),
     fitting: { ...SPECS[kind].defaults },
     qty: 1,
     waste,
     gauge: null,
+    zone,
     note: "",
   };
 }
@@ -85,7 +114,26 @@ function reviveEntry(v: unknown, projectWaste: number): Entry | null {
     qty: Math.max(1, Math.floor(num(v.qty, 1))),
     waste: Math.min(100, num(v.waste, projectWaste)),
     gauge,
+    zone: str(v.zone),
     note: str(v.note),
+  };
+}
+
+function reviveAncillaries(v: unknown): Ancillaries {
+  if (!isObject(v)) return { ...NO_ANCILLARIES };
+  return {
+    insulationMm: Math.min(500, num(v.insulationMm, 0)),
+    standardLengthMm: Math.min(12_000, num(v.standardLengthMm, 0)),
+    supportSpacingMm: Math.min(12_000, num(v.supportSpacingMm, 0)),
+  };
+}
+
+function reviveRates(v: unknown): Rates {
+  if (!isObject(v)) return { ...NO_RATES };
+  return {
+    perKg: num(v.perKg, 0),
+    perM2: num(v.perM2, 0),
+    label: str(v.label).slice(0, 8),
   };
 }
 
@@ -98,6 +146,10 @@ export function reviveProject(v: unknown): Project | null {
   const entries = rawEntries
     .map((e) => reviveEntry(e, waste))
     .filter((e): e is Entry => e !== null);
+  const material: MaterialKey =
+    typeof v.material === "string" && (MATERIAL_KEYS as readonly string[]).includes(v.material)
+      ? (v.material as MaterialKey)
+      : "gi";
   return {
     id: str(v.id) || newId(),
     name: str(v.name, "Untitled takeoff"),
@@ -105,6 +157,9 @@ export function reviveProject(v: unknown): Project | null {
     units,
     mode,
     waste,
+    material,
+    ancillaries: reviveAncillaries(v.ancillaries),
+    rates: reviveRates(v.rates),
     entries,
     updatedAt: num(v.updatedAt, Date.now()),
   };

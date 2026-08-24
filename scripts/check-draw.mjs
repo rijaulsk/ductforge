@@ -146,6 +146,16 @@ const DEGENERATE = [
   ["wye, 90 degree branches", { kind: "wye", w1: 800, h: 400, w2: 400, w3: 400, r: 200, theta: 90 }],
   ["wye, zero radius", { kind: "wye", w1: 800, h: 400, w2: 500, w3: 400, r: 0, theta: 45 }],
   ["wye, tiny branch", { kind: "wye", w1: 2000, h: 400, w2: 100, w3: 100, r: 100, theta: 30 }],
+  ["round duct, zero length", { kind: "round-straight", d: 400, l: 0 }],
+  ["round elbow, two gores", { kind: "round-elbow", d: 400, r: 600, theta: 90, gores: 2 }],
+  ["round elbow, sixteen gores", { kind: "round-elbow", d: 400, r: 600, theta: 90, gores: 16 }],
+  ["round elbow, tight radius", { kind: "round-elbow", d: 600, r: 300, theta: 90, gores: 4 }],
+  ["round elbow, 180 degrees", { kind: "round-elbow", d: 300, r: 450, theta: 180, gores: 6 }],
+  /* The cone development divides by (r1 − r2), so a reducer that reduces
+   * nothing is a division by zero unless the degenerate branch catches it. */
+  ["round reducer, no taper", { kind: "round-reducer", d1: 400, d2: 400, l: 600 }],
+  ["round reducer, flat annulus", { kind: "round-reducer", d1: 800, d2: 300, l: 0 }],
+  ["round reducer, growing", { kind: "round-reducer", d1: 200, d2: 900, l: 400 }],
 ];
 for (const [label, fitting] of DEGENERATE) {
   for (const view of VIEWS) {

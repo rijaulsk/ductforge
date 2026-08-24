@@ -29,6 +29,8 @@ export const MASS_DECIMALS = 2; // 0.01 kg / lb
 
 export const AREA_SCALE = 1000; // minor units per display area unit
 export const MASS_SCALE = 100; // minor units per display mass unit
+export const RUN_SCALE = 100; // minor units per metre / foot
+export const VALUE_SCALE = 100; // minor units per whatever the rate is in
 
 export function lengthUnit(us: UnitSystem): string {
   return us === "metric" ? "mm" : "in";
@@ -48,6 +50,16 @@ export function massUnit(us: UnitSystem): string {
 
 export function densityUnit(us: UnitSystem): string {
   return us === "metric" ? "kg/m²" : "lb/ft²";
+}
+
+/** Running length — flange material, duct run. Metres or feet, never mm: a
+ * flange schedule reading "184,000 mm" is a number nobody can price. */
+export function runUnit(us: UnitSystem): string {
+  return us === "metric" ? "m" : "ft";
+}
+
+export function runFromMm(mm: number, us: UnitSystem): number {
+  return us === "metric" ? mm / 1000 : mm / (12 * MM_PER_INCH);
 }
 
 /** A length the user typed, in their units → millimetres. */
@@ -117,6 +129,30 @@ export function fmtArea(minor: number): string {
 
 export function fmtMass(minor: number): string {
   return fmt(fromMassMinor(minor), MASS_DECIMALS);
+}
+
+export function toRunMinor(run: number): number {
+  return Math.round(run * RUN_SCALE);
+}
+
+export function fromRunMinor(minor: number): number {
+  return minor / RUN_SCALE;
+}
+
+export function fmtRun(minor: number): string {
+  return fmt(fromRunMinor(minor), 2);
+}
+
+export function toValueMinor(value: number): number {
+  return Math.round(value * VALUE_SCALE);
+}
+
+export function fromValueMinor(minor: number): number {
+  return minor / VALUE_SCALE;
+}
+
+export function fmtValue(minor: number): string {
+  return fmt(fromValueMinor(minor), 2);
 }
 
 /**
