@@ -19,6 +19,10 @@ const PATHS: Record<FittingKind, string> = {
   "round-straight": "M3 8 H34 M3 20 H34 M34 14 a4 6 0 1 0 0.01 0 M3 14 a4 6 0 1 0 0.01 0",
   "round-elbow": "M3 24 V14 A11 11 0 0 1 14 3 H24 M13 24 V14 A1 1 0 0 1 14 13 H24 M24 3 a2 5 0 1 0 0.01 0 M3 24 a5 2 0 1 0 0 0.01",
   "round-reducer": "M4 5 L34 11 M4 23 L34 17 M4 14 a3 9 0 1 0 0.01 0 M34 14 a2 3 0 1 0 0.01 0",
+  /* Square one end, round the other — the mark has to show both or it reads as
+   * any other reducer. */
+  "square-to-round":
+    "M5 4 V24 M5 4 H9 M5 24 H9 M9 4 L33 10 M9 24 L33 18 M33 14 a2 4 0 1 0 0.01 0",
 };
 
 /* The reducer mark needs its taper drawn rather than a parallel pair. */

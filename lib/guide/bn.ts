@@ -56,13 +56,13 @@ export const bn: Guide = {
     {
       title: "ফিটিং বাছুন",
       body: [
-        "ছ'টা rectangular, তিনটে round। সোজা রান হলে Straight; সাইজ বদলালে Reducer; ঘুরলে Elbow; পাশে সরলে Dropper; ব্রাঞ্চ বেরোলে Collar বা Y-piece।",
+        "ছ'টা rectangular, চারটে round। সোজা রান হলে Straight; সাইজ বদলালে Reducer; ঘুরলে Elbow; পাশে সরলে Dropper; ব্রাঞ্চ বেরোলে Collar বা Y-piece। AHU থেকে spiral-এ নামলে Square to round।",
         "যে zone-এ কাজ করছিলেন সেটা ধরে রাখে, তাই AHU-1-এর বারোটা ফিটিং করতে বারোবার zone লিখতে হবে না।",
       ],
       figure: "picker",
       callouts: [
         "Rectangular: straight duct, reducer, elbow, dropper, collar আর Y-piece।",
-        "Round আর spiral: সাধারণ ডাক্ট, gored elbow আর concentric cone।",
+        "Round আর spiral: সাধারণ ডাক্ট, gored elbow, concentric cone আর square-to-round।",
       ],
     },
     {

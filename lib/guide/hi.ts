@@ -53,13 +53,13 @@ export const hi: Guide = {
     {
       title: "फ़िटिंग चुनिए",
       body: [
-        "छह rectangular और तीन round। सीधा रन है तो Straight; साइज़ बदल रहा है तो Reducer; मुड़ रहा है तो Elbow; बग़ल में सरक रहा है तो Dropper; branch निकल रहा है तो Collar या Y-piece।",
+        "छह rectangular और चार round। सीधा रन है तो Straight; साइज़ बदल रहा है तो Reducer; मुड़ रहा है तो Elbow; बग़ल में सरक रहा है तो Dropper; branch निकल रहा है तो Collar या Y-piece। AHU से spiral में जा रहे हैं तो Square to round।",
         "आप जिस zone में काम कर रहे थे वो बना रहता है, तो AHU-1 की बारह fittings के लिए बारह बार zone लिखना नहीं पड़ेगा।",
       ],
       figure: "picker",
       callouts: [
         "Rectangular: straight duct, reducer, elbow, dropper, collar और Y-piece।",
-        "Round और spiral: सादा डक्ट, gored elbow और concentric cone।",
+        "Round और spiral: सादा डक्ट, gored elbow, concentric cone और square-to-round।",
       ],
     },
     {

@@ -44,14 +44,14 @@ export const metadata: Metadata = {
     template: "%s — DuctForge",
   },
   description:
-    "Calculate rectangular duct surface area, GI sheet weight and SMACNA gauge for six fittings, to either the commercial billing standard or the true shop flat pattern. Dimensioned drawings, a BOM schedule, and CSV out.",
+    "Calculate rectangular and round duct surface area, GI sheet weight and SMACNA gauge for ten fittings, to either the commercial billing standard or the true shop flat pattern. Dimensioned drawings, a BOM schedule, and CSV out.",
   applicationName: "DuctForge",
   openGraph: {
     type: "website",
     siteName: "DuctForge",
     title: "DuctForge — HVAC duct takeoff & sheet metal calculator",
     description:
-      "Duct surface area, sheet weight and gauge for nine fittings — billing standard or shop flat pattern, metric or imperial.",
+      "Duct surface area, sheet weight and gauge for ten fittings — billing standard or shop flat pattern, metric or imperial.",
   },
   twitter: { card: "summary_large_image" },
   appleWebApp: { capable: true, title: "DuctForge", statusBarStyle: "default" },
@@ -78,7 +78,7 @@ const appJsonLd = {
   applicationSubCategory: "HVAC estimating",
   operatingSystem: "Any — runs in a web browser",
   description:
-    "Calculates rectangular and round duct surface area, GI sheet weight, SMACNA gauge and a BOM schedule for nine fittings, to either the commercial billing standard or the true shop flat pattern.",
+    "Calculates rectangular and round duct surface area, GI sheet weight, SMACNA gauge and a BOM schedule for ten fittings, to either the commercial billing standard or the true shop flat pattern.",
   offers: { "@type": "Offer", price: 0, priceCurrency: "USD" },
   featureList: [
     "Rectangular and round duct fittings",

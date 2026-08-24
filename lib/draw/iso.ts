@@ -327,6 +327,33 @@ export function isometric(f: Fitting, L: Label): Scene {
       };
     }
 
+    case "square-to-round": {
+      const { w, h, d, l } = f;
+      const r = d / 2;
+      /* Blend the rectangle's boundary into the circle's along the length. At
+       * each angle the rectangle contributes the point where that ray leaves
+       * it, so the two ends are exact and everything between is the ruled
+       * surface, faceted. */
+      const ring = (t: number, psi: number): P3 => {
+        const c = Math.cos(deg(psi));
+        const s = Math.sin(deg(psi));
+        const reach = Math.min(
+          Math.abs(c) < 1e-9 ? Infinity : w / 2 / Math.abs(c),
+          Math.abs(s) < 1e-9 ? Infinity : h / 2 / Math.abs(s),
+        );
+        return [t * l, (reach * c) * (1 - t) + r * c * t, (reach * s) * (1 - t) + r * s * t];
+      };
+      return {
+        shapes: paint(tube(ring, 10, 32)),
+        dims: [
+          tag([0, -w / 2, h / 2], [l, -r, 0], `L ${L(l)}`, -6, -14),
+          tag([0, -w / 2, -h / 2], [0, w / 2, -h / 2], `W ${L(w)}`, -18, 16),
+          tag([0, w / 2, -h / 2], [0, w / 2, h / 2], `H ${L(h)}`, -22, 2),
+          tag([l, -r, 0], [l, r, 0], `⌀ ${L(d)}`, 24, 14),
+        ],
+      };
+    }
+
     case "round-reducer": {
       const { d1, d2, l } = f;
       const ring = (t: number, psi: number): P3 => {

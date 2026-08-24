@@ -96,7 +96,7 @@ export default function AboutTheTool() {
         </div>
 
         <div className="mt-14 lg:mt-20">
-          <H2 eyebrow="Coverage">Nine fittings, rectangular and round</H2>
+          <H2 eyebrow="Coverage">Ten fittings, rectangular and round</H2>
           <ul className="mt-8 grid gap-x-10 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
             {FITTING_KINDS.map((kind) => (
               <li key={kind} className="border-t-[1.5px] border-rule pt-4">

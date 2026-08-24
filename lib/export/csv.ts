@@ -3,6 +3,7 @@ import { SPECS } from "../duct/formulas";
 import { MATERIALS } from "../duct/material";
 import type { Project } from "../duct/types";
 import {
+  type UnitSystem,
   areaUnit,
   densityUnit,
   fromAreaMinor,
@@ -60,6 +61,19 @@ const DIM_COLUMNS = [
   "d2",
   "gores",
 ] as const;
+
+/**
+ * A dimension, for the file rather than the screen.
+ *
+ * Six decimals, not the one or three the screen shows. An exported dimension
+ * is an INPUT — somebody will read it back, or re-enter it — and rounding an
+ * imperial width to three decimals loses about a thousandth of a millimetre
+ * every time the file goes round. Six is exact to twenty-five nanometres and
+ * still reads as a number.
+ */
+function exportLength(mm: number, us: UnitSystem): number {
+  return Number(fromMm(mm, us).toFixed(6));
+}
 
 function dimUnit(key: string, len: string): string {
   if (key === "theta") return "deg";
@@ -137,9 +151,9 @@ export function toCsv(project: Project): string {
           if (v === undefined) return "";
           /* Angles and counts are not lengths and must not be converted. */
           if (d === "theta" || d === "gores") return v;
-          return Number(fromMm(v, us).toFixed(us === "metric" ? 1 : 3));
+          return exportLength(v, us);
         }),
-        Number(fromMm(r.maxDimMm, us).toFixed(us === "metric" ? 1 : 3)),
+        exportLength(r.maxDimMm, us),
         `${r.gauge} ga`,
         r.gaugeAuto ? (r.gaugeCaveat ? "table (rectangular, see notes)" : "table") : "manual override",
         r.thicknessMm,

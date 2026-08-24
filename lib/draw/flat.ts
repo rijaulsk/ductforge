@@ -215,7 +215,111 @@ export function flat(f: Fitting, L: Label, gap?: number): FlatScene {
 
     case "round-reducer":
       return layout(gap, [cone(f.d1, f.d2, f.l, L)]);
+
+    case "square-to-round":
+      return layout(gap, [
+        triangle(f.w, Math.hypot(f.l, (f.h - f.d) / 2), "side triangle ×2", L),
+        triangle(f.h, Math.hypot(f.l, (f.w - f.d) / 2), "end triangle ×2", L),
+        cornerGore(f.w, f.h, f.d, f.l, "corner patch ×4", L),
+      ]);
   }
+}
+
+/** A flat triangular panel: a rectangle side run out to one point on the
+ * circle. Isosceles, because the apex sits over the base's midpoint. */
+function triangle(base: number, height: number, caption: string, L: Label): Piece {
+  return {
+    caption,
+    shapes: [
+      poly([
+        [0, height],
+        [base, height],
+        [base / 2, 0],
+      ]),
+    ],
+    dims: [
+      { t: "len", a: [0, height], b: [base, height], text: L(base), off: 30 },
+      { t: "len", a: [base, height], b: [base / 2, 0], text: L(height), off: 30 },
+    ],
+  };
+}
+
+/**
+ * A corner patch, developed the way a shop develops it: by TRIANGULATION.
+ *
+ * The patch is an oblique cone — a rectangle corner run out to a quarter of the
+ * circle — and an oblique cone does not unroll to a circular sector the way a
+ * right cone does. What it does unroll to is a fan of flat triangles, and that
+ * is both how this is drawn and how it is cut.
+ *
+ * Each triangle has two ray lengths from the corner and one chord between
+ * consecutive arc points, so the angle it opens at the apex comes straight from
+ * the cosine rule. Laying them out is then a matter of accumulating those
+ * angles. The result is a true development, not a suggestion of one.
+ *
+ * It is also, by a hair, more material than the area printed beside it — the
+ * facets are flat and the real surface is curved. Same relationship a gored
+ * bend has to its own formula.
+ */
+function cornerGore(
+  w: number,
+  h: number,
+  d: number,
+  l: number,
+  caption: string,
+  L: Label,
+): Piece {
+  const r = d / 2;
+  const steps = 16;
+  /* Ray from the rectangle corner to the arc point at angle φ. */
+  const ray = (phi: number) =>
+    Math.hypot(r * Math.cos(phi) - w / 2, r * Math.sin(phi) - h / 2, l);
+  /* Chord between two consecutive arc points. */
+  const chord = (a: number, b: number) =>
+    Math.hypot(r * Math.cos(b) - r * Math.cos(a), r * Math.sin(b) - r * Math.sin(a));
+
+  const apex: Pt = [0, 0];
+  const pts: Pt[] = [];
+  let angle = 0;
+
+  for (let i = 0; i <= steps; i++) {
+    const phi = ((Math.PI / 2) * i) / steps;
+    const len = ray(phi);
+    if (i > 0) {
+      const prevPhi = ((Math.PI / 2) * (i - 1)) / steps;
+      const a = ray(prevPhi);
+      const b = len;
+      const c = chord(prevPhi, phi);
+      /* Cosine rule, clamped: floating point can push the ratio a hair past
+       * ±1 on a degenerate patch and acos would return NaN. */
+      const cos = Math.min(1, Math.max(-1, (a * a + b * b - c * c) / (2 * a * b)));
+      angle += Math.acos(cos);
+    }
+    pts.push([len * Math.cos(angle), len * Math.sin(angle)]);
+  }
+
+  const first = pts[0];
+  const last = pts[pts.length - 1];
+
+  return {
+    caption,
+    shapes: [
+      poly([apex, ...pts], "cut", true),
+      /* The seams a fabricator scribes: the two edges and the fan lines. */
+      ...pts
+        .filter((_, i) => i > 0 && i < pts.length - 1 && i % 4 === 0)
+        .map((p) => line(apex, p, "fold")),
+    ],
+    /* One ray dimension on each OUTER edge of the fan. Both offsets measured
+     * from the apex outward means both normals point the same way — into the
+     * fan for the first ray, so the two labels met in the middle. The fan
+     * opens from angle 0 downward, so the first ray's outside is up (negative
+     * offset) and the last ray's is further round (positive). */
+    dims: [
+      { t: "len", a: apex, b: first, text: L(ray(0)), off: -30 },
+      { t: "len", a: apex, b: last, text: L(ray(Math.PI / 2)), off: 30 },
+    ],
+  };
 }
 
 /* ---- the gored bend ------------------------------------------------------

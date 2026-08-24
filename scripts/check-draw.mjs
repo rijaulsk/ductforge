@@ -230,6 +230,9 @@ const DEGENERATE = [
   ["round reducer, no taper", { kind: "round-reducer", d1: 400, d2: 400, l: 600 }],
   ["round reducer, flat annulus", { kind: "round-reducer", d1: 800, d2: 300, l: 0 }],
   ["round reducer, growing", { kind: "round-reducer", d1: 200, d2: 900, l: 400 }],
+  ["square to round, flat plate", { kind: "square-to-round", w: 500, h: 500, d: 500, l: 0 }],
+  ["square to round, zero diameter", { kind: "square-to-round", w: 600, h: 400, d: 0, l: 400 }],
+  ["square to round, round bigger", { kind: "square-to-round", w: 300, h: 300, d: 900, l: 400 }],
 ];
 for (const [label, fitting] of DEGENERATE) {
   for (const view of VIEWS) {
@@ -255,6 +258,8 @@ const AWKWARD = [
   ["two-gore round elbow", { kind: "round-elbow", d: 500, r: 750, theta: 90, gores: 2 }],
   ["six-gore round elbow", { kind: "round-elbow", d: 500, r: 750, theta: 90, gores: 6 }],
   ["steep cone", { kind: "round-reducer", d1: 900, d2: 150, l: 200 }],
+  ["AHU square to round", { kind: "square-to-round", w: 1200, h: 700, d: 500, l: 500 }],
+  ["shallow square to round", { kind: "square-to-round", w: 500, h: 500, d: 450, l: 150 }],
 ];
 for (const [label, fitting] of AWKWARD) {
   for (const view of VIEWS) {

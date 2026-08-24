@@ -9,6 +9,7 @@ import {
   densityUnit,
   fmt,
   fmtArea,
+  fmtExact,
   fmtLength,
   fmtMass,
   massUnit,
@@ -73,12 +74,24 @@ export default function ResultPanel({
           {mode === "billing" ? "Commercial billing standard" : "Shop fabrication standard"}
         </p>
         <p className="mt-2 font-medium text-heading">{result.expression}</p>
+        {/* THE WORKING HAS TO MULTIPLY OUT.
+          * Every number on this line is the one the calculation actually used,
+          * at enough precision to reproduce the answer beside it. It used to
+          * print whole millimetres — so an elbow whose centreline arc is
+          * 1217.3671 mm showed "× 1217" next to an area computed from the real
+          * arc, and anyone who checked it found it did not agree. The rounded
+          * figure a schedule bills is stated separately, and labelled. */}
         <p className="mt-2 break-words text-small tabular-nums text-body">
-          {result.substitution} = {fmt(result.netEachSquare, 0)} {squareLengthUnit(units)} ={" "}
-          <span className="font-bold text-heading">
-            {fmtArea(result.netEachMinor)} {au}
-          </span>{" "}
+          {result.substitution} = {fmtExact(result.netEachSquare, 2)}{" "}
+          {squareLengthUnit(units)}
+        </p>
+        <p className="mt-1 break-words text-small tabular-nums text-body">
+          = <span className="font-bold text-heading">{fmtExact(result.netEachArea, 6)} {au}</span>{" "}
           per piece
+          {qty > 1 && <> × {qty} pieces = {fmtExact(result.netArea, 6)} {au}</>}
+        </p>
+        <p className="mt-1 text-small text-muted">
+          Rounded to {fmtArea(result.netAreaMinor)} {au} for the schedule.
         </p>
         <p className="mt-2 text-small text-muted">
           Largest dimension {fmtLength(result.maxDimMm, units)}{" "}

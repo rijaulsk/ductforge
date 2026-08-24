@@ -9,14 +9,16 @@ import type {
   RoundElbow,
   RoundReducer,
   RoundStraight,
+  SquareToRound,
   Straight,
   Wye,
 } from "./types";
 import {
   type UnitSystem,
-  fmt,
-  fmtLength,
+  fmtExact,
+  fromMm,
   squareLengthFromMm2,
+  workingDecimals,
 } from "./units";
 
 /* THE FORMULA REGISTRY — the single source of truth for the arithmetic.
@@ -88,10 +90,21 @@ type Spec<T extends Fitting> = {
   note?: string;
 };
 
-/* Formatting helpers for the substituted lines. */
+/* Formatting for the substituted lines.
+ *
+ * THESE ARE NOT THE DISPLAY FORMATTERS, and the difference is the whole point.
+ * A working line has one job: to multiply out. It used to render lengths with
+ * `fmtLength`, which gives whole millimetres — so an elbow whose centreline arc
+ * is 1217.3671 mm printed "2 × (950 + 800) × 1217", next to an answer computed
+ * from the real arc. The equation was arithmetic nobody could check, and worse,
+ * arithmetic that was visibly WRONG if you did check it.
+ *
+ * Nothing about the calculation changed; the numbers were always full
+ * precision. What changed is that the line now shows enough of them. */
 const mk = (us: UnitSystem) => {
-  const L = (mm: number) => fmtLength(mm, us);
-  const S = (mm2: number) => fmt(squareLengthFromMm2(mm2, us), 0);
+  const d = workingDecimals(us);
+  const L = (mm: number) => fmtExact(fromMm(mm, us), d);
+  const S = (mm2: number) => fmtExact(squareLengthFromMm2(mm2, us), 2);
   return { L, S };
 };
 
@@ -490,6 +503,103 @@ const roundReducer: Spec<RoundReducer> = {
   note: "The blank is an annular sector — the classic cone development — so the shop area is the mean circumference times the SLANT height, not the length. Concentric only: an eccentric cone has a different development on each side and is not modelled here.",
 };
 
+/* ---- square to round ------------------------------------------------------
+ *
+ * The commonest fitting on any air-handling unit, and the only one here whose
+ * true surface has no closed form.
+ *
+ * THE CONSTRUCTION. A rectangle W × H at one end, a circle of radius r = D/2 at
+ * the other, L apart on one centreline. The surface that joins them is made of
+ * eight pieces, and every one of them is exact:
+ *
+ *   · Each rectangle SIDE runs to the single circle point nearest it — a line
+ *     and a point define a plane, so those four pieces are FLAT TRIANGLES.
+ *     Base W, apex at (0, r): height √(L² + ((H−D)/2)²). Two of those, and two
+ *     more on the other axis.
+ *   · Each rectangle CORNER runs to a quarter arc — a point and a curve, so
+ *     those four pieces are CONE PATCHES, and an oblique cone at that.
+ *
+ * The corner patch is where the closed form runs out. The lateral area of a
+ * ruled surface between a point A and a curve P(φ) is ½∫|(P − A) × P′| dφ, and
+ * for this geometry that cross product works out to
+ *
+ *     r · √(L² + (r − (W/2)cos φ − (H/2)sin φ)²)
+ *
+ * which does not integrate in elementary functions. So it is integrated
+ * NUMERICALLY, by Simpson's rule, to about twelve digits — far past anything a
+ * sheet of metal cares about, and exact enough that check-duct can pin it
+ * against a case with a known answer: flatten the fitting (L = 0) on a circle
+ * inscribed in a square (W = H = D) and the whole thing must equal the area
+ * between a square and its inscribed circle, W²(1 − π/4). It does.
+ *
+ * This is derivation, not interpretation — unlike the Y-piece, nothing here is
+ * a reading of an under-specified source. What it does assume is the standard
+ * construction above; a shop that develops the corners by TRIANGULATION into
+ * flat facets cuts marginally more than this, the same way a gored bend does.
+ */
+
+const SIMPSON_STEPS = 720;
+
+/** One corner patch: a quarter of the transition, exactly. */
+function cornerPatch(w: number, h: number, d: number, l: number): number {
+  const r = d / 2;
+  const f = (phi: number) =>
+    r * Math.hypot(l, r - (w / 2) * Math.cos(phi) - (h / 2) * Math.sin(phi));
+
+  const a = 0;
+  const b = Math.PI / 2;
+  const n = SIMPSON_STEPS; // even
+  const step = (b - a) / n;
+  let sum = f(a) + f(b);
+  for (let i = 1; i < n; i++) {
+    sum += f(a + i * step) * (i % 2 === 0 ? 2 : 4);
+  }
+  return 0.5 * ((step / 3) * sum);
+}
+
+const strSideTriangles = (f: SquareToRound) =>
+  f.w * Math.hypot(f.l, (f.h - f.d) / 2);
+const strEndTriangles = (f: SquareToRound) =>
+  f.h * Math.hypot(f.l, (f.w - f.d) / 2);
+const strCorners = (f: SquareToRound) => 4 * cornerPatch(f.w, f.h, f.d, f.l);
+
+const squareToRound: Spec<SquareToRound> = {
+  kind: "square-to-round",
+  group: "round",
+  name: "Square to round",
+  blurb: "Rectangular one end, round the other.",
+  fields: [
+    { key: "w", symbol: "W", label: "Width", hint: "Rectangular end" },
+    { key: "h", symbol: "H", label: "Height", hint: "Rectangular end" },
+    { key: "d", symbol: "D", label: "Diameter", hint: "Round end" },
+    { key: "l", symbol: "L", label: "Length" },
+  ],
+  defaults: { kind: "square-to-round", w: 600, h: 400, d: 400, l: 450 },
+  maxDim: (f) => Math.max(f.w, f.h, f.d),
+  centreline: (f) => f.l,
+  perimeter: (f) => (2 * (f.w + f.h) + Math.PI * f.d) / 2,
+  inflate: (f, delta) => ({ ...f, w: f.w + delta, h: f.h + delta, d: f.d + delta }),
+  billing: {
+    expression: "A = [2(W + H) + πD]/2 × L",
+    compute: (f) => ((2 * (f.w + f.h) + Math.PI * f.d) / 2) * f.l,
+    substitute: (f, us) => {
+      const { L } = mk(us);
+      const mean = (2 * (f.w + f.h) + Math.PI * f.d) / 2;
+      return `${L(mean)} mean perimeter × ${L(f.l)}`;
+    },
+  },
+  shop: {
+    expression:
+      "A = W·√(L² + ((H−D)/2)²) + H·√(L² + ((W−D)/2)²) + 4 × ½∫₀^{π/2} r·√(L² + (r − (W/2)cos φ − (H/2)sin φ)²) dφ,  r = D/2",
+    compute: (f) => strSideTriangles(f) + strEndTriangles(f) + strCorners(f),
+    substitute: (f, us) => {
+      const { S } = mk(us);
+      return `2 side triangles ${S(strSideTriangles(f))}  +  2 end triangles ${S(strEndTriangles(f))}  +  4 corner patches ${S(strCorners(f))}`;
+    },
+  },
+  note: "Four flat triangles and four conical corner patches — the exact surface of the standard construction, with the corner term integrated numerically because it has no closed form. Concentric only. A shop that develops the corners by triangulating them into flat facets cuts marginally more than this, the same way a gored bend does.",
+};
+
 /* ---- the registry ------------------------------------------------------ */
 
 /* The generic is erased exactly here, once. `SPECS[f.kind]` is the only way to
@@ -509,6 +619,7 @@ export const SPECS: Record<FittingKind, AnySpec> = {
   "round-straight": roundStraight as unknown as AnySpec,
   "round-elbow": roundElbow as unknown as AnySpec,
   "round-reducer": roundReducer as unknown as AnySpec,
+  "square-to-round": squareToRound as unknown as AnySpec,
 };
 
 export const FITTING_KINDS: readonly FittingKind[] = [
@@ -521,6 +632,7 @@ export const FITTING_KINDS: readonly FittingKind[] = [
   "round-straight",
   "round-elbow",
   "round-reducer",
+  "square-to-round",
 ];
 
 export const RECTANGULAR_KINDS = FITTING_KINDS.filter(

@@ -58,7 +58,66 @@ export function blueprint(f: Fitting, L: Label): Scene {
       return roundElbow(f.d, f.r, f.theta, f.gores, L);
     case "round-reducer":
       return roundReducer(f.d1, f.d2, f.l, L);
+    case "square-to-round":
+      return squareToRound(f.w, f.h, f.d, f.l, L);
   }
+}
+
+/* ---- square to round ------------------------------------------------------
+ *
+ * Two views and an end circle, because this fitting is different on each axis:
+ * the elevation shows H tapering to D, the plan shows W tapering to D, and
+ * neither on its own tells you it is round at one end.
+ */
+function squareToRound(w: number, h: number, d: number, l: number, L: Label): Scene {
+  const yPlan = Math.max(h, d) / 2 + Math.max(w, d) / 2 + l * 0.24;
+  const endX = l + Math.max(l * 0.28, d * 0.75);
+
+  return {
+    shapes: [
+      /* Elevation: the H end to the D end. */
+      poly([
+        [0, -h / 2],
+        [l, -d / 2],
+        [l, d / 2],
+        [0, h / 2],
+      ]),
+      line([-l * 0.05, 0], [l * 1.05, 0], "centre"),
+      /* Plan: the W end to the same D end. */
+      poly([
+        [0, yPlan - w / 2],
+        [l, yPlan - d / 2],
+        [l, yPlan + d / 2],
+        [0, yPlan + w / 2],
+      ]),
+      line([-l * 0.05, yPlan], [l * 1.05, yPlan], "centre"),
+      /* End view: the round opening inside the rectangular one, which is the
+       * one picture that says what this fitting is. */
+      rect(endX - w / 2, -h / 2, w, h),
+      arc([endX, 0], d / 2, 0, 180),
+      arc([endX, 0], d / 2, 180, 360),
+      line([endX, -h * 0.62], [endX, h * 0.62], "centre"),
+      line([endX - w * 0.58, 0], [endX + w * 0.58, 0], "centre"),
+    ],
+    dims: [
+      { t: "len", a: [0, -h / 2], b: [0, h / 2], text: L(h), off: 34 },
+      { t: "len", a: [l, d / 2], b: [l, -d / 2], text: `⌀ ${L(d)}`, off: 34 },
+      { t: "len", a: [0, yPlan - w / 2], b: [0, yPlan + w / 2], text: L(w), off: 34 },
+      { t: "len", a: [0, yPlan + w / 2], b: [l, yPlan + w / 2], text: L(l), off: 40 },
+      {
+        t: "len",
+        a: [endX - w / 2, h / 2],
+        b: [endX + w / 2, h / 2],
+        text: L(w),
+        off: 34,
+      },
+    ],
+    captions: [
+      { at: [l / 2, 0], text: "elevation", dy: -46 },
+      { at: [l / 2, yPlan - Math.max(w, d) / 2], text: "plan", dy: -30 },
+      { at: [endX, -h / 2], text: "end view", dy: -46 },
+    ],
+  };
 }
 
 /* ---- round straight ------------------------------------------------------ */

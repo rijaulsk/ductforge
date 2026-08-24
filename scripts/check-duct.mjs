@@ -55,6 +55,7 @@ const gauge = await import("../lib/duct/gauge.ts");
 const units = await import("../lib/duct/units.ts");
 const { computeEntry, computeTotals } = await import("../lib/duct/compute.ts");
 const parse = await import("../lib/duct/parse.ts");
+const draft = await import("../lib/draft.ts");
 
 let pass = 0;
 let fail = 0;
@@ -130,6 +131,25 @@ const ORACLE = {
     shop: (f) =>
       ((Math.PI * (f.d1 + f.d2)) / 2) * hyp(f.l, (f.d1 - f.d2) / 2),
   },
+  "square-to-round": {
+    billing: (f) => ((2 * (f.w + f.h) + Math.PI * f.d) / 2) * f.l,
+    shop: (f) => {
+      /* Independent integration: the trapezium rule at a different resolution
+       * from the engine's Simpson, so agreeing to ten digits means the value
+       * is right rather than that one mistake was made twice. */
+      const r = f.d / 2;
+      const g = (phi) =>
+        r * Math.sqrt(f.l ** 2 + (r - (f.w / 2) * Math.cos(phi) - (f.h / 2) * Math.sin(phi)) ** 2);
+      const n = 20000;
+      const step = Math.PI / 2 / n;
+      let sum = (g(0) + g(Math.PI / 2)) / 2;
+      for (let i = 1; i < n; i++) sum += g(i * step);
+      const corner = 0.5 * sum * step;
+      return (
+        f.w * hyp(f.l, (f.h - f.d) / 2) + f.h * hyp(f.l, (f.w - f.d) / 2) + 4 * corner
+      );
+    },
+  },
 };
 
 /* Deterministic pseudo-random geometry, so a failure is reproducible. */
@@ -171,6 +191,14 @@ function randomFitting(kind) {
       };
     case "round-reducer":
       return { kind, d1: dim(200, 1600), d2: dim(100, 1200), l: dim(150, 1500) };
+    case "square-to-round":
+      return {
+        kind,
+        w: dim(200, 1600),
+        h: dim(200, 1400),
+        d: dim(150, 1200),
+        l: dim(150, 1200),
+      };
     default:
       return {
         kind: "wye",
@@ -195,6 +223,7 @@ const KINDS = [
   "round-straight",
   "round-elbow",
   "round-reducer",
+  "square-to-round",
 ];
 for (const kind of KINDS) {
   let worst = 0;
@@ -203,10 +232,18 @@ for (const kind of KINDS) {
     for (const mode of ["billing", "shop"]) {
       const mine = SPECS[kind][mode].compute(f);
       const theirs = ORACLE[kind][mode](f);
-      worst = Math.max(worst, Math.abs(mine - theirs));
+      /* RELATIVE, not absolute. Every closed-form fitting agrees to the last
+       * bit, but the square-to-round's corner term is an integral, and the two
+       * sides integrate it differently on purpose — Simpson here, the
+       * trapezium rule at another resolution there. Agreeing to nine
+       * significant figures means the value is right; demanding they agree to
+       * an absolute 1e-6 on an area of a million square millimetres would be
+       * asking two different methods to make the same rounding error. */
+      const scale = Math.max(Math.abs(mine), Math.abs(theirs), 1);
+      worst = Math.max(worst, Math.abs(mine - theirs) / scale);
     }
   }
-  check(worst < 1e-6, `${kind}: both transcriptions agree (worst delta ${worst})`);
+  check(worst < 1e-9, `${kind}: both transcriptions agree (worst relative delta ${worst})`);
 }
 
 /* ---- 2. hand-computed anchors ----------------------------------------- */
@@ -222,6 +259,7 @@ const A = {
   "round-straight": { kind: "round-straight", d: 400, l: 3000 },
   "round-elbow": { kind: "round-elbow", d: 400, r: 600, theta: 90, gores: 4 },
   "round-reducer": { kind: "round-reducer", d1: 500, d2: 300, l: 400 },
+  "square-to-round": { kind: "square-to-round", w: 600, h: 400, d: 400, l: 450 },
 };
 const area = (kind, mode) => SPECS[kind][mode].compute(A[kind]);
 
@@ -557,10 +595,25 @@ section("10. rounding: the printed total is the sum of the printed rows");
         `${label}: the ungrouped bucket sorts last`,
       );
 
-      /* Every row must be re-derivable from the two numbers next to it. */
+      /* Every row's weight comes off its UNROUNDED gross area — which is the
+       * rule, and is why this cannot be re-derived from the rounded figure the
+       * schedule prints. The two agree almost always and differ by one
+       * hundredth of a kilogram when the rounding falls the wrong way; the
+       * result panel prints the working at full precision for exactly that
+       * reason. */
       for (const r of results) {
-        const byHand = Math.round(units.fromAreaMinor(r.grossAreaMinor) * r.density * 100);
-        eq(r.massMinor, byHand, `${label}: weight = gross area × printed density`);
+        eq(
+          r.massMinor,
+          Math.round(r.grossArea * r.density * 100),
+          `${label}: weight = exact gross area × printed density`,
+        );
+        const fromRounded = Math.round(
+          units.fromAreaMinor(r.grossAreaMinor) * r.density * 100,
+        );
+        check(
+          Math.abs(r.massMinor - fromRounded) <= 1,
+          `${label}: …and within a hundredth of the rounded-area answer`,
+        );
       }
     }
   }
@@ -693,6 +746,182 @@ section("12e. rates");
 
   const none = computeEntry(line(A.straight, 1, 12), "billing", "metric", "gi");
   eq(none.valueMinor, 0, "no rate set, no value invented");
+}
+
+/* ---- 12f. the square-to-round -------------------------------------------- */
+
+section("12f. square to round, checked against a case with a known answer");
+{
+  /* THE ANCHOR. Flatten the fitting (L = 0) and inscribe the circle in a square
+   * (W = H = D): the four triangles vanish, and the four corner patches must
+   * add up to exactly the area between a square and its inscribed circle,
+   * W²(1 − π/4). Nothing about that identity comes from the implementation —
+   * it is a fact about squares and circles — so it pins the integral. */
+  for (const side of [400, 1000, 1337.5]) {
+    const flatPlate = { kind: "square-to-round", w: side, h: side, d: side, l: 0 };
+    near(
+      SPECS["square-to-round"].shop.compute(flatPlate),
+      side * side * (1 - Math.PI / 4),
+      Math.max(1e-6, side * side * 1e-12),
+      `${side} mm square less its inscribed circle = W²(1 − π/4)`,
+    );
+  }
+
+  /* A cylinder is the degenerate square-to-round where the square is gone. */
+  const asTube = { kind: "square-to-round", w: 500, h: 500, d: 500, l: 900 };
+  const straightTube = { kind: "round-straight", d: 500, l: 900 };
+  check(
+    SPECS["square-to-round"].shop.compute(asTube) >
+      SPECS["round-straight"].shop.compute(straightTube),
+    "a square-to-round on the same diameter cuts more than the plain tube",
+  );
+
+  near(
+    SPECS["square-to-round"].billing.compute(A["square-to-round"]),
+    ((2 * (600 + 400) + Math.PI * 400) / 2) * 450,
+    1e-9,
+    "billing is mean perimeter × length",
+  );
+}
+
+/* ---- 12g. precision ------------------------------------------------------ */
+
+section("12g. nothing is rounded before it is used again");
+{
+  /* The elbow from the bug report: W 950, H 800, R 300, θ 90. Its centreline
+   * arc is 1217.3671… mm, and the area must come from THAT, not from 1217. */
+  const elbow = { kind: "elbow", w: 950, h: 800, r: 300, theta: 90 };
+  const arc = (Math.PI / 2) * (300 + 950 / 2);
+  near(arc, 1217.36715327, 1e-7, "centreline arc is 1217.36715327 mm, not 1217");
+  near(
+    SPECS.elbow.billing.compute(elbow),
+    2 * (950 + 800) * arc,
+    1e-9,
+    "area uses the exact arc",
+  );
+  /* What the rounded arc WOULD have given, so the difference is on record. */
+  const fromRounded = 2 * (950 + 800) * 1217;
+  check(
+    Math.abs(SPECS.elbow.billing.compute(elbow) - fromRounded) > 1000,
+    `and differs from the rounded-arc answer by ${(
+      SPECS.elbow.billing.compute(elbow) - fromRounded
+    ).toFixed(0)} mm²`,
+  );
+
+  /* Decimal dimensions survive intact. */
+  const decimal = { kind: "straight", w: 950.5, h: 800.25, l: 3000.125 };
+  near(
+    SPECS.straight.billing.compute(decimal),
+    2 * (950.5 + 800.25) * 3000.125,
+    1e-9,
+    "950.5 × 800.25 × 3000.125 is computed as typed",
+  );
+
+  /* The allowance comes off the unrounded net area, and the weight off the
+   * unrounded gross. */
+  const e = line(decimal, 3, 12.5);
+  const r = computeEntry(e, "billing", "metric", "gi");
+  const exactNet = (2 * (950.5 + 800.25) * 3000.125 * 3) / 1e6;
+  near(r.netArea, exactNet, 1e-12, "net area is exact");
+  near(r.grossArea, exactNet * 1.125, 1e-12, "gross = exact net × (1 + 12.5%)");
+  near(r.mass, exactNet * 1.125 * r.density, 1e-12, "weight = exact gross × density");
+  check(
+    r.netAreaMinor === units.toAreaMinor(exactNet),
+    "and only the displayed figure is rounded",
+  );
+
+  /* Rounding the intermediates first would visibly change the answer. */
+  const viaRounded = units.fromAreaMinor(units.toAreaMinor(exactNet)) * 1.125;
+  check(
+    Math.abs(r.grossArea - viaRounded) > 1e-9,
+    "…which is not the same number as rounding first",
+  );
+}
+
+section("12h. imperial fractions parse exactly");
+{
+  const cases = [
+    ["1/2", 0.5],
+    ["3/4", 0.75],
+    ["5/8", 0.625],
+    ["3/8", 0.375],
+    ["1 1/2", 1.5],
+    ["1-1/2", 1.5],
+    ["2 3/8", 2.375],
+    ["12 5/16", 12.3125],
+    ["0.5", 0.5],
+    ["12.75", 12.75],
+    [".5", 0.5],
+    ["1,200", 1200],
+    ['23.622"', 23.622],
+    ["600 mm", 600],
+    ["  18  ", 18],
+    /* What a spreadsheet hands you when a column has been formatted badly. */
+    ["1.2e+03", 1200],
+    ["1.2E3", 1200],
+  ];
+  for (const [input, want] of cases) {
+    near(parse.toNumber(input), want, 1e-12, `"${input}" → ${want}`);
+  }
+  /* Nonsense is still zero rather than NaN. */
+  for (const bad of ["", "abc", "-5", "1/0", "1/", "/2", "1 1/", "--"]) {
+    eq(parse.toNumber(bad), 0, `"${bad}" → 0`);
+  }
+  /* The trap the old parser fell into: it stripped ALL spaces first, turning
+   * one and a half into eleven halves. */
+  check(parse.toNumber("1 1/2") !== 5.5, '"1 1/2" is not 11/2');
+
+  /* A fraction has to survive all the way into the geometry. */
+  const inches = units.toMm(parse.toNumber("2 3/8"), "imperial");
+  near(inches, 2.375 * 25.4, 1e-12, '2 3/8" reaches the geometry as 60.325 mm');
+}
+
+section("12i. switching units does not move the geometry");
+{
+  /* THE LEAK THIS CLOSES. The draft used to hold only display strings, so a
+   * unit switch went mm → inches → formatted → parsed → mm, and 600 mm came
+   * back as 599.9988. Flipping a few times walked the job away from itself. */
+  let d = draft.newDraft("straight", 12, "metric");
+  const before = { ...d.mm };
+  for (let i = 0; i < 12; i++) {
+    d = draft.convertDraft(d, i % 2 === 0 ? "metric" : "imperial", i % 2 === 0 ? "imperial" : "metric");
+  }
+  for (const key of Object.keys(before)) {
+    eq(d.mm[key], before[key], `${key} is untouched after twelve unit switches`);
+  }
+
+  /* And what the boxes show still reads back as what is stored. */
+  const imperial = draft.convertDraft(
+    draft.newDraft("elbow", 12, "metric"),
+    "metric",
+    "imperial",
+  );
+  for (const field of SPECS.elbow.fields) {
+    if (field.angle || field.count) continue;
+    const shown = parse.toNumber(imperial.values[field.key]);
+    near(
+      units.toMm(shown, "imperial"),
+      imperial.mm[field.key],
+      1e-3,
+      `the box shows ${field.symbol} faithfully`,
+    );
+  }
+}
+
+section("12j. metric and imperial agree on the same physical duct");
+{
+  /* Same fitting, both unit systems, full precision — these must agree to
+   * floating point, not merely to the display rounding. */
+  for (const kind of KINDS) {
+    const m = computeEntry(line(A[kind]), "shop", "metric", "gi");
+    const i = computeEntry(line(A[kind]), "shop", "imperial", "gi");
+    near(
+      i.netArea,
+      m.netArea * 10.763_910_416_709_722,
+      Math.abs(m.netArea) * 1e-9 + 1e-12,
+      `${kind}: m² and ft² are the same area`,
+    );
+  }
 }
 
 /* ---- 13. input parsing -------------------------------------------------- */

@@ -6,7 +6,7 @@ import { SPECS } from "@/lib/duct/formulas";
 import type { FieldKey, FittingKind, GaugeName } from "@/lib/duct/types";
 import { type UnitSystem, lengthUnit } from "@/lib/duct/units";
 import { WASTE_PRESETS } from "@/lib/duct/waste";
-import type { Draft } from "@/lib/draft";
+import { type Draft, setField } from "@/lib/draft";
 import { Eyebrow } from "./ui";
 
 /* The parameter form.
@@ -79,8 +79,10 @@ export default function ParamForm({
   const spec = SPECS[draft.kind];
   const len = lengthUnit(units);
 
-  const setValue = (key: FieldKey, v: string) =>
-    onChange({ ...draft, values: { ...draft.values, [key]: v } });
+  /* setField writes both the typed string and the geometry behind it. The form
+   * never parses anything itself — that would be a second place where a string
+   * becomes a number, and the two would drift. */
+  const setValue = (key: FieldKey, v: string) => onChange(setField(draft, key, v, units));
 
   return (
     <div className="space-y-6">

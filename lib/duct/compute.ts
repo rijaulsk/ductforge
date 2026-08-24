@@ -14,7 +14,6 @@ import {
   type UnitSystem,
   areaFromMm2,
   fromAreaMinor,
-  fromMassMinor,
   runFromMm,
   squareLengthFromMm2,
   toAreaMinor,
@@ -33,12 +32,24 @@ import {
  * floats and rounding at the end is more "accurate" and produces a sheet where
  * the column does not add up, which an estimator reads — correctly — as a bug.
  *
- * The chain is deliberately hand-checkable end to end:
- *   net area  = formula, rounded to 3 dp
- *   gross     = net × (1 + waste%), rounded to 3 dp
- *   weight    = gross × the density shown on screen, rounded to 2 dp
- *   value     = weight × your rate per kg + gross × your rate per m²
- * Multiply the numbers the app shows you and you get the next one down.
+ * FULL PRECISION UNTIL THE DISPLAY, and this is the stricter of two rules that
+ * both have a claim here. Every step below reads the previous one exactly as it
+ * came out of the arithmetic — the allowance is taken on the unrounded net
+ * area, the weight on the unrounded gross, the value on the unrounded weight —
+ * and the `toAreaMinor` / `toMassMinor` calls that round for the screen happen
+ * once, at the end, on values nothing else consumes.
+ *
+ * The chain stays hand-checkable, but by SHOWING more rather than by rounding
+ * earlier: the result panel prints the working at enough precision to multiply
+ * out. That is the trade the previous version got backwards — it rounded the
+ * intermediates so the printed figures would multiply, and printed a working
+ * line whose own numbers did not.
+ *
+ * TOTALS ARE THE ONE EXCEPTION, deliberately. `computeTotals` sums the ROUNDED
+ * line values, because a schedule is a column somebody adds up by hand and a
+ * total that disagrees with its own rows by a rounding unit reads as a bug.
+ * Within a line, nothing is rounded before its last use; between lines, the
+ * printed figure is the quantity.
  *
  * THE ANCILLARIES ARE DERIVED, NOT MEASURED. Insulation, flange ends and
  * hangers all come out of the same geometry the areas do; none of them is a
@@ -55,6 +66,12 @@ export type EntryResult = {
   netEachMm2: number;
   /** Same, in the display square-length unit (mm² or in²). */
   netEachSquare: number;
+  /* Unrounded areas and mass in display units, for working lines that have to
+   * reproduce. The `*Minor` fields below are these, rounded for display. */
+  netEachArea: number;
+  netArea: number;
+  grossArea: number;
+  mass: number;
   /** Thousandths of m²/ft², one piece. Informational: the schedule bills lines. */
   netEachMinor: number;
   /** Thousandths of m²/ft², the whole line (× qty). */
@@ -121,40 +138,47 @@ export function computeEntry(
   const spec = specFor(entry.fitting.kind);
   const formula = mode === "billing" ? spec.billing : spec.shop;
 
+  /* ---- full precision, start to finish ----
+   *
+   * Nothing below is rounded. The formula's own square millimetres become an
+   * area, the area takes the allowance, the allowance takes the density, and
+   * the weight takes the rate — each step reading the previous one exactly as
+   * it came out. Rounding happens once, at the bottom, on the way to the
+   * screen. Feeding a rounded intermediate into the next step would produce a
+   * number that no printed figure multiplies out to. */
   const netEachMm2 = formula.compute(entry.fitting);
   const netEachArea = areaFromMm2(netEachMm2, us);
-
-  const netEachMinor = toAreaMinor(netEachArea);
-  const netAreaMinor = toAreaMinor(netEachArea * entry.qty);
-  const grossAreaMinor = toAreaMinor(netEachArea * entry.qty * (1 + entry.waste / 100));
+  const netArea = netEachArea * entry.qty;
+  const grossArea = netArea * (1 + entry.waste / 100);
 
   const maxDimMm = spec.maxDim(entry.fitting);
   const gauge = entry.gauge ?? selectGauge(maxDimMm, us);
   const band = bandFor(gauge);
   const density = densityDisplay(band.thicknessMm, us, material);
 
-  /* Weight from the ROUNDED gross area × the density as printed — see the
-   * header. Gross, not net: waste is material bought and carried to site. */
-  const grossArea = fromAreaMinor(grossAreaMinor);
-  const massMinor = toMassMinor(grossArea * density);
-  const valueMinor = toValueMinor(
-    fromMassMinor(massMinor) * rates.perKg + grossArea * rates.perM2,
-  );
+  /* Gross, not net: waste is material bought and carried to site. */
+  const mass = grossArea * density;
+  const value = mass * rates.perKg + grossArea * rates.perM2;
+
+  const netEachMinor = toAreaMinor(netEachArea);
+  const netAreaMinor = toAreaMinor(netArea);
+  const grossAreaMinor = toAreaMinor(grossArea);
+  const massMinor = toMassMinor(mass);
+  const valueMinor = toValueMinor(value);
 
   /* ---- derived quantities ---- */
 
   /* Insulation is a NOMINAL area measurement, so it is always taken on the
    * billing formula regardless of which standard the sheet is measured to.
    * Measuring lagging on a shop blank would be measuring the wrong object. */
-  const insulationAreaMinor =
+  const insulationArea =
     ancillaries.insulationMm > 0
-      ? toAreaMinor(
-          areaFromMm2(
-            spec.billing.compute(spec.inflate(entry.fitting, ancillaries.insulationMm * 2)),
-            us,
-          ) * entry.qty,
-        )
+      ? areaFromMm2(
+          spec.billing.compute(spec.inflate(entry.fitting, ancillaries.insulationMm * 2)),
+          us,
+        ) * entry.qty
       : 0;
+  const insulationAreaMinor = toAreaMinor(insulationArea);
 
   const centrelineMm = spec.centreline(entry.fitting);
   const isStraightRun = STRAIGHT_RUNS.includes(entry.fitting.kind);
@@ -179,6 +203,12 @@ export function computeEntry(
   return {
     netEachMm2,
     netEachSquare: squareLengthFromMm2(netEachMm2, us),
+    /* Unrounded, so the result panel can print a working line that actually
+     * reproduces its own answer. */
+    netEachArea,
+    netArea,
+    grossArea,
+    mass,
     netEachMinor,
     netAreaMinor,
     grossAreaMinor,

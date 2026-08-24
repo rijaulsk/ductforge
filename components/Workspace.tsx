@@ -8,7 +8,7 @@ import { computeFor, computeTotals } from "@/lib/duct/compute";
 import { RECTANGULAR_KINDS, ROUND_KINDS, SPECS } from "@/lib/duct/formulas";
 import { toQty, toWaste } from "@/lib/duct/parse";
 import type { Entry, FittingKind, Project } from "@/lib/duct/types";
-import { type Draft, convertDraft, draftFromEntry, fittingFromValues, newDraft } from "@/lib/draft";
+import { type Draft, convertDraft, draftFromEntry, fittingFromDraft, newDraft } from "@/lib/draft";
 import { toCsv } from "@/lib/export/csv";
 import { safeFilename, triggerDownload } from "@/lib/export/download";
 import { useHasMounted } from "@/lib/hooks";
@@ -144,7 +144,9 @@ export default function Workspace() {
     setEditingId(null);
   };
 
-  const fitting = fittingFromValues(draft.kind, draft.values, project.units);
+  /* Reads the draft's stored millimetres, not its display strings — see
+   * lib/draft.ts for why those are two different things. */
+  const fitting = fittingFromDraft(draft);
   const previewEntry: Entry = {
     id: editingId ?? "draft",
     fitting,

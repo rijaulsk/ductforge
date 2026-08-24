@@ -19,7 +19,8 @@ export type FittingKind =
   | "wye"
   | "round-straight"
   | "round-elbow"
-  | "round-reducer";
+  | "round-reducer"
+  | "square-to-round";
 
 /** W × H duct, L long. */
 export type Straight = { kind: "straight"; w: number; h: number; l: number };
@@ -107,6 +108,21 @@ export type RoundReducer = {
   l: number;
 };
 
+/**
+ * Square-to-round transition: a W × H rectangle at one end, a D circle at the
+ * other, L apart, both on one centreline.
+ *
+ * The commonest fitting on any air-handling unit, and the only one here whose
+ * true development is not a closed form — see formulas.ts.
+ */
+export type SquareToRound = {
+  kind: "square-to-round";
+  w: number;
+  h: number;
+  d: number;
+  l: number;
+};
+
 export type Fitting =
   | Straight
   | Reducer
@@ -116,7 +132,8 @@ export type Fitting =
   | Wye
   | RoundStraight
   | RoundElbow
-  | RoundReducer;
+  | RoundReducer
+  | SquareToRound;
 
 /** Which numeric fields a fitting has, in the order the form shows them. */
 export type FieldKey =

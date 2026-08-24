@@ -156,6 +156,33 @@ export function fmtValue(minor: number): string {
 }
 
 /**
+ * A number at up to `maxDecimals`, with trailing zeros trimmed.
+ *
+ * This is the formatter for anything that has to REPRODUCE. A working line
+ * that reads "2 × (950 + 800) × 1217 = 4,260,785 mm²" is not a piece of
+ * arithmetic anybody can check — it is a rounded intermediate next to a
+ * full-precision answer, and the two do not multiply out. The centreline arc
+ * is 1217.3671 mm, and if the equation is going to show it, it has to show it.
+ *
+ * `fmt` remains the formatter for FIGURES — a headline area, a weight — where
+ * a fixed number of decimals is what an estimator wants to read. This one is
+ * for the numbers inside an equation, and for the input boxes, where being
+ * faithful matters more than being tidy.
+ */
+export function fmtExact(value: number, maxDecimals = 6, group = true): string {
+  if (!Number.isFinite(value)) return "—";
+  return value.toLocaleString("en-US", {
+    maximumFractionDigits: maxDecimals,
+    useGrouping: group,
+  });
+}
+
+/** Decimals a working line shows for a length, per unit system. */
+export function workingDecimals(us: UnitSystem): number {
+  return us === "metric" ? 4 : 5;
+}
+
+/**
  * A length in display units, trimmed: 600 not 600.00, 23.62 not 23.6220.
  *
  * Deliberately WITHOUT thousands separators, unlike every other formatter

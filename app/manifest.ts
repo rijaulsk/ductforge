@@ -16,7 +16,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "DuctForge — HVAC duct takeoff",
     short_name: "DuctForge",
     description:
-      "Duct surface area, GI sheet weight, SMACNA gauge and a BOM schedule for nine fittings — billing standard or shop flat pattern, metric or imperial.",
+      "Duct surface area, GI sheet weight, SMACNA gauge and a BOM schedule for ten fittings — billing standard or shop flat pattern, metric or imperial.",
     start_url: "/",
     display: "standalone",
     orientation: "any",
