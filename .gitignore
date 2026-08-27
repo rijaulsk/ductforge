@@ -54,3 +54,9 @@ next-env.d.ts
 # to roll back to. docs/app-surface.md is the rule set this app's UI is judged
 # against, and losing its history would mean losing the record of why the
 # workspace diverges from the marketing site.
+
+# Visual-verification renders — output for a human to look at, not source.
+# Regenerate with scripts/preview.mjs and scripts/mark-candidates.mjs, which
+# ARE tracked: the process of proving a mark works at 16px is worth keeping,
+# the PNGs it emits are not.
+/preview/
