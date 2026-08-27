@@ -137,6 +137,7 @@ function NumberField({
           autoComplete="off"
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          onFocus={(e) => e.currentTarget.select()}
           className="w-full rounded-card border-[1.5px] border-line bg-page px-4 py-2.5 font-medium tabular-nums text-heading"
         />
         <span className="w-12 shrink-0 text-small text-muted">{suffix}</span>

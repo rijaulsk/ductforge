@@ -101,6 +101,16 @@ export function Eyebrow({ children, className }: { children: ReactNode; classNam
   );
 }
 
+/**
+ * LEFT-ALIGNED AT EVERY WIDTH, and that is a deliberate divergence from the
+ * marketing site — see docs/app-surface.md.
+ *
+ * The site centres its content below `lg`, which is right for prose. This is
+ * not prose. A schedule's columns, a dimension label beside its box, a figure
+ * against its unit — none of those can centre, so centring only the HEADINGS
+ * produced a screen where half the text was centred and half was not. That
+ * mixture is what reads as broken, not the left edge.
+ */
 export function PanelHeading({
   eyebrow,
   title,
@@ -111,8 +121,8 @@ export function PanelHeading({
   aside?: ReactNode;
 }) {
   return (
-    <div className="mb-5 flex flex-wrap items-end justify-between gap-3 text-center lg:text-left">
-      <div className="w-full lg:w-auto">
+    <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+      <div>
         <Eyebrow>{eyebrow}</Eyebrow>
         <h2 className="mt-2 text-h3 font-bold text-heading">{title}</h2>
       </div>

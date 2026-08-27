@@ -30,8 +30,20 @@ export default function SiteNav({
   /** Translated labels for the guide pages. English when omitted. */
   labels?: Partial<Record<NavKey, string>>;
 }) {
+  /* NO WRAPPING, and every item the same size in both states.
+   *
+   * The nav used to be `flex-wrap` next to a flexible input, so at a range of
+   * widths an item dropped to a second line and took the whole bar's height
+   * with it — content below jumped as the window, or the on-screen keyboard,
+   * changed. It is now a single row that scrolls if it must, the items never
+   * shrink, and the active treatment changes only COLOUR: 1.5px border and
+   * medium weight in both states, so selecting a section cannot reflow
+   * anything. */
   return (
-    <nav aria-label="Sections" className={`flex flex-wrap gap-1.5 ${className ?? ""}`}>
+    <nav
+      aria-label="Sections"
+      className={`flex shrink-0 flex-nowrap gap-1.5 overflow-x-auto ${className ?? ""}`}
+    >
       {ITEMS.map((item) => {
         const on = item.key === current;
         return (
@@ -39,8 +51,10 @@ export default function SiteNav({
             key={item.key}
             href={item.href}
             aria-current={on ? "page" : undefined}
-            className={`rounded-full border-[1.5px] px-3.5 py-1.5 text-small font-medium transition duration-200 ease-out ${
-              on ? "border-line bg-heading text-page" : "border-transparent text-body hover:bg-sunk hover:text-heading"
+            className={`shrink-0 whitespace-nowrap rounded-full border-[1.5px] px-3.5 py-1.5 text-small font-medium transition-colors duration-200 ease-out ${
+              on
+                ? "border-line bg-heading text-page"
+                : "border-transparent text-body hover:bg-sunk hover:text-heading"
             }`}
           >
             {labels?.[item.key] ?? item.label}

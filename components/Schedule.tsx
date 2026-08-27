@@ -1,6 +1,7 @@
 "use client";
 
-import { Copy, Pencil, X } from "lucide-react";
+import { Copy, Pencil, Trash2, X } from "lucide-react";
+import { useState } from "react";
 import { computeFor } from "@/lib/duct/compute";
 import { describeFitting } from "@/lib/duct/describe";
 import { SPECS } from "@/lib/duct/formulas";
@@ -19,6 +20,16 @@ import FittingGlyph from "./FittingGlyph";
  * is unusable with a screen reader.
  */
 
+/**
+ * Row actions, with the destructive one behind a confirmation.
+ *
+ * The X used to delete on the first click. That is fine for something you can
+ * undo and wrong for something you cannot: a schedule line is several minutes
+ * of typing, the button sits two pixels from Duplicate, and there is no undo
+ * in this app. It now arms first and deletes on the second press, with the
+ * label saying so — a native confirm() would work too, but it is a different
+ * visual language and it steals focus from a table you are working down.
+ */
 function Actions({
   index,
   onEdit,
@@ -30,10 +41,12 @@ function Actions({
   onDuplicate: () => void;
   onRemove: () => void;
 }) {
+  const [armed, setArmed] = useState(false);
   const cls =
     "inline-flex h-9 w-9 items-center justify-center rounded-full border border-rule text-body transition duration-200 ease-out hover:bg-sunk hover:text-heading";
+
   return (
-    <div className="flex justify-end gap-1.5">
+    <div className="flex flex-wrap items-center justify-end gap-1.5">
       <button type="button" onClick={onEdit} className={cls} aria-label={`Edit line ${index}`}>
         <Pencil size={16} strokeWidth={1.5} />
       </button>
@@ -45,9 +58,35 @@ function Actions({
       >
         <Copy size={16} strokeWidth={1.5} />
       </button>
-      <button type="button" onClick={onRemove} className={cls} aria-label={`Remove line ${index}`}>
-        <X size={16} strokeWidth={1.5} />
-      </button>
+      {armed ? (
+        <>
+          <button
+            type="button"
+            onClick={onRemove}
+            className="inline-flex h-9 items-center gap-1.5 rounded-full border-[1.5px] border-danger-500 px-3 text-small font-medium text-heading transition duration-200 ease-out hover:bg-sunk"
+          >
+            <Trash2 size={15} strokeWidth={1.6} />
+            Delete line {index}?
+          </button>
+          <button
+            type="button"
+            onClick={() => setArmed(false)}
+            className={cls}
+            aria-label={`Keep line ${index}`}
+          >
+            <X size={16} strokeWidth={1.5} />
+          </button>
+        </>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setArmed(true)}
+          className={cls}
+          aria-label={`Remove line ${index}`}
+        >
+          <Trash2 size={16} strokeWidth={1.5} />
+        </button>
+      )}
     </div>
   );
 }

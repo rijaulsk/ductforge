@@ -6,6 +6,7 @@ import { SPECS } from "@/lib/duct/formulas";
 import type { Fitting, Mode } from "@/lib/duct/types";
 import type { UnitSystem } from "@/lib/duct/units";
 import Drawing from "./Drawing";
+import ZoomPan from "./ZoomPan";
 
 /* The drawing stage.
  *
@@ -43,7 +44,7 @@ export default function Viewer({
 
   return (
     <div>
-      <div className="mb-4 flex flex-wrap items-center justify-center gap-2 lg:justify-start">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
         {VIEWS.map((v) => {
           const on = v.kind === view;
           return (
@@ -63,16 +64,16 @@ export default function Viewer({
         })}
       </div>
 
-      <div className="rounded-card border-[1.5px] border-rule bg-page p-2">
+      <ZoomPan label={`the ${name} drawing`}>
         <Drawing
           scene={scene}
           title={`${name}, ${view === "flat" ? "flat pattern" : view === "iso" ? "isometric view" : "dimensioned drawing"}${
             view === "flat" ? ` for the ${mode === "shop" ? "shop" : "billing"} standard` : ""
           }`}
         />
-      </div>
+      </ZoomPan>
 
-      <p className="mt-3 text-center text-small text-muted lg:text-left">
+      <p className="mt-3 text-small text-muted">
         {dimensionNote(units)} {HINT[view]}
       </p>
     </div>

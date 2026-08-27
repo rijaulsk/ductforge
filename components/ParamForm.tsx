@@ -55,6 +55,11 @@ function Field({
           autoComplete="off"
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          /* Select the whole value on focus. Every box arrives pre-filled with
+           * a sensible default, and the job is to REPLACE it — clearing it by
+           * hand first, digit by digit, for ten boxes on every fitting, is a
+           * tax on the commonest action in the app. Tap, type, done. */
+          onFocus={(e) => e.currentTarget.select()}
           className="w-full rounded-card border-[1.5px] border-line bg-page px-4 py-2.5 font-medium tabular-nums text-heading placeholder:font-normal placeholder:text-muted"
         />
         {unit && <span className="w-8 shrink-0 text-small text-muted">{unit}</span>}
@@ -88,7 +93,13 @@ export default function ParamForm({
     <div className="space-y-6">
       <fieldset className="border-0 p-0">
         <legend className="sr-only">{spec.name} dimensions</legend>
-        <div className="grid gap-5 sm:grid-cols-2">
+        {/* TWO COLUMNS FROM THE SMALLEST SCREEN UP. A Y-piece has six
+          * dimensions and a square-to-round four; stacked one per row on a
+          * phone that is most of a screen of scrolling before you reach the
+          * button. Paired, it is half that, and duct dimensions come in pairs
+          * anyway — W with H, D₁ with D₂. The gap tightens on narrow screens so
+          * two boxes still fit without the labels wrapping. */}
+        <div className="grid grid-cols-2 gap-x-3 gap-y-4 sm:gap-x-5 sm:gap-y-5">
           {spec.fields.map((f) => (
             <Field
               key={f.key}
@@ -108,7 +119,7 @@ export default function ParamForm({
         <legend className="mb-3">
           <Eyebrow>Quantity and allowance</Eyebrow>
         </legend>
-        <div className="grid gap-5 sm:grid-cols-2">
+        <div className="grid grid-cols-2 gap-x-3 gap-y-4 sm:gap-x-5">
           <div>
             <label htmlFor={`${uid}-qty`} className="font-medium text-heading">
               Pieces
@@ -120,6 +131,7 @@ export default function ParamForm({
               autoComplete="off"
               value={draft.qty}
               onChange={(e) => onChange({ ...draft, qty: e.target.value })}
+              onFocus={(e) => e.currentTarget.select()}
               className="mt-2 w-full rounded-card border-[1.5px] border-line bg-page px-4 py-2.5 font-medium tabular-nums text-heading"
             />
           </div>
@@ -135,6 +147,7 @@ export default function ParamForm({
                 autoComplete="off"
                 value={draft.waste}
                 onChange={(e) => onChange({ ...draft, waste: e.target.value })}
+                onFocus={(e) => e.currentTarget.select()}
                 className="w-full rounded-card border-[1.5px] border-line bg-page px-4 py-2.5 font-medium tabular-nums text-heading"
               />
               <span className="w-8 shrink-0 text-small text-muted">%</span>

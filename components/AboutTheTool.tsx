@@ -15,9 +15,11 @@ import { FITTING_KINDS, SPECS } from "@/lib/duct/formulas";
  * does not do is the page that asks to be trusted.
  */
 
+/* Left at every width, like the rest of the app surface — a page that centres
+ * its prose and left-aligns its tool reads as two designs stapled together. */
 function H2({ eyebrow, children }: { eyebrow: string; children: React.ReactNode }) {
   return (
-    <div className="text-center lg:text-left">
+    <div>
       <p className="text-eyebrow uppercase text-accent">{eyebrow}</p>
       <h2 className="mt-3 max-w-3xl text-h2-mobile font-bold text-heading md:text-h2">
         {children}
@@ -27,8 +29,11 @@ function H2({ eyebrow, children }: { eyebrow: string; children: React.ReactNode 
 }
 
 export default function AboutTheTool() {
+  /* `print:hidden` because this is the page, not the takeoff. Printing used to
+   * emit the whole marketing section after the quantity sheet — several pages
+   * of "what this is" stapled to a document somebody was about to issue. */
   return (
-    <div className="border-t-[1.5px] border-rule">
+    <div className="border-t-[1.5px] border-rule print:hidden">
       <div className="mx-auto w-full max-w-canvas px-5 py-14 md:px-8 md:py-20">
         <H2 eyebrow="What this is">A duct takeoff you can check by hand</H2>
 

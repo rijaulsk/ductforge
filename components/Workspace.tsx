@@ -2,7 +2,7 @@
 
 import { Plus, RotateCcw } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import type { ViewKind } from "@/lib/draw";
 import { computeFor, computeTotals } from "@/lib/duct/compute";
 import { RECTANGULAR_KINDS, ROUND_KINDS, SPECS } from "@/lib/duct/formulas";
@@ -43,6 +43,7 @@ type Notice = { tone: "info" | "error"; text: string } | null;
 
 export default function Workspace() {
   const mounted = useHasMounted();
+  const uid = useId();
 
   /* Read storage in the initialiser, not an effect: an effect would render one
    * frame of an empty takeoff before the saved one appeared. The SSR pass has
@@ -290,41 +291,51 @@ export default function Workspace() {
 
         <div className="grid gap-6 lg:grid-cols-12 lg:gap-8">
           <Card as="section" className="lg:col-span-5">
-            <PanelHeading eyebrow="Step one" title="Choose a fitting" />
-            {(
-              [
-                ["Rectangular", RECTANGULAR_KINDS],
-                ["Round and spiral", ROUND_KINDS],
-              ] as const
-            ).map(([groupLabel, kinds]) => (
-              <div key={groupLabel} className="mb-5 last:mb-0">
-                <p className="mb-2 text-small text-muted">{groupLabel}</p>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                  {kinds.map((kind) => {
-                    const on = kind === draft.kind;
-                    return (
-                      <button
-                        key={kind}
-                        type="button"
-                        aria-pressed={on}
-                        onClick={() => pickKind(kind)}
-                        className={`flex flex-col items-center gap-2 rounded-card border-[1.5px] px-3 py-3 text-center text-small font-medium transition duration-200 ease-out ${
-                          on
-                            ? "border-line bg-heading text-page"
-                            : "border-rule text-heading hover:border-line hover:bg-sunk"
-                        }`}
-                      >
-                        <FittingGlyph kind={kind} />
+            {/* A SELECT, not a ten-tile grid.
+              * Ten tiles was two rows of pictures and roughly a phone screen
+              * of height, above the fields you actually came to fill in — so
+              * every fitting change meant scrolling back up, choosing, and
+              * scrolling back down. A grouped select is one tap, names the
+              * thing, and costs one line. The glyph moves next to the heading,
+              * where it still confirms what you picked. */}
+            <div className="flex items-end gap-3">
+              <div className="min-w-0 flex-1">
+                <label htmlFor={`${uid}-kind`} className="block">
+                  <Eyebrow>Step one</Eyebrow>
+                  <span className="mt-2 block text-h3 font-bold text-heading">Fitting</span>
+                </label>
+                <select
+                  id={`${uid}-kind`}
+                  value={draft.kind}
+                  onChange={(e) => pickKind(e.target.value as FittingKind)}
+                  className="mt-3 w-full rounded-card border-[1.5px] border-line bg-page px-4 py-3 font-medium text-heading"
+                >
+                  <optgroup label="Rectangular">
+                    {RECTANGULAR_KINDS.map((kind) => (
+                      <option key={kind} value={kind}>
                         {SPECS[kind].name}
-                      </button>
-                    );
-                  })}
-                </div>
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="Round and spiral">
+                    {ROUND_KINDS.map((kind) => (
+                      <option key={kind} value={kind}>
+                        {SPECS[kind].name}
+                      </option>
+                    ))}
+                  </optgroup>
+                </select>
               </div>
-            ))}
+              <span
+                aria-hidden="true"
+                className="mb-1 flex h-[3.25rem] w-16 shrink-0 items-center justify-center rounded-card border-[1.5px] border-rule text-accent"
+              >
+                <FittingGlyph kind={draft.kind} />
+              </span>
+            </div>
 
             <div className="mt-7 border-t-[1.5px] border-rule pt-7">
-              <div className="mb-5 text-center lg:text-left">
+              <div className="mb-5">
                 <Eyebrow>Step two</Eyebrow>
                 <h2 className="mt-2 text-h3 font-bold text-heading">{spec.name} dimensions</h2>
                 <p className="mt-1 text-small text-body">{spec.blurb}</p>
@@ -418,9 +429,9 @@ export default function Workspace() {
             }
           />
           {project.entries.length === 0 ? (
-            <div className="rounded-card border-[1.5px] border-dashed border-rule px-6 py-12 text-center">
+            <div className="rounded-card border-[1.5px] border-dashed border-rule px-6 py-10">
               <p className="font-medium text-heading">Nothing scheduled yet.</p>
-              <p className="mx-auto mt-2 max-w-md text-small text-body">
+              <p className="mt-2 max-w-md text-small text-body">
                 Set the dimensions above and add the first fitting. Lines stay on this device —
                 nothing is uploaded anywhere.
               </p>
