@@ -13,13 +13,26 @@ export function triggerDownload(blob: Blob, filename: string): void {
   URL.revokeObjectURL(url);
 }
 
-/** A filename that survives Windows, macOS and a shared drive. */
-export function safeFilename(name: string, extension: string): string {
-  const base =
-    name
-      .trim()
-      .replace(/[^a-zA-Z0-9 _-]/g, "")
-      .replace(/\s+/g, "-")
-      .slice(0, 60) || "ductforge-takeoff";
-  return `${base}.${extension}`;
+/**
+ * A filename that survives Windows, macOS and a shared drive — and that still
+ * says what it is a week later, sitting in a Downloads folder among exports
+ * from four other apps.
+ *
+ * `ductforge-<project>-<what>-<yyyy-mm-dd>.<ext>`. The prefix is the brand, the
+ * middle is the job, and the date is what makes two exports of the same job on
+ * different days sort next to each other instead of colliding into
+ * "Office Tower (2).csv".
+ */
+export function safeFilename(name: string, extension: string, what = "takeoff"): string {
+  const base = name
+    .trim()
+    .replace(/[^a-zA-Z0-9 _-]/g, "")
+    .replace(/[\s_]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .toLowerCase()
+    .slice(0, 48)
+    .replace(/-$/, "");
+  const date = new Date().toISOString().slice(0, 10);
+  return `${["ductforge", base, what, date].filter(Boolean).join("-")}.${extension}`;
 }

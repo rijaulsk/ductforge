@@ -14,6 +14,7 @@ import type {
 } from "./duct/types";
 import type { UnitSystem } from "./duct/units";
 import { DEFAULT_WASTE } from "./duct/waste";
+import { APP_BYLINE, SITE_URL } from "./site";
 
 /* Project documents: creation, and the one validator every stored or imported
  * document has to pass.
@@ -172,6 +173,11 @@ export const PROJECT_SCHEMA = 1;
 export type ProjectFile = {
   schema: number;
   app: "ductforge";
+  /* `app` is the machine's identifier and the reader keys off it, so it must
+   * never change. `generator` is the human's: somebody who opens this file in
+   * a text editor two years from now should be able to see what wrote it and
+   * where to get that thing. The reader ignores it entirely. */
+  generator: string;
   exportedAt: string;
   project: Project;
 };
@@ -180,6 +186,7 @@ export function toProjectFile(project: Project): string {
   const file: ProjectFile = {
     schema: PROJECT_SCHEMA,
     app: "ductforge",
+    generator: `${APP_BYLINE} — ${SITE_URL}`,
     exportedAt: new Date().toISOString(),
     project,
   };

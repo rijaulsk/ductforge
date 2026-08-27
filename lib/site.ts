@@ -9,7 +9,21 @@
 
 export const SITE_URL = "https://ductforge.debugswift.com";
 
-/** Who built it. One quiet byline in the footer, and nothing else — see
- * components/SiteFooter.tsx for why this is attribution and not a funnel. */
+/* Who built it.
+ *
+ * The byline is quiet but it is EVERYWHERE — page titles, the manifest, the
+ * printed sheet, both exports and the saved project file. Owner's call,
+ * 27 Aug 2026: a document that leaves this app and lands on somebody's desk
+ * should say where it came from, and a tool that is a shop window for an
+ * agency is not doing its job if nothing on it names the agency.
+ *
+ * What it is NOT is a pitch. One line, no services, no call to action — see
+ * components/SiteFooter.tsx.
+ */
 export const MAKER_NAME = "DebugSwift";
 export const MAKER_URL = "https://debugswift.com";
+
+/** The product, attributed. Used wherever a single string has to carry both. */
+export const APP_NAME = "DuctForge";
+export const APP_BYLINE = `${APP_NAME} by ${MAKER_NAME}`;
+export const APP_CREDIT = `Prepared with ${APP_NAME} by ${MAKER_NAME} — ${MAKER_URL.replace("https://", "")}`;

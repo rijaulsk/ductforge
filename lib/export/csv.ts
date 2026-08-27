@@ -19,6 +19,7 @@ import {
   runUnit,
 } from "../duct/units";
 import { wasteDetail } from "../duct/waste";
+import { APP_BYLINE, APP_CREDIT, SITE_URL } from "../site";
 
 /* CSV for spreadsheets and ERP quoting.
  *
@@ -34,6 +35,12 @@ import { wasteDetail } from "../duct/waste";
  * And it quotes properly (RFC 4180) with a UTF-8 BOM, because a job reference
  * with a comma in it must not shift every column right, and because Excel
  * reads a BOM-less UTF-8 file as the system codepage and turns m² into mÂ².
+ *
+ * LAYOUT. Letterhead, then named sections separated by a blank row, then the
+ * credit line last. Within a section a line is one of exactly three shapes —
+ * see `section`, `pair` and `row` below. Both exports are the same body: the
+ * detailed file is the standard file plus a calculation-details section, from
+ * one function, so the two can never drift apart.
  */
 
 const BOM = "﻿";
@@ -44,6 +51,23 @@ function cell(value: string | number): string {
 }
 
 const row = (cells: (string | number)[]) => cells.map(cell).join(",");
+
+/* THE THREE SHAPES A LINE IN THIS FILE IS ALLOWED TO TAKE.
+ *
+ * Before these, the file was a run of bare rows — a title, some pairs, a table,
+ * more pairs — with nothing marking where one block ended and the next began,
+ * and with labels landing in whichever column the author happened to pick.
+ * Opened in a spreadsheet that is a wall of cells you have to decode.
+ *
+ * Now: a section heading is upper case and alone on its row, a label/value pair
+ * always puts the label in column A, the value in B and any unit in C, and a
+ * table is a header row followed by rows of the same width. Column B therefore
+ * lines up from the top of the file to the bottom, which is the whole trick.
+ */
+const section = (title: string) => row([title.toUpperCase()]);
+
+const pair = (label: string, value: string | number, unit = "") =>
+  row(unit ? [label, value, unit] : [label, value]);
 
 /** Every dimension key any fitting uses, so the columns line up across kinds. */
 const DIM_COLUMNS = [
@@ -84,32 +108,45 @@ function dimUnit(key: string, len: string): string {
   return len;
 }
 
-export function toCsv(project: Project): string {
+/** Wrap a body in the things every file this module writes must carry: the BOM
+ * Excel needs to read UTF-8, and the credit line, last, at the actual end. */
+const file = (lines: string[]) => BOM + [...lines, "", row([APP_CREDIT])].join("\r\n") + "\r\n";
+
+/* The standard report's rows — without the mark and without the credit, so the
+ * detailed report can carry all of them and still close the file itself
+ * rather than having a credit line stranded in its middle. */
+function standardLines(project: Project, subtitle: string): string[] {
   const { units: us, mode } = project;
   const len = lengthUnit(us);
   const lines: string[] = [];
 
-  lines.push(row(["DuctForge takeoff"]));
-  lines.push(row(["Project", project.name]));
-  lines.push(row(["Reference", project.reference]));
-  lines.push(row(["Exported", new Date().toISOString()]));
-  lines.push(
-    row([
-      "Measurement standard",
-      mode === "billing"
-        ? "Commercial billing — mean perimeter x centreline length"
-        : "Shop fabrication — true unfolded blank",
-    ]),
-  );
-  lines.push(row(["Units", us === "metric" ? "Metric (mm, m2, kg)" : "Imperial (in, ft2, lb)"]));
+  /* The letterhead. Same words as the printed sheet's masthead, because a
+   * takeoff that leaves this app should name where it came from whichever
+   * door it went out of. */
+  lines.push(row([APP_BYLINE]));
+  lines.push(row([subtitle, SITE_URL.replace("https://", "")]));
   lines.push("");
 
-  lines.push(row(["Material", MATERIALS[project.material].name]));
+  lines.push(section("Job"));
+  lines.push(pair("Project", project.name));
+  lines.push(pair("Reference", project.reference));
+  lines.push(pair("Exported", new Date().toISOString()));
+  lines.push(
+    pair(
+      "Measurement standard",
+      mode === "billing"
+        ? "Commercial billing - mean perimeter x centreline length"
+        : "Shop fabrication - true unfolded blank",
+    ),
+  );
+  lines.push(pair("Units", us === "metric" ? "Metric (mm, m2, kg)" : "Imperial (in, ft2, lb)"));
+  lines.push(pair("Material", MATERIALS[project.material].name));
   if (project.ancillaries.insulationMm > 0) {
-    lines.push(row(["Insulation", `${project.ancillaries.insulationMm} mm on the outer face`]));
+    lines.push(pair("Insulation", `${project.ancillaries.insulationMm} mm on the outer face`));
   }
   lines.push("");
 
+  lines.push(section("Schedule"));
   lines.push(
     row([
       "#",
@@ -182,28 +219,29 @@ export function toCsv(project: Project): string {
   const totals = computeTotals(project);
 
   lines.push("");
-  lines.push(row(["Totals"]));
-  lines.push(row(["Pieces", totals.pieces]));
-  lines.push(row(["Net area", fromAreaMinor(totals.netAreaMinor), areaUnit(us)]));
-  lines.push(row(["Waste", fromAreaMinor(totals.wasteAreaMinor), areaUnit(us)]));
-  lines.push(row(["Gross area", fromAreaMinor(totals.grossAreaMinor), areaUnit(us)]));
-  lines.push(row(["Weight", fromMassMinor(totals.massMinor), massUnit(us)]));
+  lines.push(section("Totals"));
+  lines.push(pair("Lines", project.entries.length));
+  lines.push(pair("Pieces", totals.pieces));
+  lines.push(pair("Net area", fromAreaMinor(totals.netAreaMinor), areaUnit(us)));
+  lines.push(pair("Waste", fromAreaMinor(totals.wasteAreaMinor), areaUnit(us)));
+  lines.push(pair("Gross area", fromAreaMinor(totals.grossAreaMinor), areaUnit(us)));
+  lines.push(pair("Weight", fromMassMinor(totals.massMinor), massUnit(us)));
   if (totals.insulationAreaMinor > 0) {
-    lines.push(row(["Insulation", fromAreaMinor(totals.insulationAreaMinor), areaUnit(us)]));
+    lines.push(pair("Insulation", fromAreaMinor(totals.insulationAreaMinor), areaUnit(us)));
   }
   if (totals.flangeEnds > 0) {
-    lines.push(row(["Flange ends", totals.flangeEnds]));
-    lines.push(row(["Flange", fromRunMinor(totals.flangeRunMinor), runUnit(us)]));
-    if (totals.corners > 0) lines.push(row(["Corner pieces", totals.corners]));
+    lines.push(pair("Flange ends", totals.flangeEnds, "ends"));
+    lines.push(pair("Flange", fromRunMinor(totals.flangeRunMinor), runUnit(us)));
+    if (totals.corners > 0) lines.push(pair("Corner pieces", totals.corners, "off"));
   }
-  if (totals.supports > 0) lines.push(row(["Hangers", totals.supports]));
+  if (totals.supports > 0) lines.push(pair("Hangers", totals.supports, "off"));
   if (totals.valueMinor > 0) {
-    lines.push(row(["Value", fromValueMinor(totals.valueMinor), project.rates.label]));
+    lines.push(pair("Value", fromValueMinor(totals.valueMinor), project.rates.label));
   }
 
   if (totals.byZone.some((z) => z.zone !== "")) {
     lines.push("");
-    lines.push(row(["By zone"]));
+    lines.push(section("By zone"));
     lines.push(
       row([
         "Zone",
@@ -229,7 +267,7 @@ export function toCsv(project: Project): string {
   }
 
   lines.push("");
-  lines.push(row(["By gauge"]));
+  lines.push(section("By gauge"));
   lines.push(
     row([
       "Gauge",
@@ -251,11 +289,18 @@ export function toCsv(project: Project): string {
     );
   }
 
+  /* Numbered, and the number is in its own column, so a reader can point at
+   * "basis 4" in an email and both people are looking at the same sentence. */
   lines.push("");
-  lines.push(row(["Stated assumptions"]));
-  for (const line of assumptions(project)) lines.push(row([line]));
+  lines.push(section("Basis of the quantities"));
+  assumptions(project).forEach((line, i) => lines.push(row([i + 1, line])));
 
-  return BOM + lines.join("\r\n") + "\r\n";
+  return lines;
+}
+
+/** The takeoff, as a spreadsheet. */
+export function toCsv(project: Project): string {
+  return file(standardLines(project, "Duct takeoff schedule"));
 }
 
 /**
@@ -271,52 +316,46 @@ export function toCsv(project: Project): string {
  */
 export function toDetailedCsv(project: Project): string {
   const { units: us, mode } = project;
-  const lines: string[] = [toCsv(project).replace(BOM, "")];
+  const lines = standardLines(project, "Duct takeoff schedule with calculation details");
 
   lines.push("");
-  lines.push(row(["Calculation details"]));
-  lines.push(
-    row([
-      "Every value below is from the same calculation as the rows above. '=' means the operands",
-    ]),
-  );
-  lines.push(
-    row([
-      "shown reproduce the value shown; '~' means the value was computed from more precision than is printed.",
-    ]),
-  );
+  lines.push(section("Calculation details"));
+  /* The legend is a pair, not a paragraph dumped into column A. Two sentences
+   * that used to run off the edge of the sheet as one 100-character cell. */
+  lines.push(pair("Basis", "Every value below is from the same calculation as the schedule above."));
+  lines.push(pair("=", "The operands shown reproduce the value shown exactly."));
+  lines.push(pair("~", "The value was computed from more precision than is printed here."));
+  lines.push(pair("Precision", `${PRECISION.detail} decimal places`));
 
   project.entries.forEach((entry, i) => {
     const r = computeFor(project, entry);
     const spec = SPECS[entry.fitting.kind];
+
     lines.push("");
-    lines.push(
-      row([
-        `Line ${i + 1}`,
-        spec.name,
-        describeFitting(entry.fitting, us),
-        mode === "billing" ? "Commercial billing" : "Shop fabrication",
-      ]),
-    );
-    lines.push(row(["Formula", r.expression]));
+    lines.push(section(`Line ${i + 1} — ${spec.name}`));
+    lines.push(pair("Dimensions", describeFitting(entry.fitting, us)));
+    lines.push(pair("Standard", mode === "billing" ? "Commercial billing" : "Shop fabrication"));
+    lines.push(pair("Formula", r.expression));
+    lines.push(pair("Substituted", r.substitution));
+    lines.push("");
+
+    /* Five columns, every row the same width, the exactness marker in its own
+     * narrow column between the working and the value — so a reader scanning
+     * down sees at a glance which lines are rounded. */
     lines.push(row(["Step", "Working", "", "Value", "Unit"]));
     for (const s of r.steps) {
       lines.push(
         row([s.label, s.working, s.exact ? "=" : "~", fmtExact(s.value, PRECISION.detail), s.unit]),
       );
     }
-    lines.push(
-      row([
-        "Displayed",
-        `net ${fromAreaMinor(r.netAreaMinor)} ${areaUnit(us)}`,
-        "",
-        `gross ${fromAreaMinor(r.grossAreaMinor)}`,
-        `weight ${fromMassMinor(r.massMinor)} ${massUnit(us)}`,
-      ]),
-    );
+
+    lines.push("");
+    lines.push(pair("Net area, as displayed", fromAreaMinor(r.netAreaMinor), areaUnit(us)));
+    lines.push(pair("Gross area, as displayed", fromAreaMinor(r.grossAreaMinor), areaUnit(us)));
+    lines.push(pair("Weight, as displayed", fromMassMinor(r.massMinor), massUnit(us)));
   });
 
-  return BOM + lines.join("\r\n") + "\r\n";
+  return file(lines);
 }
 
 /** The caveats that travel with every number this app produces. Shared by the

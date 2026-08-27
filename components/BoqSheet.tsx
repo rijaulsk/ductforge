@@ -22,6 +22,7 @@ import {
   runUnit,
 } from "@/lib/duct/units";
 import { assumptions } from "@/lib/export/csv";
+import { APP_CREDIT, MAKER_NAME } from "@/lib/site";
 
 /* The issuable document.
  *
@@ -47,36 +48,58 @@ export default function BoqSheet({ project }: { project: Project }) {
 
   return (
     <div className="hidden print:block">
-      <header className="mb-4 border-b-[1.5px] border-ink pb-3">
-        <h1 className="text-[18pt] font-bold text-ink">Duct takeoff schedule</h1>
-        <p className="mt-1 text-[11pt] font-medium text-ink">{project.name}</p>
-        <dl className="mt-2 grid grid-cols-2 gap-x-8 gap-y-0.5 text-[9.5pt]">
+      {/* A LETTERHEAD, not a left-aligned stack.
+        *
+        * This is a document somebody issues, and an issued document has a
+        * centred masthead with the job under it and the parameters in a ruled
+        * band — that is what a title block looks like on any drawing or
+        * schedule a QS has ever been handed. The old header was the same
+        * information dumped left-aligned with the mark nowhere, which read as
+        * a screenshot rather than a deliverable.
+        *
+        * The mark is inline SVG in the print colour so it survives the
+        * "background graphics off" default in every browser's print dialogue —
+        * a logo that disappears when somebody prints is worse than none. */}
+      <header className="mb-5">
+        <div className="flex flex-col items-center border-b-[1.5px] border-ink pb-4 text-center">
+          <div className="flex items-center gap-2">
+            <svg width="18" height="18" viewBox="0 0 100 100" aria-hidden="true">
+              <path
+                d="M0 100L0 0L100 0L100 30L50 30A20 20 0 0 0 30 50L30 100Z"
+                fill="#221D17"
+              />
+            </svg>
+            <span className="text-[11pt] font-bold tracking-tight text-ink">
+              Duct<span className="font-bold">Forge</span>
+            </span>
+            <span className="text-[9pt] text-ink">by {MAKER_NAME}</span>
+          </div>
+          <h1 className="mt-3 text-[19pt] font-bold leading-tight text-ink">
+            Duct takeoff schedule
+          </h1>
+          <p className="mt-1 text-[12pt] text-ink">{project.name}</p>
           {project.reference && (
-            <div className="flex gap-2">
-              <dt className="font-bold">Reference</dt>
-              <dd>{project.reference}</dd>
-            </div>
+            <p className="mt-0.5 text-[10pt] text-ink">Ref {project.reference}</p>
           )}
-          <div className="flex gap-2">
-            <dt className="font-bold">Date</dt>
-            <dd>{new Date().toLocaleDateString("en-GB")}</dd>
-          </div>
-          <div className="flex gap-2">
-            <dt className="font-bold">Standard</dt>
-            <dd>
-              {mode === "billing"
+        </div>
+
+        <dl className="flex flex-wrap justify-center gap-x-8 gap-y-1 border-b border-mist py-2 text-[9pt]">
+          {[
+            ["Date", new Date().toLocaleDateString("en-GB")],
+            [
+              "Standard",
+              mode === "billing"
                 ? "Commercial billing — mean perimeter × centreline"
-                : "Shop fabrication — true unfolded blank"}
-            </dd>
-          </div>
-          <div className="flex gap-2">
-            <dt className="font-bold">Units</dt>
-            <dd>{us === "metric" ? "Metric (mm, m², kg)" : "Imperial (in, ft², lb)"}</dd>
-          </div>
-          <div className="flex gap-2">
-            <dt className="font-bold">Material</dt>
-            <dd>{MATERIALS[project.material].name}</dd>
-          </div>
+                : "Shop fabrication — true unfolded blank",
+            ],
+            ["Units", us === "metric" ? "Metric (mm, m², kg)" : "Imperial (in, ft², lb)"],
+            ["Material", MATERIALS[project.material].name],
+          ].map(([term, value]) => (
+            <div key={term} className="flex gap-1.5">
+              <dt className="font-bold">{term}</dt>
+              <dd>{value}</dd>
+            </div>
+          ))}
         </dl>
       </header>
 
@@ -262,10 +285,11 @@ export default function BoqSheet({ project }: { project: Project }) {
         ))}
       </ul>
 
-      <p className="mt-6 border-t border-mist pt-2 text-[8.5pt]">
-        Prepared with DuctForge. Quantities are calculated from the dimensions entered above and
-        should be checked against the project specification before being used to order or to
-        invoice.
+      <p className="mt-6 border-t border-mist pt-2 text-center text-[8.5pt]">
+        {APP_CREDIT}
+        <br />
+        Quantities are calculated from the dimensions entered above and should be checked against
+        the project specification before being used to order or to invoice.
       </p>
     </div>
   );
