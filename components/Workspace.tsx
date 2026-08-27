@@ -42,18 +42,39 @@ import { Button, Card, Eyebrow, Note, PanelHeading } from "./ui";
 type Notice = { tone: "info" | "error"; text: string } | null;
 
 export default function Workspace() {
-  const mounted = useHasMounted();
   const uid = useId();
+  const [hydrated, setHydrated] = useState(false);
 
-  /* Read storage in the initialiser, not an effect: an effect would render one
-   * frame of an empty takeoff before the saved one appeared. The SSR pass has
-   * no window, and the whole workspace is gated on `mounted` below, so the
-   * server and the hydration render agree. */
-  const [store, setStore] = useState(() =>
-    typeof window === "undefined"
-      ? { projects: [blankProject()], activeId: "" }
-      : initialState(),
-  );
+  /* THE WORKSPACE RENDERS IMMEDIATELY, EMPTY, AND FILLS IN.
+   *
+   * It used to render a placeholder until `mounted` and then swap in the whole
+   * application — a few hundred pixels of text replaced by a two-column
+   * workspace, which is about as large a layout shift as a page can have, on
+   * every single load.
+   *
+   * Now the real components render from the first frame with a blank takeoff,
+   * and the effect below replaces that state with whatever was saved. The tree
+   * does not change shape, so nothing jumps; only the numbers in it do. The
+   * blank project is deterministic apart from its id, which is never rendered,
+   * so the server pass and the hydration pass agree. */
+  const [store, setStore] = useState(() => ({
+    projects: [blankProject()],
+    activeId: "",
+  }));
+
+  /* Adjusted during render, not in an effect.
+   *
+   * `useHasMounted` is a `useSyncExternalStore` that flips once, so this runs
+   * exactly once and the guard stops it looping. React documents this as the
+   * way to derive state from something only the client knows; doing it in an
+   * effect causes the cascading re-render that `react-hooks/set-state-in-effect`
+   * exists to catch, and renders one extra frame of an empty takeoff. */
+  const mounted = useHasMounted();
+  if (mounted && !hydrated) {
+    setHydrated(true);
+    setStore(initialState());
+  }
+
   const project = store.projects.find((p) => p.id === store.activeId) ?? store.projects[0];
 
   const [draft, setDraft] = useState<Draft>(() => newDraft("straight", 12, "metric"));
@@ -62,9 +83,13 @@ export default function Workspace() {
   const [notice, setNotice] = useState<Notice>(null);
 
   useEffect(() => {
+    /* NEVER WRITE BEFORE WE HAVE READ. The first render holds a blank takeoff,
+     * and persisting that would overwrite the saved one in the moment between
+     * mounting and loading. */
+    if (!hydrated) return;
     saveProjects(store.projects);
     saveActiveId(store.activeId);
-  }, [store]);
+  }, [store, hydrated]);
 
   /* ---- project-level updates ------------------------------------------- */
 
@@ -203,13 +228,13 @@ export default function Workspace() {
   const exportDetailed = () =>
     triggerDownload(
       new Blob([toDetailedCsv(project)], { type: "text/csv;charset=utf-8" }),
-      safeFilename(`${project.name} working`, "csv"),
+      safeFilename(project.name, "csv", "working"),
     );
 
   const exportJson = () =>
     triggerDownload(
       new Blob([toProjectFile(project)], { type: "application/json" }),
-      safeFilename(project.name, "json"),
+      safeFilename(project.name, "json", "project"),
     );
 
   const totals = computeTotals(project);
@@ -220,37 +245,11 @@ export default function Workspace() {
     ...new Set(project.entries.map((e) => e.zone.trim()).filter(Boolean)),
   ].sort();
 
-  /* Everything below the fold of this branch is what a crawler and a slow first
-   * paint actually get, because the workspace itself cannot render until the
-   * saved takeoff has been read out of localStorage. It used to be the four
-   * words "Loading the workspace…" and nothing else — correct for hydration,
-   * useless as a page. This is the same page saying what it is, not cloaked
-   * content: it is replaced by the real thing the moment React takes over. */
-  if (!mounted) {
-    return (
-      <>
-        <main className="mx-auto w-full max-w-canvas px-5 py-16 md:px-8 md:py-24">
-          <p className="text-eyebrow uppercase text-accent">HVAC takeoff</p>
-          <h1 className="mt-3 max-w-3xl text-h1-mobile font-bold text-heading md:text-h1">
-            Duct surface area, sheet weight and gauge
-          </h1>
-          <p className="mt-5 max-w-2xl">
-            Enter a fitting&rsquo;s dimensions and get its surface area, GI sheet weight, SMACNA
-            gauge and a BOM schedule you can export. Six fittings — straight duct, reducer, elbow,
-            dropper, collar and Y-piece — measured to either the commercial billing standard (mean
-            perimeter × centreline length) or the true shop flat pattern. Metric or imperial.
-          </p>
-          <p className="mt-6">
-            <Link href="/standards" className="text-accent underline-offset-4 hover:underline">
-              Every formula, gauge band and constant it uses →
-            </Link>
-          </p>
-          <p className="mt-10 text-small text-muted">Loading the workspace…</p>
-        </main>
-      </>
-    );
-  }
-
+  /* There is no placeholder branch any more. The workspace renders on the
+   * first frame with a blank takeoff and fills in — see the state above. The
+   * SEO content a crawler needs lives in the server-rendered section below the
+   * tool (components/AboutTheTool.tsx), which is a better home for it than a
+   * block that vanished on hydration. */
   return (
     <>
       <ProjectBar

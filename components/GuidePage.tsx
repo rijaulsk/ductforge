@@ -1,10 +1,9 @@
 import Link from "next/link";
 import { GUIDE_LIST } from "@/lib/guide";
 import type { Guide } from "@/lib/guide/types";
+import AppHeader from "./AppHeader";
 import GuideFigure from "./GuideFigure";
 import SiteFooter from "./SiteFooter";
-import SiteNav from "./SiteNav";
-import Wordmark from "./Wordmark";
 import { variantClasses } from "./ui";
 
 /* One component, three languages.
@@ -22,38 +21,34 @@ import { variantClasses } from "./ui";
 export default function GuidePage({ guide }: { guide: Guide }) {
   return (
     <>
-      <header className="border-b-[1.5px] border-line">
-        <div className="mx-auto w-full max-w-canvas px-5 py-8 md:px-8 md:py-10">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex flex-wrap items-center gap-4">
-              <Wordmark size="sm" />
-              <SiteNav current="guide" labels={guide.nav} />
-            </div>
-            <nav aria-label={guide.switcherLabel} className="flex flex-wrap items-center gap-2">
-              <span className="text-small text-muted">{guide.switcherLabel}</span>
-              {GUIDE_LIST.map((g) => {
-                const on = g.locale === guide.locale;
-                return (
-                  <Link
-                    key={g.locale}
-                    href={g.path}
-                    lang={g.htmlLang}
-                    hrefLang={g.htmlLang}
-                    aria-current={on ? "page" : undefined}
-                    className={`rounded-full border-[1.5px] px-3.5 py-1.5 text-small font-medium transition duration-200 ease-out ${
-                      on
-                        ? "border-line bg-heading text-page"
-                        : "border-line text-heading hover:bg-sunk"
-                    }`}
-                  >
-                    {g.label}
-                  </Link>
-                );
-              })}
-            </nav>
-          </div>
-        </div>
-      </header>
+      <AppHeader
+        current="guide"
+        labels={guide.nav}
+        right={
+          <nav aria-label={guide.switcherLabel} className="flex flex-wrap items-center gap-2">
+            <span className="hidden text-small text-muted sm:inline">
+              {guide.switcherLabel}
+            </span>
+            {GUIDE_LIST.map((g) => {
+              const on = g.locale === guide.locale;
+              return (
+                <Link
+                  key={g.locale}
+                  href={g.path}
+                  lang={g.htmlLang}
+                  hrefLang={g.htmlLang}
+                  aria-current={on ? "page" : undefined}
+                  className={`shrink-0 rounded-full border-[1.5px] px-3.5 py-1.5 text-small font-medium transition-colors duration-200 ease-out ${
+                    on ? "border-line bg-heading text-page" : "border-line text-heading hover:bg-sunk"
+                  }`}
+                >
+                  {g.label}
+                </Link>
+              );
+            })}
+          </nav>
+        }
+      />
 
       {/* The script class does two things: swaps in a face that HAS glyphs for
         * this writing system, and loosens the leading, because Bengali and

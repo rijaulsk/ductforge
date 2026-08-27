@@ -13,9 +13,8 @@ import { FITTING_KINDS, SPECS } from "@/lib/duct/formulas";
 import { MATERIALS, MATERIAL_KEYS } from "@/lib/duct/material";
 import { fmt } from "@/lib/duct/units";
 import { WASTE_PRESETS } from "@/lib/duct/waste";
+import AppHeader from "@/components/AppHeader";
 import SiteFooter from "@/components/SiteFooter";
-import SiteNav from "@/components/SiteNav";
-import Wordmark from "@/components/Wordmark";
 import { variantClasses } from "@/components/ui";
 
 /* Everything the calculator believes, written out.
@@ -72,13 +71,10 @@ function Section({
 export default function StandardsPage() {
   return (
     <>
-      <header className="border-b-[1.5px] border-line">
+      <AppHeader current="standards" />
+      <div className="border-b-[1.5px] border-line">
         <div className="mx-auto w-full max-w-canvas px-5 py-14 md:px-8 md:py-20">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <Wordmark size="sm" />
-            <SiteNav current="standards" />
-          </div>
-          <div className="mt-10 grid gap-8 lg:grid-cols-12">
+          <div className="grid gap-8 lg:grid-cols-12">
             <div className="lg:col-span-7">
               <p className="text-eyebrow uppercase text-accent">Reference</p>
               <h1 className="mt-3 text-h1-mobile font-bold text-heading md:text-h1">
@@ -105,7 +101,7 @@ export default function StandardsPage() {
             </div>
           </div>
         </div>
-      </header>
+      </div>
 
       <Section
         eyebrow="The two standards"
