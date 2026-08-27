@@ -19,6 +19,7 @@ import {
   type UnitSystem,
   fmtExact,
   fromMm,
+  printsExactly,
   squareLengthFromMm2,
   workingDecimals,
 } from "./units";
@@ -86,6 +87,17 @@ export type StepCtx = {
   sv: (mm2: number) => number;
   /** The same, formatted. */
   S: (mm2: number) => string;
+  /**
+   * Did `L` print that length without losing anything?
+   *
+   * A step may only claim `=` if the operands it SHOWS reproduce the value it
+   * shows, and `L` prints at three decimals. In metric, with whole-millimetre
+   * inputs, that is always lossless and the claim is free. In imperial it is
+   * not — 950 mm is 37.4015748 in, which prints as 37.402 — so a builder that
+   * hard-codes `exact: true` is telling the truth on one unit system and
+   * lying on the other. Hence a predicate rather than a constant.
+   */
+  exactL: (mm: number) => boolean;
   lenUnit: string;
   sqUnit: string;
 };
@@ -99,6 +111,7 @@ export function stepCtx(us: UnitSystem): StepCtx {
     sv,
     L: (mm) => fmtExact(lv(mm), PRECISION.step),
     S: (mm2) => fmtExact(sv(mm2), PRECISION.step),
+    exactL: (mm) => printsExactly(lv(mm), PRECISION.step),
     lenUnit: us === "metric" ? "mm" : "in",
     sqUnit: us === "metric" ? "mm²" : "in²",
   };
@@ -171,18 +184,32 @@ const shrink = (r: number, delta: number) => Math.max(0, r - delta / 2);
 
 /* ---- straight duct ---------------------------------------------------- */
 
-/** Mean perimeter of a rectangular section — the step four fittings share. */
+/** Mean perimeter of a rectangular section — the step four fittings share.
+ *
+ * Exact when both sides printed exactly and the sum does: adding two numbers
+ * you can see in full gives an answer you can check. In imperial neither half
+ * of that is guaranteed, so it is asked rather than assumed. */
 const perimeterStep = (w: number, h: number, c: StepCtx): CalcStep =>
   step(
     "Mean perimeter",
     `2 × (${c.L(w)} + ${c.L(h)})`,
     c.lv(2 * (w + h)),
     c.lenUnit,
-    true,
+    c.exactL(w) && c.exactL(h) && printsExactly(c.lv(2 * (w + h)), PRECISION.step),
   );
 
 const areaStep = (working: string, mm2: number, c: StepCtx, exact = false): CalcStep =>
   step("Net area", working, c.sv(mm2), c.sqUnit, exact);
+
+/* Exactness, asked rather than assumed — see StepCtx.exactL.
+ *
+ * A builder that wants to claim `=` names the lengths and areas it PRINTED,
+ * and these say whether printing them lost anything. Passing the step's own
+ * result as well is what stops "operands you can check, answer you cannot". */
+const exactLengths = (c: StepCtx, ...mm: number[]): boolean => mm.every((v) => c.exactL(v));
+
+const exactAreas = (c: StepCtx, ...mm2: number[]): boolean =>
+  mm2.every((v) => printsExactly(c.sv(v), PRECISION.step));
 
 function straightSteps(f: Straight, c: StepCtx): CalcStep[] {
   const perimeter = 2 * (f.w + f.h);
@@ -192,9 +219,9 @@ function straightSteps(f: Straight, c: StepCtx): CalcStep[] {
       `${c.L(perimeter)} × ${c.L(f.l)}`,
       perimeter * f.l,
       c,
-      /* Both operands are shown in full, and multiplying two exact lengths is
-       * exact — so this one genuinely is `=`. */
-      true,
+      /* Both operands shown in full, and their product printable in full:
+       * this one genuinely is `=` — in metric. Ask, don't assume. */
+      c.exactL(perimeter) && c.exactL(f.l) && printsExactly(c.sv(perimeter * f.l), PRECISION.step),
     ),
   ];
 }
@@ -275,9 +302,14 @@ const reducer: Spec<Reducer> = {
           `${c.L(f.w1)} + ${c.L(f.h1)} + ${c.L(f.w2)} + ${c.L(f.h2)}`,
           c.lv(mean),
           c.lenUnit,
-          true,
+          exactLengths(c, f.w1, f.h1, f.w2, f.h2, mean),
         ),
-        areaStep(`${c.L(mean)} × ${c.L(f.l)}`, mean * f.l, c, true),
+        areaStep(
+          `${c.L(mean)} × ${c.L(f.l)}`,
+          mean * f.l,
+          c,
+          exactLengths(c, mean, f.l) && exactAreas(c, mean * f.l),
+        ),
       ];
     },
   },
@@ -301,22 +333,28 @@ const reducer: Spec<Reducer> = {
       const side = Math.hypot(f.l, (f.w1 - f.w2) / 2);
       const area = (f.w1 + f.w2) * top + (f.h1 + f.h2) * side;
       return [
+        /* A slant is a hypotenuse, so these are almost always `≈` — but a
+         * 3-4-5 duct exists and would be `=`, and the honest answer is to ask
+         * the numbers rather than assume either way. */
         step(
           "Top and bottom slant",
           `√(${c.L(f.l)}² + ((${c.L(f.h1)} − ${c.L(f.h2)}) ÷ 2)²)`,
           c.lv(top),
           c.lenUnit,
+          exactLengths(c, f.l, f.h1, f.h2, top),
         ),
         step(
           "Side slant",
           `√(${c.L(f.l)}² + ((${c.L(f.w1)} − ${c.L(f.w2)}) ÷ 2)²)`,
           c.lv(side),
           c.lenUnit,
+          exactLengths(c, f.l, f.w1, f.w2, side),
         ),
         areaStep(
           `(${c.L(f.w1)} + ${c.L(f.w2)}) × ${c.L(top)} + (${c.L(f.h1)} + ${c.L(f.h2)}) × ${c.L(side)}`,
           area,
           c,
+          exactLengths(c, f.w1, f.w2, top, f.h1, f.h2, side) && exactAreas(c, area),
         ),
       ];
     },
@@ -419,10 +457,14 @@ const elbow: Spec<Elbow> = {
           c.sv(throat),
           c.sqUnit,
         ),
+        /* The three panels each carry a π, so in practice this sums three
+         * rounded areas and prints `≈`. Derived anyway, so the marker follows
+         * the numbers instead of a guess about them. */
         areaStep(
           `2 × ${c.S(cheek)} + ${c.S(heel)} + ${c.S(throat)}`,
           2 * cheek + heel + throat,
           c,
+          exactAreas(c, cheek, heel, throat, 2 * cheek + heel + throat),
         ),
       ];
     },
@@ -526,7 +568,7 @@ const collar: Spec<Collar> = {
           `${c.L(perimeter)} × (${c.L(f.l)} + ${c.L(f.f)})`,
           perimeter * (f.l + f.f),
           c,
-          true,
+          exactLengths(c, perimeter, f.l, f.f) && exactAreas(c, perimeter * (f.l + f.f)),
         ),
       ];
     },
@@ -545,14 +587,32 @@ const collar: Spec<Collar> = {
       const corners = 4 * f.f * f.f;
       return [
         perimeterStep(f.w, f.h, c),
-        step("Neck", `${c.L(perimeter)} × ${c.L(f.l)}`, c.sv(neck), c.sqUnit, true),
-        step("Flange band", `${c.L(perimeter)} × ${c.L(f.f)}`, c.sv(band), c.sqUnit, true),
-        step("Corner squares", `4 × ${c.L(f.f)}²`, c.sv(corners), c.sqUnit, true),
+        step(
+          "Neck",
+          `${c.L(perimeter)} × ${c.L(f.l)}`,
+          c.sv(neck),
+          c.sqUnit,
+          exactLengths(c, perimeter, f.l) && exactAreas(c, neck),
+        ),
+        step(
+          "Flange band",
+          `${c.L(perimeter)} × ${c.L(f.f)}`,
+          c.sv(band),
+          c.sqUnit,
+          exactLengths(c, perimeter, f.f) && exactAreas(c, band),
+        ),
+        step(
+          "Corner squares",
+          `4 × ${c.L(f.f)}²`,
+          c.sv(corners),
+          c.sqUnit,
+          exactLengths(c, f.f) && exactAreas(c, corners),
+        ),
         areaStep(
           `${c.S(neck)} + ${c.S(band)} + ${c.S(corners)}`,
           neck + band + corners,
           c,
-          true,
+          exactAreas(c, neck, band, corners, neck + band + corners),
         ),
       ];
     },

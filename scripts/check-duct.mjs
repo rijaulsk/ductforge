@@ -1036,6 +1036,111 @@ section("12m. display precision cannot change the calculation");
   eq(r.mass, before.mass, "weight unchanged by formatting");
 }
 
+section("12n. an `=` step's printed operands really do reproduce it");
+{
+  /* THE BUG THIS EXISTS FOR.
+   *
+   * The shared tail used to hard-code `exact: true` on four steps, and the
+   * value line printed the mass rounded to two decimals beside a value
+   * computed from all of it:
+   *
+   *     Value at your rates    232.11 × 220    =    51,063.936
+   *
+   * 232.11 × 220 is 51,064.20. An equals sign in the middle of a false
+   * statement, on the one screen whose entire purpose is to let an estimator
+   * check the arithmetic by hand. Nothing caught it because `exact` was an
+   * assertion by whoever wrote the step rather than a property of the numbers.
+   *
+   * So: for every step whose working is a plain "a × b", multiply the printed
+   * operands and insist the answer is the printed value — or that the step
+   * admits `≈`. This is the exact shape the value, weight and line-area steps
+   * take, which is to say the shape all three bugs took.
+   */
+  const num = (s) => Number(s.replace(/,/g, ""));
+  /* A PURE two-factor product and nothing else: "18.48 × 12.56 kg/m²" yes,
+   * "4 × 35²" no. The trailing group is the unit the working sometimes names.
+   * `COMPOUND` rejects anything with another operator in it, because this
+   * evaluator only knows how to multiply — a partial match on "4 × 35²" would
+   * report a false failure and teach everyone to ignore this section. */
+  const PRODUCT = /^\s*(-?[\d,]+(?:\.\d+)?)\s*×\s*(-?[\d,]+(?:\.\d+)?)\s*(?:[a-zA-Z][\w/²·\s]*)?$/;
+  const COMPOUND = /[²√π()÷+−]/;
+
+  let checked = 0;
+  for (const kind of KINDS) {
+    for (const mode of ["billing", "shop"]) {
+      for (const us of ["metric", "imperial"]) {
+        const r = computeEntry(
+          line(A[kind], 3, 12),
+          mode,
+          us,
+          "gi",
+          { insulationMm: 0, standardLengthMm: 0, supportSpacingMm: 0 },
+          /* Rates chosen so the money is irrational-ish in both unit systems —
+           * a round rate on a round mass would pass by luck. */
+          { label: "INR", perKg: 217.35, perM2: 0 },
+        );
+        for (const s of r.steps) {
+          if (!s.exact || COMPOUND.test(s.working)) continue;
+          const m = PRODUCT.exec(s.working);
+          if (!m) continue;
+          checked++;
+          const product = num(m[1]) * num(m[2]);
+          near(
+            product,
+            s.value,
+            Math.abs(s.value) * 1e-9 + 1e-9,
+            `${kind}/${mode}/${us}: "${s.label}" claims = but ${m[1]} × ${m[2]} ≠ ${s.value}`,
+          );
+        }
+
+        /* And the inverse: over-correcting to `≈` everywhere would pass the
+         * sweep above and be just as useless. A rectangular mean perimeter in
+         * metric, from whole-millimetre inputs, is plain addition on numbers
+         * shown in full — it must still say `=`. (Skipped where a π or a root
+         * is in the working, as in the square-to-round's mean perimeter.) */
+        if (us === "metric") {
+          const perimeter = r.steps.find((s) => s.label === "Mean perimeter");
+          if (perimeter && !/[π√]/.test(perimeter.working)) {
+            eq(perimeter.exact, true, `${kind}/${mode}: whole-mm perimeter is exact`);
+          }
+        }
+      }
+    }
+  }
+  /* Only steps already claiming `=` are inspected, and in imperial almost
+   * nothing is, so the count is naturally small. The floor is here to catch a
+   * future edit that changes a working line's shape and quietly leaves this
+   * whole section matching nothing at all. */
+  check(checked >= 8, `enough "a × b" steps were actually inspected (${checked})`);
+
+  /* The specific line, spelled out, so a future edit to the tail cannot make
+   * the sweep above vacuous by changing the working's shape. */
+  const r = computeEntry(
+    line(A.elbow, 4, 10),
+    "billing",
+    "metric",
+    "gi",
+    { insulationMm: 0, standardLengthMm: 0, supportSpacingMm: 0 },
+    { label: "INR", perKg: 220, perM2: 0 },
+  );
+  const value = r.steps.find((s) => s.label === "Value at your rates");
+  check(value !== undefined, "the value step exists");
+  const parts = PRODUCT.exec(value.working);
+  check(parts !== null, "the value step's working is a product");
+  near(
+    num(parts[1]),
+    r.mass,
+    Math.abs(r.mass) * 1e-6 + 1e-6,
+    "the value step multiplies the mass it printed, not a rounded view of it",
+  );
+  eq(
+    value.exact,
+    units.printsExactly(r.mass, units.PRECISION.detail) &&
+      units.printsExactly(value.value, units.PRECISION.detail),
+    "the value step's = is derived from the numbers",
+  );
+}
+
 /* ---- 13. input parsing -------------------------------------------------- */
 
 section("13. parsing what someone typed");

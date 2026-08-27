@@ -177,6 +177,29 @@ export function fmtExact(value: number, maxDecimals = 6, group = true): string {
   });
 }
 
+/**
+ * Does printing `value` at `maxDecimals` lose anything?
+ *
+ * The test behind every `=` in a working line. Six decimals keeps 4,200,000
+ * whole and does not keep 4,260,785.036431157.
+ */
+export function printsExactly(value: number, maxDecimals = 6): boolean {
+  return Number.isFinite(value) && Number(value.toFixed(maxDecimals)) === value;
+}
+
+/**
+ * An operand as it will be PRINTED, carrying whether printing it was lossless.
+ *
+ * `exact` on a CalcStep is a claim about the numbers, so it has to be derived
+ * from them and never asserted by whoever wrote the step. Asserting it is how
+ * the value line came to read "232.11 × 220 = 51,063.936" — an equals sign in
+ * the middle of a false statement, because the mass was rounded to two
+ * decimals in order to be SHOWN and not rounded in order to be USED.
+ */
+export function operand(value: number, maxDecimals = 6): { text: string; exact: boolean } {
+  return { text: fmtExact(value, maxDecimals), exact: printsExactly(value, maxDecimals) };
+}
+
 /** Decimals a working line shows for a length, per unit system. */
 export function workingDecimals(us: UnitSystem): number {
   return us === "metric" ? 4 : 5;

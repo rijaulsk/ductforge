@@ -17,9 +17,10 @@ import {
   areaFromMm2,
   areaUnit,
   densityUnit,
-  fmtExact,
   fromAreaMinor,
   massUnit,
+  operand,
+  printsExactly,
   runFromMm,
   squareLengthFromMm2,
   toAreaMinor,
@@ -284,56 +285,88 @@ function buildSteps(
   const divisor = us === "metric" ? "1,000,000" : "144";
   const last = geometry[geometry.length - 1];
 
+  /* EVERY `exact` BELOW IS DERIVED, NEVER ASSERTED.
+   *
+   * These four steps used to hard-code `exact: true`, and three of them were
+   * lying. The worst read "232.11 × 220 = 51,063.936": the mass was rounded to
+   * two decimals to be printed and used at full precision to be multiplied, so
+   * the operands on screen did not produce the answer next to them — the exact
+   * defect the CalcStep type's own docstring exists to prevent.
+   *
+   * A step is `=` only when every operand survives being printed AND the
+   * result survives being printed. `operand()` answers the first; see units.ts.
+   */
+  const exact = (result: number, ...ops: { exact: boolean }[]) =>
+    ops.every((o) => o.exact) && printsExactly(result, PRECISION.detail);
+
+  const converted = operand(last?.value ?? 0, PRECISION.step);
   const steps: CalcStep[] = [
     ...geometry,
     {
       label: `Converted to ${au}`,
-      working: `${fmtExact(last?.value ?? 0, PRECISION.step)} ÷ ${divisor}`,
+      working: `${converted.text} ÷ ${divisor}`,
       value: v.netEachArea,
       unit: au,
-      exact: false,
+      exact: exact(v.netEachArea, converted),
     },
   ];
 
   if (entry.qty > 1) {
+    const each = operand(v.netEachArea, PRECISION.detail);
     steps.push({
       label: "Line area",
-      working: `${fmtExact(v.netEachArea, PRECISION.detail)} × ${entry.qty} pieces`,
+      working: `${each.text} × ${entry.qty} pieces`,
       value: v.netArea,
       unit: au,
-      exact: true,
+      exact: exact(v.netArea, each),
     });
   }
 
   if (entry.waste > 0) {
+    const net = operand(v.netArea, PRECISION.detail);
+    const waste = operand(entry.waste, 2);
     steps.push({
-      label: `Gross area, allowance ${fmtExact(entry.waste, 2)}%`,
-      working: `${fmtExact(v.netArea, PRECISION.detail)} × (1 + ${fmtExact(entry.waste, 2)} ÷ 100)`,
+      label: `Gross area, allowance ${waste.text}%`,
+      working: `${net.text} × (1 + ${waste.text} ÷ 100)`,
       value: v.grossArea,
       unit: au,
-      exact: true,
+      exact: exact(v.grossArea, net, waste),
     });
   }
 
+  const gross = operand(v.grossArea, PRECISION.detail);
+  const density = operand(v.density, 3);
   steps.push({
     label: "Weight",
-    working: `${fmtExact(v.grossArea, PRECISION.detail)} × ${fmtExact(v.density, 3)} ${densityUnit(us)}`,
+    working: `${gross.text} × ${density.text} ${densityUnit(us)}`,
     value: v.mass,
     unit: massUnit(us),
-    exact: true,
+    exact: exact(v.mass, gross, density),
   });
 
   if (v.rates.perKg > 0 || v.rates.perM2 > 0) {
-    const parts = [
-      v.rates.perKg > 0 ? `${fmtExact(v.mass, 2)} × ${fmtExact(v.rates.perKg, 2)}` : null,
-      v.rates.perM2 > 0 ? `${fmtExact(v.grossArea, 3)} × ${fmtExact(v.rates.perM2, 2)}` : null,
-    ].filter(Boolean);
+    /* Printed at detail precision, not at the two decimals a currency reads
+     * at. A rate line is arithmetic before it is money, and money rounding
+     * belongs to the figure, not to the working that produced it. */
+    const ops: { exact: boolean }[] = [];
+    const parts: string[] = [];
+    if (v.rates.perKg > 0) {
+      const mass = operand(v.mass, PRECISION.detail);
+      const rate = operand(v.rates.perKg, PRECISION.detail);
+      ops.push(mass, rate);
+      parts.push(`${mass.text} × ${rate.text}`);
+    }
+    if (v.rates.perM2 > 0) {
+      const rate = operand(v.rates.perM2, PRECISION.detail);
+      ops.push(gross, rate);
+      parts.push(`${gross.text} × ${rate.text}`);
+    }
     steps.push({
       label: "Value at your rates",
       working: parts.join(" + "),
       value: v.value,
       unit: v.rates.label || "",
-      exact: true,
+      exact: exact(v.value, ...ops),
     });
   }
 
