@@ -6,17 +6,21 @@ import { useHasMounted } from "@/lib/hooks";
 
 const KEY = "ductforge.theme.v1";
 
-/* Light and dark are both first-class here.
+/* Light and dark are both first-class here, but light is the DEFAULT.
  *
  * The marketing site is cream and stays cream. This is a workspace someone has
  * open all day, and the design system's §1 already carries a dark palette for
- * exactly that case. Until the user chooses, the page follows the operating
- * system; once they choose, the choice sticks and wins over it.
+ * exactly that case — so the toggle exists. What it does not do is follow the
+ * operating system: a phone set to dark used to open the app dark, which for a
+ * tool whose blueprints are read as ink and whose output is printed is the
+ * wrong first impression of a document.
+ *
+ * This fallback and the stylesheet have to agree. When they did not — CSS
+ * light, JavaScript reading the system as dark — the button offered "switch to
+ * light" on a page that was already light and the first press did nothing.
  */
 function currentTheme(): "light" | "dark" {
-  const set = document.documentElement.dataset.theme;
-  if (set === "dark" || set === "light") return set;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  return document.documentElement.dataset.theme === "dark" ? "dark" : "light";
 }
 
 export default function ThemeToggle() {

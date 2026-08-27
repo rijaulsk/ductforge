@@ -157,27 +157,22 @@
  * CSS has no way to share a declaration list between a media query and an
  * attribute selector, and a third indirection would cost more than the copy.
  */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --ds-page: #10121c;
-    --ds-card: #1b1d29;
-    --ds-sunk: #272936;
-    --ds-line: #272936;
-    --ds-rule: #272936;
-    --ds-heading: #f7f3eb;
-    --ds-body: #d8d4cd;
-    --ds-muted: #a8a49e;
-    --ds-accent: #8792fe;
-    --ds-face-top: #423eba;
-    --ds-face-side: #332e96;
-    --ds-face-end: #22206b;
-    --ds-series-1: #abb6fe;
-    --ds-series-2: #6467f2;
-    --ds-series-3: #423eba;
-    --ds-grain: 0.015;
-  }
-}
-
+/* LIGHT IS THE DEFAULT, WHATEVER THE DEVICE SAYS.
+ *
+ * There used to be a `prefers-color-scheme: dark` block here, so a phone set to
+ * dark opened the app dark. Owner's call, 27 Aug 2026: it opens light, and dark
+ * is something the reader chooses.
+ *
+ * The reason is not taste. This is a drawing tool whose output is printed and
+ * whose blueprints are read as ink on paper; opening in a palette the user did
+ * not ask for, on a device where they may never find the toggle, is the wrong
+ * first impression of a document. The toggle is one tap and the choice sticks.
+ *
+ * ThemeToggle's fallback matches this — it reports "light" when nothing has
+ * been stored, rather than reading the system preference. The two must agree:
+ * when they disagreed, the button offered "switch to light" on a page that was
+ * already light, and the first press did nothing visible.
+ */
 :root[data-theme="dark"] {
   --ds-page: #10121c;
   --ds-card: #1b1d29;
