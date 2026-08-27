@@ -48,8 +48,14 @@ export default function AboutTheTool() {
             </p>
             <p>
               It runs entirely in your browser. There is no account, nothing is uploaded, and a
-              takeoff you start today is still on this device tomorrow. That also means it keeps
-              working on a site with one bar of signal.
+              takeoff you start today is still on this device tomorrow.
+            </p>
+            <p>
+              <strong className="text-heading">It works with no signal at all.</strong> Open it once
+              on a connection and your phone keeps a copy of the workspace, the standards page and
+              the guides — so use <em>Add to Home screen</em> and the icon opens a working
+              calculator in a plant room, a basement or a lift shaft. Everything it needs is already
+              on the device; there was never a server doing the arithmetic.
             </p>
             <p>
               Every figure on screen shows its own arithmetic — the formula with your numbers

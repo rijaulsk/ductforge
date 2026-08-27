@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Noto_Sans_Bengali, Noto_Sans_Devanagari } from "next/font/google";
 import localFont from "next/font/local";
+import ServiceWorker from "@/components/ServiceWorker";
 import { SITE_URL } from "@/lib/site";
 import "./globals.css";
 
@@ -39,17 +40,19 @@ export const metadata: Metadata = {
    * warns at build. DuctForge is on its own subdomain rather than proxied into
    * debugswift.com, so this is a real origin, not a path prefix. */
   metadataBase: new URL(SITE_URL),
+  /* The byline is in the title template, so every page carries it into a
+   * browser tab, a bookmark and a search result — not just the home page. */
   title: {
-    default: "DuctForge — HVAC duct takeoff & sheet metal calculator",
-    template: "%s — DuctForge",
+    default: "DuctForge — HVAC duct takeoff & sheet metal calculator by DebugSwift",
+    template: "%s — DuctForge by DebugSwift",
   },
   description:
     "Calculate rectangular and round duct surface area, GI sheet weight and SMACNA gauge for ten fittings, to either the commercial billing standard or the true shop flat pattern. Dimensioned drawings, a BOM schedule, and CSV out.",
   applicationName: "DuctForge",
   openGraph: {
     type: "website",
-    siteName: "DuctForge",
-    title: "DuctForge — HVAC duct takeoff & sheet metal calculator",
+    siteName: "DuctForge by DebugSwift",
+    title: "DuctForge — HVAC duct takeoff & sheet metal calculator by DebugSwift",
     description:
       "Duct surface area, sheet weight and gauge for ten fittings — billing standard or shop flat pattern, metric or imperial.",
   },
@@ -75,6 +78,9 @@ const appJsonLd = {
   name: "DuctForge",
   url: SITE_URL,
   applicationCategory: "BusinessApplication",
+  /* Named so an answer engine citing this tool can name who made it. */
+  creator: { "@type": "Organization", name: "DebugSwift", url: "https://debugswift.com" },
+  publisher: { "@type": "Organization", name: "DebugSwift", url: "https://debugswift.com" },
   applicationSubCategory: "HVAC estimating",
   operatingSystem: "Any — runs in a web browser",
   description:
@@ -115,6 +121,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       </head>
       <body className="flex min-h-full flex-col bg-page font-sans" suppressHydrationWarning>
         {children}
+        <ServiceWorker />
       </body>
     </html>
   );

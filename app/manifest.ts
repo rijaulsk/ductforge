@@ -8,15 +8,21 @@ import type { MetadataRoute } from "next";
  * on a home screen and open it like an app, which is where it belongs.
  *
  * `display: standalone` drops the browser chrome; the app's own project bar is
- * the chrome. No offline service worker yet — that is a separate decision, and
- * claiming offline before it is true would be worse than not claiming it.
+ * the chrome.
+ *
+ * It works offline as of 27 Aug 2026 — `public/sw.js` precaches the workspace,
+ * the standards page and the three guides, so the installed icon opens a
+ * working app with no signal rather than a dinosaur. Until that worker existed
+ * this manifest was a bookmark with a nicer icon, and it deliberately did NOT
+ * say "offline", because claiming it before it was true would have been worse
+ * than not claiming it at all.
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "DuctForge — HVAC duct takeoff",
+    name: "DuctForge — HVAC duct takeoff by DebugSwift",
     short_name: "DuctForge",
     description:
-      "Duct surface area, GI sheet weight, SMACNA gauge and a BOM schedule for ten fittings — billing standard or shop flat pattern, metric or imperial.",
+      "Duct surface area, GI sheet weight, SMACNA gauge and a BOM schedule for ten fittings — billing standard or shop flat pattern, metric or imperial. Works offline. Built by DebugSwift.",
     start_url: "/",
     display: "standalone",
     orientation: "any",
