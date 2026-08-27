@@ -7,7 +7,7 @@
 
 /** The elbow mark, in a 100 × 100 box. */
 export const MARK_PATH =
-  "M6 100L6 50A44 44 0 0 1 50 6L100 6L100 32L50 32A18 18 0 0 0 32 50L32 100Z";
+  "M0 100L0 0L100 0L100 30L50 30A20 20 0 0 0 30 50L30 100Z";
 
 /** "DuctForge" outlined, sitting on a baseline at y = 0. */
 export const WORDMARK_PATH =
@@ -20,7 +20,7 @@ export const LOGO = {
   /** Where the wordmark's baseline sits, in the same coordinates. */
   baseline: 72,
   /** The viewBox that contains the whole lockup, descenders included. */
-  viewBox: "-1.44 -5.76 591.32 107.45",
-  width: 591.32,
+  viewBox: "-5.76 -5.76 595.64 107.45",
+  width: 595.64,
   height: 107.45,
 } as const;

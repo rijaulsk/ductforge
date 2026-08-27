@@ -23,7 +23,7 @@ const ARC_STEPS = 48;
 
 /** Split "M12 3L4 5" into ["M", 12, 3, "L", 4, 5]. */
 function tokenise(d) {
-  return d.match(/[MLQCAZmlqcaz]|-?\d*\.?\d+(?:e[-+]?\d+)?/gi) ?? [];
+  return d.match(/[MLHVQCAZmlhvqcaz]|-?\d*\.?\d+(?:e[-+]?\d+)?/gi) ?? [];
 }
 
 /**
@@ -62,6 +62,12 @@ export function parsePath(d) {
       }
       case "L":
         push(num(), num());
+        break;
+      case "H":
+        push(num(), y);
+        break;
+      case "V":
+        push(x, num());
         break;
       case "Q": {
         const cx = num();
@@ -229,11 +235,59 @@ function edgesOf(contours) {
       const [x0, y0] = c[j];
       const [x1, y1] = c[i];
       /* Horizontal edges never cross a scanline; keeping them would only add
-       * duplicate crossings at the ends of the ones that do. */
-      if (y0 !== y1) edges.push([x0, y0, x1, y1]);
+       * duplicate crossings at the ends of the ones that do. The third value
+       * is the winding direction, which the non-zero rule needs. */
+      if (y0 !== y1) edges.push([x0, y0, x1, y1, y1 > y0 ? 1 : -1]);
     }
   }
   return edges;
+}
+
+/**
+ * Turn a stroked path into fillable polygons.
+ *
+ * Each segment becomes a quad of the stroke's width, and each joint a small
+ * disc, so corners come out round rather than notched. The pieces OVERLAP by
+ * design, which is why anything drawn this way has to be filled with the
+ * NON-ZERO rule — even-odd would treat every overlap as a hole and turn a
+ * stroked outline into lace.
+ *
+ * This exists so the icon and glyph previews show what a browser will show.
+ * Reasoning about a path and looking at it are different activities, and the
+ * round-duct marks proved it: they read fine as coordinates and rendered with
+ * a stray dot and a gap.
+ */
+export function strokeToPolygons(contours, width, closed = false) {
+  const r = width / 2;
+  const polys = [];
+  const disc = (cx, cy) => {
+    const pts = [];
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
+    }
+    return pts;
+  };
+
+  for (const c of contours) {
+    const pts = closed && c.length > 1 ? [...c, c[0]] : c;
+    for (let i = 1; i < pts.length; i++) {
+      const [x0, y0] = pts[i - 1];
+      const [x1, y1] = pts[i];
+      const len = Math.hypot(x1 - x0, y1 - y0);
+      if (len < 1e-9) continue;
+      const nx = (-(y1 - y0) / len) * r;
+      const ny = ((x1 - x0) / len) * r;
+      polys.push([
+        [x0 + nx, y0 + ny],
+        [x1 + nx, y1 + ny],
+        [x1 - nx, y1 - ny],
+        [x0 - nx, y0 - ny],
+      ]);
+    }
+    for (const [x, y] of pts) polys.push(disc(x, y));
+  }
+  return polys;
 }
 
 /** Add a horizontal span's contribution to one pixel row. */
@@ -286,17 +340,33 @@ export function rasterise({ width, height, shapes, background = null, ss = 4 }) 
     const weight = 1 / ss;
     const xs = [];
 
+    const nonZero = shape.rule === "nonzero";
+
     for (let rowIndex = 0; rowIndex < rows; rowIndex++) {
       const y = (rowIndex + 0.5) / ss;
       xs.length = 0;
-      for (const [x0, y0, x1, y1] of edges) {
-        if (y0 > y !== y1 > y) xs.push(x0 + ((y - y0) * (x1 - x0)) / (y1 - y0));
+      for (const [x0, y0, x1, y1, dir] of edges) {
+        if (y0 > y !== y1 > y) {
+          xs.push([x0 + ((y - y0) * (x1 - x0)) / (y1 - y0), dir]);
+        }
       }
       if (xs.length < 2) continue;
-      xs.sort((p, q) => p - q);
+      xs.sort((p, q) => p[0] - q[0]);
       const row = (rowIndex / ss) | 0;
-      for (let k = 0; k + 1 < xs.length; k += 2) {
-        addSpan(cov, width, row, xs[k], xs[k + 1], weight);
+
+      if (nonZero) {
+        /* Walk the crossings accumulating winding; anywhere it is not zero is
+         * inside. This is what makes overlapping stroke quads read as one
+         * solid stroke instead of cancelling each other out. */
+        let winding = 0;
+        for (let k = 0; k < xs.length - 1; k++) {
+          winding += xs[k][1];
+          if (winding !== 0) addSpan(cov, width, row, xs[k][0], xs[k + 1][0], weight);
+        }
+      } else {
+        for (let k = 0; k + 1 < xs.length; k += 2) {
+          addSpan(cov, width, row, xs[k][0], xs[k + 1][0], weight);
+        }
       }
     }
 

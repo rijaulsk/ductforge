@@ -5,29 +5,37 @@
  * was a stroked path and the logo was a filled band, and at a glance they were
  * two different symbols.
  *
- * A 90° elbow with EQUAL LEGS, drawn as a band with a bore rather than as a
- * single stroke. The first version had a long vertical leg and a short
- * horizontal one, which is the shape of a lowercase r — not what a duct
- * calculator's mark should look like. Equal legs read as a bend.
+ * A SQUARE-BACKED ELBOW: mitred heel, radiused throat. Arrived at by drawing
+ * the alternatives and looking at them — see scripts/mark-candidates.mjs for
+ * the ones that were rejected and why.
  *
- * Everything is in a 100 × 100 box, so it places at any size.
+ * The short version. A fully radiused bend is a CURVE, and a curve is the most
+ * generic mark there is: a swoosh, a lowercase r, half a hundred other logos.
+ * A square-to-round transition is more descriptive on paper and reads as a
+ * megaphone in the eye. What separates duct from pipe is that duct is
+ * rectangular, and a rectangular bend is mitred on the outside while it sweeps
+ * on the inside — an asymmetry a round pipe cannot produce. That asymmetry is
+ * the mark: it says sheet metal, it cannot be mistaken for a swoosh, and it is
+ * still solid at sixteen pixels, where the flanged variants turned to mush.
+ *
+ * Everything is in a 100 × 100 box, so it places at any size. It deliberately
+ * fills the box corner to corner: a mark that occupies only a diagonal band
+ * looks small beside its own wordmark.
  */
 
-export const BAND = 26;
-export const R_INNER = 18;
-export const R_OUTER = R_INNER + BAND;
-const CX = 50;
-const CY = 50;
+/** Radius of the inside (throat) sweep. */
+export const R_INNER = 20;
+/** Wall-to-wall width of the duct. */
+export const BAND = 30;
 
 export const MARK_PATH = [
-  `M${CX - R_OUTER} 100`,
-  `L${CX - R_OUTER} ${CY}`,
-  `A${R_OUTER} ${R_OUTER} 0 0 1 ${CX} ${CY - R_OUTER}`,
-  `L100 ${CY - R_OUTER}`,
-  `L100 ${CY - R_INNER}`,
-  `L${CX} ${CY - R_INNER}`,
-  `A${R_INNER} ${R_INNER} 0 0 0 ${CX - R_INNER} ${CY}`,
-  `L${CX - R_INNER} 100`,
+  "M0 100",
+  "L0 0",
+  "L100 0",
+  `L100 ${BAND}`,
+  `L50 ${BAND}`,
+  `A${R_INNER} ${R_INNER} 0 0 0 ${BAND} 50`,
+  `L${BAND} 100`,
   "Z",
 ].join("");
 
