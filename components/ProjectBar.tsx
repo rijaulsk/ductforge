@@ -35,6 +35,7 @@ function Actions({
   onOpen,
   onExportJson,
   onExportCsv,
+  onExportDetailed,
   onPrint,
   onDelete,
   hasEntries,
@@ -44,6 +45,7 @@ function Actions({
   onOpen: () => void;
   onExportJson: () => void;
   onExportCsv: () => void;
+  onExportDetailed: () => void;
   onPrint: () => void;
   onDelete: () => void;
   hasEntries: boolean;
@@ -64,9 +66,23 @@ function Actions({
         onClick={onExportCsv}
         disabled={!hasEntries}
         size="sm"
-        title={hasEntries ? "Export the schedule as CSV" : "Add a fitting first"}
+        title={hasEntries ? "The schedule, as a spreadsheet" : "Add a fitting first"}
       >
         CSV
+      </Button>
+      {/* Two presentation levels of ONE calculation, never two calculations —
+        * the detailed file is the standard one plus the working. */}
+      <Button
+        onClick={onExportDetailed}
+        disabled={!hasEntries}
+        size="sm"
+        title={
+          hasEntries
+            ? "The same schedule with every calculation step written out"
+            : "Add a fitting first"
+        }
+      >
+        CSV + working
       </Button>
       <Button
         onClick={onPrint}
@@ -97,6 +113,7 @@ export default function ProjectBar({
   onNew,
   onDelete,
   onExportCsv,
+  onExportDetailed,
   onExportJson,
   onImport,
   onPrint,
@@ -109,6 +126,7 @@ export default function ProjectBar({
   onNew: () => void;
   onDelete: () => void;
   onExportCsv: () => void;
+  onExportDetailed: () => void;
   onExportJson: () => void;
   onImport: (file: File) => void;
   onPrint: () => void;
@@ -196,6 +214,7 @@ export default function ProjectBar({
       }}
       onExportJson={andClose(onExportJson)}
       onExportCsv={andClose(onExportCsv)}
+      onExportDetailed={andClose(onExportDetailed)}
       onPrint={andClose(onPrint)}
       onDelete={andClose(onDelete)}
       hasEntries={hasEntries}

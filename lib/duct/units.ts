@@ -182,6 +182,42 @@ export function workingDecimals(us: UnitSystem): number {
   return us === "metric" ? 4 : 5;
 }
 
+/* ---- display precision policy ------------------------------------------
+ *
+ * Deliberate figures, not whatever JavaScript prints. The rule is that a
+ * DETAILED view may show more of a number than the normal one, but neither
+ * ever changes it: `AREA_DECIMALS` and friends above are display settings, and
+ * the calculation object they format has already been computed in full.
+ *
+ * Trailing zeros are trimmed by `fmtExact`, so 930 mm shows as 930 rather than
+ * 930.000000 — a number padded to a precision it does not have is its own kind
+ * of lie.
+ */
+export const PRECISION = {
+  /** Intermediate lengths and areas in the ordinary result panel. */
+  step: 3,
+  /** The same values inside Calculation details. */
+  detail: 6,
+} as const;
+
+/**
+ * One line of a calculation's working.
+ *
+ * `working` is the arithmetic with this fitting's numbers in it; `value` is
+ * what that arithmetic produced, at full precision. The renderer decides
+ * whether to print `=` or `≈` from `exact` — which says whether the operands
+ * as SHOWN reproduce the value as shown, or whether one of them is a rounded
+ * view of something longer. Claiming `=` on a step that used more precision
+ * than it displayed is the specific dishonesty this type exists to prevent.
+ */
+export type CalcStep = {
+  label: string;
+  working: string;
+  value: number;
+  unit: string;
+  exact: boolean;
+};
+
 /**
  * A length in display units, trimmed: 600 not 600.00, 23.62 not 23.6220.
  *

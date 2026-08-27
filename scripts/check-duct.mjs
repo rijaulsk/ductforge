@@ -924,6 +924,118 @@ section("12j. metric and imperial agree on the same physical duct");
   }
 }
 
+section("12k. the audit case, traced end to end");
+{
+  /* Commercial billing, 950 × 800, throat radius 455, 75°, 12%, 22 ga. */
+  const f = { kind: "elbow", w: 950, h: 800, r: 455, theta: 75 };
+  const r = computeEntry(line(f, 1, 12, { gauge: "22" }), "billing", "metric", "gi");
+
+  near(f.r + f.w / 2, 930, 1e-12, "centreline radius = 930 mm");
+  near(
+    (f.theta * Math.PI) / 180 * 930,
+    1217.3671532660449,
+    1e-9,
+    "centreline arc ≈ 1217.367153 mm",
+  );
+  near(2 * (f.w + f.h), 3500, 1e-12, "mean perimeter = 3500 mm");
+  near(r.netEachMm2, 4260785.036431157, 1e-6, "net area ≈ 4,260,785.036 mm²");
+  near(r.netEachArea, 4.260785036431157, 1e-12, "…= 4.260785 m²");
+  eq(units.fmtArea(r.netAreaMinor), "4.261", "displayed net area 4.261 m²");
+  eq(r.gauge, "22", "22 ga as configured");
+  eq(r.thicknessMm, 0.85, "22 ga is 0.85 mm");
+  eq(r.density, 6.67, "…and 6.67 kg/m²");
+  eq(units.fmtArea(r.grossAreaMinor), "4.772", "gross at 12% = 4.772 m²");
+  eq(units.fmtMass(r.massMinor), "31.83", "weight = 31.83 kg");
+
+  /* THE MAGNITUDE GUARD. A working line that mixed units would print the net
+   * area three orders of magnitude out — 4,260.785 mm² for something that is
+   * 4,260,785 mm². Assert the order of magnitude of every step's value, not
+   * just the final answer. */
+  const areaStep = r.steps.find((s) => s.label === "Net area");
+  check(areaStep !== undefined, "there is a net area step");
+  check(
+    areaStep.unit === "mm²" && Math.abs(areaStep.value - 4260785.036431157) < 1e-6,
+    `net area step is ${areaStep.value} mm², not 4,260.785`,
+  );
+  check(
+    !r.steps.some((s) => s.unit === "mm²" && s.value > 0 && s.value < 1000),
+    "no mm² step is off by a factor of a thousand",
+  );
+
+  /* Every step's value must be finite, and its unit one we recognise. */
+  const UNITS_OK = new Set(["mm", "in", "mm²", "in²", "m²", "ft²", "kg", "lb", ""]);
+  for (const s of r.steps) {
+    check(Number.isFinite(s.value), `step "${s.label}" has a finite value`);
+    check(UNITS_OK.has(s.unit), `step "${s.label}" has a known unit (${s.unit})`);
+    check(s.working.length > 0, `step "${s.label}" shows its working`);
+  }
+
+  /* The arc step must NOT claim exactness — π makes its printed operand a view
+   * of something longer, and that is precisely the claim the report objected
+   * to. The radius step, being integer arithmetic, must. */
+  const arcStep = r.steps.find((s) => s.label === "Centreline arc");
+  const radiusStep = r.steps.find((s) => s.label === "Centreline radius");
+  eq(arcStep.exact, false, "the arc is marked approximate");
+  eq(radiusStep.exact, true, "the radius is marked exact");
+}
+
+section("12l. every fitting's steps end at the area the formula computed");
+{
+  for (const kind of KINDS) {
+    for (const mode of ["billing", "shop"]) {
+      for (const us of ["metric", "imperial"]) {
+        const r = computeEntry(line(A[kind], 1, 0), mode, us, "gi");
+        const label = `${kind}/${mode}/${us}`;
+
+        /* The geometry steps must land on the same number `compute` did — if
+         * they can drift, the working is describing a different calculation
+         * from the one that produced the answer. */
+        const areaStep = r.steps.find((s) => s.label === "Net area");
+        check(areaStep !== undefined, `${label}: has a net area step`);
+        near(
+          areaStep.value,
+          units.squareLengthFromMm2(r.netEachMm2, us),
+          Math.abs(areaStep.value) * 1e-9 + 1e-9,
+          `${label}: the working ends where the formula did`,
+        );
+
+        /* And the conversion step must land on the area the result reports. */
+        const converted = r.steps.find((s) => s.label.startsWith("Converted"));
+        near(
+          converted.value,
+          r.netEachArea,
+          Math.abs(r.netEachArea) * 1e-12 + 1e-12,
+          `${label}: the conversion matches the reported area`,
+        );
+
+        const weight = r.steps.find((s) => s.label === "Weight");
+        near(weight.value, r.mass, 1e-12, `${label}: the weight step matches`);
+
+        for (const s of r.steps) {
+          check(Number.isFinite(s.value), `${label}: "${s.label}" is finite`);
+        }
+      }
+    }
+  }
+}
+
+section("12m. display precision cannot change the calculation");
+{
+  /* The invariant the report asks for: formatting is downstream of everything.
+   * Format the same result at three precisions and the underlying values must
+   * be untouched. */
+  const r = computeEntry(line(A.elbow, 3, 12), "billing", "metric", "gi");
+  const before = { net: r.netEachArea, gross: r.grossArea, mass: r.mass };
+  for (const dp of [0, 3, 12]) {
+    for (const s of r.steps) units.fmtExact(s.value, dp);
+    units.fmtArea(r.netAreaMinor);
+    units.fmtMass(r.massMinor);
+  }
+  eq(r.netEachArea, before.net, "net area unchanged by formatting");
+  eq(r.grossArea, before.gross, "gross unchanged by formatting");
+  eq(r.mass, before.mass, "weight unchanged by formatting");
+}
+
 /* ---- 13. input parsing -------------------------------------------------- */
 
 section("13. parsing what someone typed");

@@ -1,11 +1,14 @@
 import { computeFor, computeTotals } from "../duct/compute";
+import { describeFitting } from "../duct/describe";
 import { SPECS } from "../duct/formulas";
 import { MATERIALS } from "../duct/material";
 import type { Project } from "../duct/types";
 import {
+  PRECISION,
   type UnitSystem,
   areaUnit,
   densityUnit,
+  fmtExact,
   fromAreaMinor,
   fromMassMinor,
   fromMm,
@@ -251,6 +254,67 @@ export function toCsv(project: Project): string {
   lines.push("");
   lines.push(row(["Stated assumptions"]));
   for (const line of assumptions(project)) lines.push(row([line]));
+
+  return BOM + lines.join("\r\n") + "\r\n";
+}
+
+/**
+ * The detailed calculation report.
+ *
+ * NOT a second calculation, and not a "precision mode" — the same
+ * `computeFor` result the screen shows, with its `steps` written out. There is
+ * no arithmetic in this function at all; if there were, it would be a second
+ * implementation of the engine and the two would eventually disagree.
+ *
+ * It carries the standard report's rows first, so one file answers both
+ * questions: what are the quantities, and how were they arrived at.
+ */
+export function toDetailedCsv(project: Project): string {
+  const { units: us, mode } = project;
+  const lines: string[] = [toCsv(project).replace(BOM, "")];
+
+  lines.push("");
+  lines.push(row(["Calculation details"]));
+  lines.push(
+    row([
+      "Every value below is from the same calculation as the rows above. '=' means the operands",
+    ]),
+  );
+  lines.push(
+    row([
+      "shown reproduce the value shown; '~' means the value was computed from more precision than is printed.",
+    ]),
+  );
+
+  project.entries.forEach((entry, i) => {
+    const r = computeFor(project, entry);
+    const spec = SPECS[entry.fitting.kind];
+    lines.push("");
+    lines.push(
+      row([
+        `Line ${i + 1}`,
+        spec.name,
+        describeFitting(entry.fitting, us),
+        mode === "billing" ? "Commercial billing" : "Shop fabrication",
+      ]),
+    );
+    lines.push(row(["Formula", r.expression]));
+    lines.push(row(["Step", "Working", "", "Value", "Unit"]));
+    for (const s of r.steps) {
+      lines.push(
+        row([s.label, s.working, s.exact ? "=" : "~", fmtExact(s.value, PRECISION.detail), s.unit]),
+      );
+    }
+    lines.push(
+      row([
+        "Displayed",
+        `net ${fromAreaMinor(r.netAreaMinor)} ${areaUnit(us)}`,
+        "",
+        `gross ${fromAreaMinor(r.grossAreaMinor)}`,
+        `weight ${fromMassMinor(r.massMinor)} ${massUnit(us)}`,
+      ]),
+    );
+  });
 
   return BOM + lines.join("\r\n") + "\r\n";
 }

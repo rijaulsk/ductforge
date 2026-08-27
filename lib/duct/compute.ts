@@ -1,5 +1,5 @@
 import { bandFor, densityDisplay, selectGauge, sheetCount } from "./gauge";
-import { isRound, specFor } from "./formulas";
+import { isRound, specFor, stepCtx } from "./formulas";
 import type {
   Ancillaries,
   Entry,
@@ -11,9 +11,15 @@ import type {
   Rates,
 } from "./types";
 import {
+  type CalcStep,
+  PRECISION,
   type UnitSystem,
   areaFromMm2,
+  areaUnit,
+  densityUnit,
+  fmtExact,
   fromAreaMinor,
+  massUnit,
   runFromMm,
   squareLengthFromMm2,
   toAreaMinor,
@@ -105,6 +111,16 @@ export type EntryResult = {
   /** The formula with this entry's numbers in it. */
   substitution: string;
   expression: string;
+  /**
+   * The whole working, one line at a time — the fitting's own geometry steps
+   * followed by the conversion, the quantity, the allowance and the weight.
+   *
+   * ONE source for all three consumers: the result panel's Calculation
+   * details, and the detailed export. None of them recomputes anything; they
+   * format this. That is the point — an export that did its own arithmetic
+   * would be a second calculation, and two calculations eventually disagree.
+   */
+  steps: CalcStep[];
   note?: string;
 };
 
@@ -229,8 +245,99 @@ export function computeEntry(
     supports,
     substitution: formula.substitute(entry.fitting, us),
     expression: formula.expression,
+    steps: buildSteps(entry, us, formula.steps(entry.fitting, stepCtx(us)), {
+      netEachArea,
+      netArea,
+      grossArea,
+      density,
+      mass,
+      value,
+      rates,
+    }),
     note: spec.note,
   };
+}
+
+/**
+ * The fitting's geometry steps, plus the tail every fitting shares.
+ *
+ * The tail lives here rather than in each of the twenty formula step builders
+ * because it is the same arithmetic every time — convert, multiply by the
+ * quantity, add the allowance, apply the density — and twenty copies of it
+ * would be twenty chances for one to drift.
+ */
+function buildSteps(
+  entry: Entry,
+  us: UnitSystem,
+  geometry: CalcStep[],
+  v: {
+    netEachArea: number;
+    netArea: number;
+    grossArea: number;
+    density: number;
+    mass: number;
+    value: number;
+    rates: Rates;
+  },
+): CalcStep[] {
+  const au = areaUnit(us);
+  const divisor = us === "metric" ? "1,000,000" : "144";
+  const last = geometry[geometry.length - 1];
+
+  const steps: CalcStep[] = [
+    ...geometry,
+    {
+      label: `Converted to ${au}`,
+      working: `${fmtExact(last?.value ?? 0, PRECISION.step)} ÷ ${divisor}`,
+      value: v.netEachArea,
+      unit: au,
+      exact: false,
+    },
+  ];
+
+  if (entry.qty > 1) {
+    steps.push({
+      label: "Line area",
+      working: `${fmtExact(v.netEachArea, PRECISION.detail)} × ${entry.qty} pieces`,
+      value: v.netArea,
+      unit: au,
+      exact: true,
+    });
+  }
+
+  if (entry.waste > 0) {
+    steps.push({
+      label: `Gross area, allowance ${fmtExact(entry.waste, 2)}%`,
+      working: `${fmtExact(v.netArea, PRECISION.detail)} × (1 + ${fmtExact(entry.waste, 2)} ÷ 100)`,
+      value: v.grossArea,
+      unit: au,
+      exact: true,
+    });
+  }
+
+  steps.push({
+    label: "Weight",
+    working: `${fmtExact(v.grossArea, PRECISION.detail)} × ${fmtExact(v.density, 3)} ${densityUnit(us)}`,
+    value: v.mass,
+    unit: massUnit(us),
+    exact: true,
+  });
+
+  if (v.rates.perKg > 0 || v.rates.perM2 > 0) {
+    const parts = [
+      v.rates.perKg > 0 ? `${fmtExact(v.mass, 2)} × ${fmtExact(v.rates.perKg, 2)}` : null,
+      v.rates.perM2 > 0 ? `${fmtExact(v.grossArea, 3)} × ${fmtExact(v.rates.perM2, 2)}` : null,
+    ].filter(Boolean);
+    steps.push({
+      label: "Value at your rates",
+      working: parts.join(" + "),
+      value: v.value,
+      unit: v.rates.label || "",
+      exact: true,
+    });
+  }
+
+  return steps;
 }
 
 /** Compute one entry using a project's settings. The form the app actually

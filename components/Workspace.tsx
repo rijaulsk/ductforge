@@ -9,7 +9,7 @@ import { RECTANGULAR_KINDS, ROUND_KINDS, SPECS } from "@/lib/duct/formulas";
 import { toQty, toWaste } from "@/lib/duct/parse";
 import type { Entry, FittingKind, Project } from "@/lib/duct/types";
 import { type Draft, convertDraft, draftFromEntry, fittingFromDraft, newDraft } from "@/lib/draft";
-import { toCsv } from "@/lib/export/csv";
+import { toCsv, toDetailedCsv } from "@/lib/export/csv";
 import { safeFilename, triggerDownload } from "@/lib/export/download";
 import { useHasMounted } from "@/lib/hooks";
 import { blankProject, fromProjectFile, newId, toProjectFile } from "@/lib/project";
@@ -198,6 +198,13 @@ export default function Workspace() {
       safeFilename(project.name, "csv"),
     );
 
+  /* Same calculation, more of it shown — see lib/export/csv.ts. */
+  const exportDetailed = () =>
+    triggerDownload(
+      new Blob([toDetailedCsv(project)], { type: "text/csv;charset=utf-8" }),
+      safeFilename(`${project.name} working`, "csv"),
+    );
+
   const exportJson = () =>
     triggerDownload(
       new Blob([toProjectFile(project)], { type: "application/json" }),
@@ -253,6 +260,7 @@ export default function Workspace() {
         onNew={() => addProject(blankProject(`Takeoff ${store.projects.length + 1}`))}
         onDelete={deleteProject}
         onExportCsv={exportCsv}
+        onExportDetailed={exportDetailed}
         onExportJson={exportJson}
         onImport={(f) => void importFile(f)}
         onPrint={() => window.print()}

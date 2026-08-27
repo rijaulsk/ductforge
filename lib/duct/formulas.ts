@@ -14,6 +14,8 @@ import type {
   Wye,
 } from "./types";
 import {
+  type CalcStep,
+  PRECISION,
   type UnitSystem,
   fmtExact,
   fromMm,
@@ -54,7 +56,63 @@ type Formula<T extends Fitting> = {
   compute: (f: T) => number;
   /** The same expression with numbers in it, in display units. */
   substitute: (f: T, us: UnitSystem) => string;
+  /**
+   * The working, one line at a time, ending with the net area of ONE piece in
+   * square-length units.
+   *
+   * These are DERIVED FROM THE SAME NUMBERS `compute` uses, not reconstructed
+   * from anything formatted. Each step carries its value at full precision and
+   * says whether the operands as shown reproduce it — the renderer turns that
+   * into `=` or `≈`. Nothing downstream ever reads a step's text back as a
+   * number; the text is for a human to check by hand.
+   */
+  steps: (f: T, c: StepCtx) => CalcStep[];
 };
+
+/**
+ * What a step builder is handed so it never has to know about unit systems.
+ *
+ * `L` formats a length for the working line; `lv` is that length as a NUMBER,
+ * for the step's own value. The pair exists so a builder cannot accidentally
+ * put a formatted string where a value belongs.
+ */
+export type StepCtx = {
+  us: UnitSystem;
+  /** A length in display units, formatted for a working line. */
+  L: (mm: number) => string;
+  /** The same length as a number. */
+  lv: (mm: number) => number;
+  /** An area in display square-length units, as a number. */
+  sv: (mm2: number) => number;
+  /** The same, formatted. */
+  S: (mm2: number) => string;
+  lenUnit: string;
+  sqUnit: string;
+};
+
+export function stepCtx(us: UnitSystem): StepCtx {
+  const lv = (mm: number) => fromMm(mm, us);
+  const sv = (mm2: number) => squareLengthFromMm2(mm2, us);
+  return {
+    us,
+    lv,
+    sv,
+    L: (mm) => fmtExact(lv(mm), PRECISION.step),
+    S: (mm2) => fmtExact(sv(mm2), PRECISION.step),
+    lenUnit: us === "metric" ? "mm" : "in",
+    sqUnit: us === "metric" ? "mm²" : "in²",
+  };
+}
+
+/** Build one step. `exact` defaults to false — the safe direction to be wrong,
+ * since claiming `=` on a rounded operand is the failure this guards. */
+const step = (
+  label: string,
+  working: string,
+  value: number,
+  unit: string,
+  exact = false,
+): CalcStep => ({ label, working, value, unit, exact });
 
 type Spec<T extends Fitting> = {
   kind: T["kind"];
@@ -113,6 +171,34 @@ const shrink = (r: number, delta: number) => Math.max(0, r - delta / 2);
 
 /* ---- straight duct ---------------------------------------------------- */
 
+/** Mean perimeter of a rectangular section — the step four fittings share. */
+const perimeterStep = (w: number, h: number, c: StepCtx): CalcStep =>
+  step(
+    "Mean perimeter",
+    `2 × (${c.L(w)} + ${c.L(h)})`,
+    c.lv(2 * (w + h)),
+    c.lenUnit,
+    true,
+  );
+
+const areaStep = (working: string, mm2: number, c: StepCtx, exact = false): CalcStep =>
+  step("Net area", working, c.sv(mm2), c.sqUnit, exact);
+
+function straightSteps(f: Straight, c: StepCtx): CalcStep[] {
+  const perimeter = 2 * (f.w + f.h);
+  return [
+    perimeterStep(f.w, f.h, c),
+    areaStep(
+      `${c.L(perimeter)} × ${c.L(f.l)}`,
+      perimeter * f.l,
+      c,
+      /* Both operands are shown in full, and multiplying two exact lengths is
+       * exact — so this one genuinely is `=`. */
+      true,
+    ),
+  ];
+}
+
 const straight: Spec<Straight> = {
   kind: "straight",
   group: "rectangular",
@@ -135,6 +221,7 @@ const straight: Spec<Straight> = {
       const { L } = mk(us);
       return `2 × (${L(f.w)} + ${L(f.h)}) × ${L(f.l)}`;
     },
+    steps: (f, c) => straightSteps(f, c),
   },
   shop: {
     expression: "A = 2(W + H) × L",
@@ -143,6 +230,7 @@ const straight: Spec<Straight> = {
       const { L } = mk(us);
       return `2 × (${L(f.w)} + ${L(f.h)}) × ${L(f.l)}`;
     },
+    steps: (f, c) => straightSteps(f, c),
   },
   note: "A straight duct has no slant and no arc, so both standards give exactly the same area.",
 };
@@ -179,6 +267,19 @@ const reducer: Spec<Reducer> = {
       const { L } = mk(us);
       return `(${L(f.w1)} + ${L(f.h1)} + ${L(f.w2)} + ${L(f.h2)}) × ${L(f.l)}`;
     },
+    steps: (f, c) => {
+      const mean = f.w1 + f.h1 + f.w2 + f.h2;
+      return [
+        step(
+          "Mean perimeter",
+          `${c.L(f.w1)} + ${c.L(f.h1)} + ${c.L(f.w2)} + ${c.L(f.h2)}`,
+          c.lv(mean),
+          c.lenUnit,
+          true,
+        ),
+        areaStep(`${c.L(mean)} × ${c.L(f.l)}`, mean * f.l, c, true),
+      ];
+    },
   },
   shop: {
     expression:
@@ -194,6 +295,30 @@ const reducer: Spec<Reducer> = {
         `(${L(f.w1)} + ${L(f.w2)}) × ${L(top)} slant` +
         `  +  (${L(f.h1)} + ${L(f.h2)}) × ${L(side)} slant`
       );
+    },
+    steps: (f, c) => {
+      const top = Math.hypot(f.l, (f.h1 - f.h2) / 2);
+      const side = Math.hypot(f.l, (f.w1 - f.w2) / 2);
+      const area = (f.w1 + f.w2) * top + (f.h1 + f.h2) * side;
+      return [
+        step(
+          "Top and bottom slant",
+          `√(${c.L(f.l)}² + ((${c.L(f.h1)} − ${c.L(f.h2)}) ÷ 2)²)`,
+          c.lv(top),
+          c.lenUnit,
+        ),
+        step(
+          "Side slant",
+          `√(${c.L(f.l)}² + ((${c.L(f.w1)} − ${c.L(f.w2)}) ÷ 2)²)`,
+          c.lv(side),
+          c.lenUnit,
+        ),
+        areaStep(
+          `(${c.L(f.w1)} + ${c.L(f.w2)}) × ${c.L(top)} + (${c.L(f.h1)} + ${c.L(f.h2)}) × ${c.L(side)}`,
+          area,
+          c,
+        ),
+      ];
     },
   },
   note: "Concentric transition — both openings on one centreline. An eccentric (flat-on-one-side) reducer has a larger slant on the offset face and is not modelled here.",
@@ -235,6 +360,33 @@ const elbow: Spec<Elbow> = {
       const centreline = rad(f.theta) * (f.r + f.w / 2);
       return `2 × (${L(f.w)} + ${L(f.h)}) × ${L(centreline)} centreline`;
     },
+    /* The audit case, step by step: R + W/2, then the arc, then the mean
+     * perimeter, then the product. The arc is marked inexact because π makes
+     * it so — its printed 1217.367 is a view of 1217.3671532660449, and the
+     * area is computed from the latter. Saying `=` there would be the exact
+     * claim this whole structure exists to stop. */
+    steps: (f, c) => {
+      const rcl = f.r + f.w / 2;
+      const arc = rad(f.theta) * rcl;
+      const perimeter = 2 * (f.w + f.h);
+      return [
+        step(
+          "Centreline radius",
+          `${c.L(f.r)} + ${c.L(f.w)} ÷ 2`,
+          c.lv(rcl),
+          c.lenUnit,
+          true,
+        ),
+        step(
+          "Centreline arc",
+          `${f.theta}° × π ÷ 180 × ${c.L(rcl)}`,
+          c.lv(arc),
+          c.lenUnit,
+        ),
+        perimeterStep(f.w, f.h, c),
+        areaStep(`${c.L(perimeter)} × ${c.L(arc)}`, perimeter * arc, c),
+      ];
+    },
   },
   shop: {
     expression:
@@ -243,6 +395,36 @@ const elbow: Spec<Elbow> = {
     substitute: (f, us) => {
       const { S } = mk(us);
       return `2 cheeks 2 × ${S(elbowCheek(f))}  +  heel ${S(elbowHeel(f))}  +  throat ${S(elbowThroat(f))}`;
+    },
+    steps: (f, c) => {
+      const cheek = elbowCheek(f);
+      const heel = elbowHeel(f);
+      const throat = elbowThroat(f);
+      return [
+        step(
+          "Cheek",
+          `${f.theta}° × π ÷ 360 × ((${c.L(f.r)} + ${c.L(f.w)})² − ${c.L(f.r)}²)`,
+          c.sv(cheek),
+          c.sqUnit,
+        ),
+        step(
+          "Heel",
+          `${f.theta}° × π ÷ 180 × (${c.L(f.r)} + ${c.L(f.w)}) × ${c.L(f.h)}`,
+          c.sv(heel),
+          c.sqUnit,
+        ),
+        step(
+          "Throat",
+          `${f.theta}° × π ÷ 180 × ${c.L(f.r)} × ${c.L(f.h)}`,
+          c.sv(throat),
+          c.sqUnit,
+        ),
+        areaStep(
+          `2 × ${c.S(cheek)} + ${c.S(heel)} + ${c.S(throat)}`,
+          2 * cheek + heel + throat,
+          c,
+        ),
+      ];
     },
   },
   note: "R is the inside (throat) radius, so the centreline radius the billing formula uses is R + W/2. Both standards give the same area here, and that is not a coincidence: 2·cheek + heel + throat simplifies to θπ/180·(2R + W)(W + H), which is the mean perimeter times the centreline arc. A swept constant section develops exactly to its mean perimeter (Pappus), so an elbow bills what it cuts.",
@@ -273,6 +455,15 @@ const dropper: Spec<Dropper> = {
       const { L } = mk(us);
       return `2 × (${L(f.w)} + ${L(f.h)}) × ${L(Math.hypot(f.l, f.o))} slant`;
     },
+    steps: (f, c) => {
+      const slant = Math.hypot(f.l, f.o);
+      const perimeter = 2 * (f.w + f.h);
+      return [
+        step("Slant", `√(${c.L(f.l)}² + ${c.L(f.o)}²)`, c.lv(slant), c.lenUnit),
+        perimeterStep(f.w, f.h, c),
+        areaStep(`${c.L(perimeter)} × ${c.L(slant)}`, perimeter * slant, c),
+      ];
+    },
   },
   shop: {
     expression: "A = 2(L × H) + 2(W × √(L² + O²))",
@@ -280,6 +471,23 @@ const dropper: Spec<Dropper> = {
     substitute: (f, us) => {
       const { L } = mk(us);
       return `2 × (${L(f.l)} × ${L(f.h)}) cheeks  +  2 × (${L(f.w)} × ${L(Math.hypot(f.l, f.o))} slant)`;
+    },
+    steps: (f, c) => {
+      const slant = Math.hypot(f.l, f.o);
+      const cheeks = 2 * (f.l * f.h);
+      const faces = 2 * (f.w * slant);
+      return [
+        step("Slant", `√(${c.L(f.l)}² + ${c.L(f.o)}²)`, c.lv(slant), c.lenUnit),
+        step(
+          "Cheeks",
+          `2 × (${c.L(f.l)} × ${c.L(f.h)})`,
+          c.sv(cheeks),
+          c.sqUnit,
+          true,
+        ),
+        step("Faces", `2 × (${c.L(f.w)} × ${c.L(slant)})`, c.sv(faces), c.sqUnit),
+        areaStep(`${c.S(cheeks)} + ${c.S(faces)}`, cheeks + faces, c),
+      ];
     },
   },
   note: "The only fitting where the shop blank comes out SMALLER than the billing area: the two side cheeks are parallelograms, and shearing a parallelogram does not add area. Both figures are correct — they answer different questions.",
@@ -310,6 +518,18 @@ const collar: Spec<Collar> = {
       const { L } = mk(us);
       return `2 × (${L(f.w)} + ${L(f.h)}) × (${L(f.l)} + ${L(f.f)})`;
     },
+    steps: (f, c) => {
+      const perimeter = 2 * (f.w + f.h);
+      return [
+        perimeterStep(f.w, f.h, c),
+        areaStep(
+          `${c.L(perimeter)} × (${c.L(f.l)} + ${c.L(f.f)})`,
+          perimeter * (f.l + f.f),
+          c,
+          true,
+        ),
+      ];
+    },
   },
   shop: {
     expression: "A = 2(W + H)·L + 2(W + H)·F + 4F²",
@@ -317,6 +537,24 @@ const collar: Spec<Collar> = {
     substitute: (f, us) => {
       const { L, S } = mk(us);
       return `2 × (${L(f.w)} + ${L(f.h)}) × ${L(f.l)}  +  2 × (${L(f.w)} + ${L(f.h)}) × ${L(f.f)}  +  4 corner squares ${S(f.f * f.f)}`;
+    },
+    steps: (f, c) => {
+      const perimeter = 2 * (f.w + f.h);
+      const neck = perimeter * f.l;
+      const band = perimeter * f.f;
+      const corners = 4 * f.f * f.f;
+      return [
+        perimeterStep(f.w, f.h, c),
+        step("Neck", `${c.L(perimeter)} × ${c.L(f.l)}`, c.sv(neck), c.sqUnit, true),
+        step("Flange band", `${c.L(perimeter)} × ${c.L(f.f)}`, c.sv(band), c.sqUnit, true),
+        step("Corner squares", `4 × ${c.L(f.f)}²`, c.sv(corners), c.sqUnit, true),
+        areaStep(
+          `${c.S(neck)} + ${c.S(band)} + ${c.S(corners)}`,
+          neck + band + corners,
+          c,
+          true,
+        ),
+      ];
     },
   },
   note: "The shop blank is the billing area plus the four corner squares at the flange — the material the billing standard treats as scrap.",
@@ -367,6 +605,22 @@ const wye: Spec<Wye> = {
       const { S } = mk(us);
       return `branch 1 ${S(wyeBranchBilling(f.w1, f.h, f.w2, f.r, f.theta))}  +  branch 2 ${S(wyeBranchBilling(f.w1, f.h, f.w3, f.r, f.theta))}`;
     },
+    steps: (f, c) => {
+      const b1 = wyeBranchBilling(f.w1, f.h, f.w2, f.r, f.theta);
+      const b2 = wyeBranchBilling(f.w1, f.h, f.w3, f.r, f.theta);
+      const branch = (wn: number, n: number) =>
+        step(
+          `Branch ${n}`,
+          `(${c.L(f.w1)} ÷ 2 + ${c.L(f.h)} + ${c.L(wn)} + ${c.L(f.h)}) × ${f.theta}° × π ÷ 180 × (${c.L(f.r)} + ${c.L(wn)} ÷ 2)`,
+          c.sv(n === 1 ? b1 : b2),
+          c.sqUnit,
+        );
+      return [
+        branch(f.w2, 1),
+        branch(f.w3, 2),
+        areaStep(`${c.S(b1)} + ${c.S(b2)}`, b1 + b2, c),
+      ];
+    },
   },
   shop: {
     expression:
@@ -377,11 +631,39 @@ const wye: Spec<Wye> = {
       const { S } = mk(us);
       return `branch 1 ${S(wyeBranchShop(f.h, f.w2, f.r, f.theta))}  +  branch 2 ${S(wyeBranchShop(f.h, f.w3, f.r, f.theta))}`;
     },
+    steps: (f, c) => {
+      const b1 = wyeBranchShop(f.h, f.w2, f.r, f.theta);
+      const b2 = wyeBranchShop(f.h, f.w3, f.r, f.theta);
+      const branch = (wn: number, v: number, n: number) =>
+        step(
+          `Branch ${n}, developed as an elbow on ${c.L(wn)} ${c.lenUnit}`,
+          `2 × cheek + heel + throat, R ${c.L(f.r)}, θ ${f.theta}°`,
+          c.sv(v),
+          c.sqUnit,
+        );
+      return [
+        branch(f.w2, b1, 1),
+        branch(f.w3, b2, 2),
+        areaStep(`${c.S(b1)} + ${c.S(b2)}`, b1 + b2, c),
+      ];
+    },
   },
   note: "OUR STATED INTERPRETATION, not a published formula: the source specification gives the Y-piece shop area only as “sectors + heels + throats” with no sub-formulas, so each branch is developed as an elbow on its own width. The crotch (splitter) plate is NOT included — add it as a separate straight entry if your shop cuts one. Note also that the two standards cross over at Wₙ = W₁/2: a branch narrower than half the main duct bills for more than it cuts, because the billing perimeter averages in the main's half width.",
 };
 
 /* ---- round straight ------------------------------------------------------ */
+
+/** Circumference — the step every round fitting starts from. */
+const circumferenceStep = (d: number, c: StepCtx): CalcStep =>
+  step("Circumference", `π × ${c.L(d)}`, c.lv(Math.PI * d), c.lenUnit);
+
+function roundStraightSteps(f: RoundStraight, c: StepCtx): CalcStep[] {
+  const circ = Math.PI * f.d;
+  return [
+    circumferenceStep(f.d, c),
+    areaStep(`${c.L(circ)} × ${c.L(f.l)}`, circ * f.l, c),
+  ];
+}
 
 const roundStraight: Spec<RoundStraight> = {
   kind: "round-straight",
@@ -404,6 +686,7 @@ const roundStraight: Spec<RoundStraight> = {
       const { L } = mk(us);
       return `π × ${L(f.d)} × ${L(f.l)}`;
     },
+    steps: (f, c) => roundStraightSteps(f, c),
   },
   shop: {
     expression: "A = πD × L",
@@ -412,6 +695,7 @@ const roundStraight: Spec<RoundStraight> = {
       const { L } = mk(us);
       return `π × ${L(f.d)} × ${L(f.l)}`;
     },
+    steps: (f, c) => roundStraightSteps(f, c),
   },
   note: "A cylinder unrolls flat with no distortion at all, so the blank is exactly πD wide by L long and both standards agree. Spiral-wound duct is made from a continuous strip rather than this blank — the AREA is the same, the cutting is not.",
 };
@@ -454,6 +738,15 @@ const roundElbow: Spec<RoundElbow> = {
       const { L } = mk(us);
       return `π × ${L(f.d)} × ${L(rad(f.theta) * f.r)} centreline`;
     },
+    steps: (f, c) => {
+      const arc = rad(f.theta) * f.r;
+      const circ = Math.PI * f.d;
+      return [
+        step("Centreline arc", `${f.theta}° × π ÷ 180 × ${c.L(f.r)}`, c.lv(arc), c.lenUnit),
+        circumferenceStep(f.d, c),
+        areaStep(`${c.L(circ)} × ${c.L(arc)}`, circ * arc, c),
+      ];
+    },
   },
   shop: {
     expression: "A = πD × [θπ/180 × R]",
@@ -461,6 +754,15 @@ const roundElbow: Spec<RoundElbow> = {
     substitute: (f, us) => {
       const { L } = mk(us);
       return `π × ${L(f.d)} × ${L(rad(f.theta) * f.r)} centreline`;
+    },
+    steps: (f, c) => {
+      const arc = rad(f.theta) * f.r;
+      const circ = Math.PI * f.d;
+      return [
+        step("Centreline arc", `${f.theta}° × π ÷ 180 × ${c.L(f.r)}`, c.lv(arc), c.lenUnit),
+        circumferenceStep(f.d, c),
+        areaStep(`${c.L(circ)} × ${c.L(arc)}`, circ * arc, c),
+      ];
     },
   },
   note: "Both standards agree, by Pappus's theorem: a constant section swept about an axis develops to exactly its perimeter times the path of its centroid. The gore count changes the BLANKS — each gore is a cylinder cut at an angle, so its edges unroll as sine curves — and therefore the cutting waste, but never the surface area.",
@@ -490,6 +792,18 @@ const roundReducer: Spec<RoundReducer> = {
       const { L } = mk(us);
       return `π × (${L(f.d1)} + ${L(f.d2)})/2 × ${L(f.l)}`;
     },
+    steps: (f, c) => {
+      const mean = (Math.PI * (f.d1 + f.d2)) / 2;
+      return [
+        step(
+          "Mean circumference",
+          `π × (${c.L(f.d1)} + ${c.L(f.d2)}) ÷ 2`,
+          c.lv(mean),
+          c.lenUnit,
+        ),
+        areaStep(`${c.L(mean)} × ${c.L(f.l)}`, mean * f.l, c),
+      ];
+    },
   },
   shop: {
     expression: "A = π(D₁ + D₂)/2 × √(L² + ((D₁−D₂)/2)²)",
@@ -498,6 +812,25 @@ const roundReducer: Spec<RoundReducer> = {
     substitute: (f, us) => {
       const { L } = mk(us);
       return `π × (${L(f.d1)} + ${L(f.d2)})/2 × ${L(Math.hypot(f.l, (f.d1 - f.d2) / 2))} slant`;
+    },
+    steps: (f, c) => {
+      const mean = (Math.PI * (f.d1 + f.d2)) / 2;
+      const slant = Math.hypot(f.l, (f.d1 - f.d2) / 2);
+      return [
+        step(
+          "Mean circumference",
+          `π × (${c.L(f.d1)} + ${c.L(f.d2)}) ÷ 2`,
+          c.lv(mean),
+          c.lenUnit,
+        ),
+        step(
+          "Slant height",
+          `√(${c.L(f.l)}² + ((${c.L(f.d1)} − ${c.L(f.d2)}) ÷ 2)²)`,
+          c.lv(slant),
+          c.lenUnit,
+        ),
+        areaStep(`${c.L(mean)} × ${c.L(slant)}`, mean * slant, c),
+      ];
     },
   },
   note: "The blank is an annular sector — the classic cone development — so the shop area is the mean circumference times the SLANT height, not the length. Concentric only: an eccentric cone has a different development on each side and is not modelled here.",
@@ -587,6 +920,18 @@ const squareToRound: Spec<SquareToRound> = {
       const mean = (2 * (f.w + f.h) + Math.PI * f.d) / 2;
       return `${L(mean)} mean perimeter × ${L(f.l)}`;
     },
+    steps: (f, c) => {
+      const mean = (2 * (f.w + f.h) + Math.PI * f.d) / 2;
+      return [
+        step(
+          "Mean perimeter",
+          `(2 × (${c.L(f.w)} + ${c.L(f.h)}) + π × ${c.L(f.d)}) ÷ 2`,
+          c.lv(mean),
+          c.lenUnit,
+        ),
+        areaStep(`${c.L(mean)} × ${c.L(f.l)}`, mean * f.l, c),
+      ];
+    },
   },
   shop: {
     expression:
@@ -595,6 +940,32 @@ const squareToRound: Spec<SquareToRound> = {
     substitute: (f, us) => {
       const { S } = mk(us);
       return `2 side triangles ${S(strSideTriangles(f))}  +  2 end triangles ${S(strEndTriangles(f))}  +  4 corner patches ${S(strCorners(f))}`;
+    },
+    steps: (f, c) => {
+      const sides = strSideTriangles(f);
+      const ends = strEndTriangles(f);
+      const corners = strCorners(f);
+      return [
+        step(
+          "Side triangles (×2)",
+          `${c.L(f.w)} × √(${c.L(f.l)}² + ((${c.L(f.h)} − ${c.L(f.d)}) ÷ 2)²)`,
+          c.sv(sides),
+          c.sqUnit,
+        ),
+        step(
+          "End triangles (×2)",
+          `${c.L(f.h)} × √(${c.L(f.l)}² + ((${c.L(f.w)} − ${c.L(f.d)}) ÷ 2)²)`,
+          c.sv(ends),
+          c.sqUnit,
+        ),
+        step(
+          "Corner patches (×4)",
+          "4 × ½∫ r·√(L² + (r − (W/2)cos φ − (H/2)sin φ)² ) dφ, integrated",
+          c.sv(corners),
+          c.sqUnit,
+        ),
+        areaStep(`${c.S(sides)} + ${c.S(ends)} + ${c.S(corners)}`, sides + ends + corners, c),
+      ];
     },
   },
   note: "Four flat triangles and four conical corner patches — the exact surface of the standard construction, with the corner term integrated numerically because it has no closed form. Concentric only. A shop that develops the corners by triangulating them into flat facets cuts marginally more than this, the same way a gored bend does.",

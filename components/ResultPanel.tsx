@@ -7,14 +7,15 @@ import {
   type UnitSystem,
   areaUnit,
   densityUnit,
+  PRECISION,
   fmt,
   fmtArea,
   fmtExact,
   fmtLength,
   fmtMass,
   massUnit,
-  squareLengthUnit,
 } from "@/lib/duct/units";
+import CalculationDetails from "./CalculationDetails";
 import { Note, Stat } from "./ui";
 
 /* What the numbers are, and where they came from.
@@ -73,27 +74,29 @@ export default function ResultPanel({
         <p className="text-eyebrow uppercase text-accent">
           {mode === "billing" ? "Commercial billing standard" : "Shop fabrication standard"}
         </p>
-        <p className="mt-2 font-medium text-heading">{result.expression}</p>
-        {/* THE WORKING HAS TO MULTIPLY OUT.
-          * Every number on this line is the one the calculation actually used,
-          * at enough precision to reproduce the answer beside it. It used to
-          * print whole millimetres — so an elbow whose centreline arc is
-          * 1217.3671 mm showed "× 1217" next to an area computed from the real
-          * arc, and anyone who checked it found it did not agree. The rounded
-          * figure a schedule bills is stated separately, and labelled. */}
-        <p className="mt-2 break-words text-small tabular-nums text-body">
-          {result.substitution} = {fmtExact(result.netEachSquare, 2)}{" "}
-          {squareLengthUnit(units)}
+        <p className="mt-2 break-words font-medium text-heading">{result.expression}</p>
+        {/* The ordinary view stays commercial: formula, answer, and a way in to
+          * the working. The working itself is one click away in Calculation
+          * details, so the normal screen is not a maths lesson — and it is
+          * formatted from the same steps the export writes. */}
+        <p className="mt-2 break-words tabular-nums text-body">
+          <span aria-hidden="true">≈</span>{" "}
+          <span className="font-bold text-heading">
+            {fmtExact(result.netEachArea, PRECISION.detail)} {au}
+          </span>{" "}
+          per piece, shown as {fmtArea(result.netEachMinor)} {au}
         </p>
-        <p className="mt-1 break-words text-small tabular-nums text-body">
-          = <span className="font-bold text-heading">{fmtExact(result.netEachArea, 6)} {au}</span>{" "}
-          per piece
-          {qty > 1 && <> × {qty} pieces = {fmtExact(result.netArea, 6)} {au}</>}
-        </p>
-        <p className="mt-1 text-small text-muted">
-          Rounded to {fmtArea(result.netAreaMinor)} {au} for the schedule.
-        </p>
-        <p className="mt-2 text-small text-muted">
+        <div className="mt-3">
+          <CalculationDetails
+            steps={result.steps}
+            expression={result.expression}
+            standard={
+              mode === "billing" ? "Commercial billing standard" : "Shop fabrication standard"
+            }
+            displayed={`${fmtArea(result.netAreaMinor)} ${au}`}
+          />
+        </div>
+        <p className="mt-3 text-small text-muted">
           Largest dimension {fmtLength(result.maxDimMm, units)}{" "}
           {units === "metric" ? "mm" : "in"} — {result.gaugeAuto ? "which selects" : "would select"}{" "}
           {result.gauge} ga.
