@@ -46,8 +46,16 @@ Status never rides on colour alone: notes and caveats carry a **word** (`Note:`,
 ## Dark mode is sanctioned, and how it is wired
 
 Design system §1 provides a dark palette "for tools, dashboards, code blocks — not the
-marketing site". This is a tool, so it has one, defaulting to the operating system's setting
-until the user chooses.
+marketing site". This is a tool, so it has one.
+
+**It defaults to LIGHT, whatever the device says** (owner's call, 27 August 2026). It used to
+follow `prefers-color-scheme`; that block is deleted rather than overridden, so there is one
+source of truth, and `ThemeToggle.currentTheme()` returns light unless `data-theme="dark"`.
+The two must agree — when the CSS said light and the JavaScript read the system as dark, the
+button offered "switch to light" on a page that already was, and the first press did nothing.
+The reason for light is not taste: this tool's output is printed and its drawings are read as
+ink on paper, so opening in a palette the reader did not choose is the wrong first impression
+of a document.
 
 The mechanism is a **semantic layer**: brand ramps stay in `@theme`, and seven roles
 (`--ds-page`, `--ds-card`, `--ds-sunk`, `--ds-line`, `--ds-rule`, `--ds-heading`, `--ds-body`,

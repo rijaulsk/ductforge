@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { ImageResponse } from "next/og";
+import { MARK_FILL_RULE, MARK_PATH } from "@/lib/brand/logo";
 
 /* The card a shared link unfurls into.
  *
@@ -74,12 +75,12 @@ export default async function OpengraphImage() {
                   borderRadius: 14,
                 }}
               >
-                {/* The same elbow as the favicon and the logo — scripts/mark.mjs. */}
+                {/* IMPORTED from the generated data, not pasted. The copy that
+                    was here had fallen two marks behind — it was still the
+                    radiused elbow the app dropped before the square-backed one,
+                    which itself has since been replaced. */}
                 <svg width="40" height="40" viewBox="0 0 100 100">
-                  <path
-                    d="M6 100L6 50A44 44 0 0 1 50 6L100 6L100 32L50 32A18 18 0 0 0 32 50L32 100Z"
-                    fill={CREAM}
-                  />
+                  <path d={MARK_PATH} fillRule={MARK_FILL_RULE} fill={CREAM} />
                 </svg>
               </div>
               <div style={{ display: "flex", fontSize: 52, fontWeight: 700, color: INK }}>

@@ -27,7 +27,15 @@ import { bounds, encodePng, parsePath, rasterise, transform } from "./raster.mjs
 const ROOT = new URL("../", import.meta.url);
 const out = (p) => fileURLToPath(new URL(p, ROOT));
 
-import { CREAM, INDIGO, INDIGO_400, MARK_PATH } from "./mark.mjs";
+import {
+  CREAM,
+  INDIGO,
+  INDIGO_400,
+  MARK_FILL_RULE,
+  MARK_PATH,
+  TILE_INSET,
+  roundedRect,
+} from "./mark.mjs";
 
 /* ---- the smallest TrueType reader that can outline a word ---------------- */
 
@@ -298,11 +306,26 @@ const capContours = font.contoursFor(font.glyphFor("D".codePointAt(0)));
 const capTop = Math.max(...capContours.flat().map((p) => p.y));
 const capHeight = (capTop / font.unitsPerEm) * 100;
 
-const markSize = CAP;
+/* THE MARK STANDS TALLER THAN THE CAP, and is centred on it.
+ *
+ * Matching the mark's height to the capital D is the textbook lockup and it is
+ * wrong for this mark. The old one was a solid corner that filled its box, so
+ * cap height gave it the same visual mass as the type. This one is a band with
+ * two plates and a lot of air in the lower left: at cap height it reads as a
+ * small pale thing sitting next to a heavy word. The reference sheet sets it
+ * larger for exactly this reason.
+ *
+ * Centred on the cap band rather than sat on the baseline, so the extra height
+ * is shared above and below instead of hanging off the bottom. */
+const MARK_SCALE = 1.45;
+const markSize = Number((CAP * MARK_SCALE).toFixed(2));
+const markY = Number(((CAP - markSize) / 2).toFixed(2));
 const wordScale = CAP / capHeight;
 const wordSized = outline(font, "DuctForge", 100 * wordScale);
-const gap = markSize * 0.4;
-const baseline = markSize;
+/* Off the cap, not off the mark — the optical gap a reader sees is between the
+ * mark and the D, and scaling it with the mark opens a hole as the mark grows. */
+const gap = Number((CAP * 0.34).toFixed(2));
+const baseline = CAP;
 
 /* THE CANVAS COMES FROM THE ARTWORK, not the other way round.
  *
@@ -311,7 +334,7 @@ const baseline = markSize;
  * stops at the baseline has no room for. Measuring what the paths actually
  * occupy and padding that is the only way a logo cannot clip itself, and it
  * survives changing the word or the mark. */
-const markPlaced = transform(parsePath(MARK_PATH), { sx: markSize / 100 });
+const markPlaced = transform(parsePath(MARK_PATH), { sx: markSize / 100, ty: markY });
 const wordPlaced = transform(parsePath(wordSized.d), {
   sx: 1,
   tx: markSize + gap,
@@ -324,13 +347,16 @@ const viewY = Number((box.minY - PAD).toFixed(2));
 const totalW = Number((box.width + PAD * 2).toFixed(2));
 const totalH = Number((box.height + PAD * 2).toFixed(2));
 
+/* fill-rule travels with the path everywhere it is written, because the mark's
+ * mitre seams are holes in it — see scripts/mark.mjs. Without the attribute an
+ * SVG fills non-zero by default and the seams silently close up. */
 const markAt = (x, y, size) =>
-  `<path d="${MARK_PATH}" transform="translate(${x} ${y}) scale(${(size / 100).toFixed(5)})"/>`;
+  `<path d="${MARK_PATH}" fill-rule="${MARK_FILL_RULE}" transform="translate(${x} ${y}) scale(${(size / 100).toFixed(5)})"/>`;
 
 function lockup(fill, wordFill) {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewX} ${viewY} ${totalW} ${totalH}" width="${totalW}" height="${totalH}" role="img" aria-label="DuctForge">
   <title>DuctForge</title>
-  <g fill="${fill}">${markAt(0, 0, markSize)}</g>
+  <g fill="${fill}">${markAt(0, markY, markSize)}</g>
   <g fill="${wordFill}"><path d="${wordSized.d}" transform="translate(${(markSize + gap).toFixed(2)} ${baseline.toFixed(2)})"/></g>
 </svg>
 `;
@@ -351,6 +377,21 @@ writeFileSync(
 `,
 );
 
+/* The mark on its tile — the app-icon lockup, as a vector.
+ *
+ * The tile is a filled shape UNDER the mark and the mark is knocked out of it
+ * in cream, so the seams show indigo through rather than cream. That only
+ * works because the seams are holes; see scripts/mark.mjs. */
+writeFileSync(
+  out("public/brand/ductforge-tile.svg"),
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100" role="img" aria-label="DuctForge">
+  <title>DuctForge</title>
+  <path d="${roundedRect(100, 22)}" fill="${INDIGO}"/>
+  <g fill="${CREAM}">${markAt(TILE_INSET, TILE_INSET, 100 - TILE_INSET * 2)}</g>
+</svg>
+`,
+);
+
 /* And the same geometry as data, so the app can inline it and let it take the
  * page's own colours instead of shipping two files and swapping them. */
 writeFileSync(
@@ -362,18 +403,30 @@ writeFileSync(
  * served as an image so it can take \`currentColor\` and follow the theme.
  */
 
-/** The elbow mark, in a 100 × 100 box. */
+/** The elbow mark, in a 100 × 100 box.
+ *
+ * MUST be filled even-odd: the mitre seams are holes in this path, not paint
+ * over it, so that the gap shows whatever ground the mark sits on. Filled
+ * non-zero they close up; filled with a background colour on top they would be
+ * cream slashes across the indigo app icon. Use \`MARK_FILL_RULE\`. */
 export const MARK_PATH =
   ${JSON.stringify(MARK_PATH)};
+
+/** Pass to \`fillRule\` / \`fill-rule\` wherever MARK_PATH is drawn. */
+export const MARK_FILL_RULE = ${JSON.stringify(MARK_FILL_RULE)} as const;
 
 /** "DuctForge" outlined, sitting on a baseline at y = 0. */
 export const WORDMARK_PATH =
   ${JSON.stringify(wordSized.d)};
 
 export const LOGO = {
-  /** Height of the mark, and of the capital D beside it. */
+  /** Height of the mark. Taller than the cap on purpose — see make-logo.mjs. */
   markSize: ${markSize},
-  gap: ${Number(gap.toFixed(2))},
+  /** Where the mark's box starts, so it sits centred on the cap band. */
+  markY: ${markY},
+  /** Cap height of the wordmark beside it. */
+  cap: ${CAP},
+  gap: ${gap},
   /** Where the wordmark's baseline sits, in the same coordinates. */
   baseline: ${baseline},
   /** The viewBox that contains the whole lockup, descenders included. */
@@ -406,9 +459,12 @@ function logoPng(height, fill, wordFill, background) {
       width,
       height: h,
       background,
+      /* evenodd stated rather than relied on. The rasteriser happens to
+       * default to it, but the mark's seams depend on it and a default is a
+       * poor place to keep something load-bearing. */
       shapes: [
-        { contours: place(markPlaced), color: fill },
-        { contours: place(wordPlaced), color: wordFill },
+        { contours: place(markPlaced), color: fill, rule: "evenodd" },
+        { contours: place(wordPlaced), color: wordFill, rule: "evenodd" },
       ],
     }),
   );
@@ -429,6 +485,7 @@ function iconPng(size, background) {
         {
           contours: transform(markContours, { sx: inner / 100, tx: inset, ty: inset }),
           color: background ? CREAM : INDIGO,
+          rule: "evenodd",
         },
       ],
     }),
@@ -454,6 +511,7 @@ for (const f of [
   "public/brand/ductforge.svg",
   "public/brand/ductforge-dark.svg",
   "public/brand/ductforge-icon.svg",
+  "public/brand/ductforge-tile.svg",
   "lib/brand/logo.ts",
 ]) {
   console.log(`wrote           ${f}`);

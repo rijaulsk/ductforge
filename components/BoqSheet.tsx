@@ -21,6 +21,7 @@ import {
   massUnit,
   runUnit,
 } from "@/lib/duct/units";
+import { MARK_FILL_RULE, MARK_PATH } from "@/lib/brand/logo";
 import { assumptions } from "@/lib/export/csv";
 import { APP_CREDIT, MAKER_NAME } from "@/lib/site";
 
@@ -63,11 +64,13 @@ export default function BoqSheet({ project }: { project: Project }) {
       <header className="mb-5">
         <div className="flex flex-col items-center border-b-[1.5px] border-ink pb-4 text-center">
           <div className="flex items-center gap-2">
+            {/* Imported, not pasted. This used to carry its own copy of the
+                path and had quietly fallen a mark behind — the printed sheet,
+                the favicon and the OG card were each showing a different
+                elbow. Ink rather than currentColor because a print stylesheet
+                cannot be relied on for a filled shape. */}
             <svg width="18" height="18" viewBox="0 0 100 100" aria-hidden="true">
-              <path
-                d="M0 100L0 0L100 0L100 30L50 30A20 20 0 0 0 30 50L30 100Z"
-                fill="#221D17"
-              />
+              <path d={MARK_PATH} fillRule={MARK_FILL_RULE} fill="#221D17" />
             </svg>
             <span className="text-[11pt] font-bold tracking-tight text-ink">
               Duct<span className="font-bold">Forge</span>

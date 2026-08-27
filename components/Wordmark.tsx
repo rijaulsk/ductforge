@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LOGO, MARK_PATH, WORDMARK_PATH } from "@/lib/brand/logo";
+import { LOGO, MARK_FILL_RULE, MARK_PATH, WORDMARK_PATH } from "@/lib/brand/logo";
 import { MAKER_NAME, MAKER_URL } from "@/lib/site";
 
 /* The logo, as artwork rather than as styled text.
@@ -42,7 +42,13 @@ export default function Wordmark({ size = "md" }: { size?: keyof typeof HEIGHTS 
           focusable="false"
           fill="currentColor"
         >
-          <path d={MARK_PATH} transform={`scale(${LOGO.markSize / 100})`} />
+          {/* fillRule is not optional: the mark's mitre seams are holes in
+              this path, and the SVG default of nonzero closes them up. */}
+          <path
+            d={MARK_PATH}
+            fillRule={MARK_FILL_RULE}
+            transform={`translate(0 ${LOGO.markY}) scale(${LOGO.markSize / 100})`}
+          />
           <path d={WORDMARK_PATH} transform={`translate(${LOGO.markSize + LOGO.gap} ${LOGO.baseline})`} />
         </svg>
       </Link>
