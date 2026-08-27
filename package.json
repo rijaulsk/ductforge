@@ -11,7 +11,9 @@
     "check:duct": "node scripts/check-duct.mjs",
     "check:draw": "node scripts/check-draw.mjs",
     "check": "npm run check:duct && npm run check:draw",
-    "icons": "node scripts/make-icons.mjs"
+    "icons": "node scripts/make-icons.mjs",
+    "logo": "node scripts/make-logo.mjs",
+    "brand": "npm run logo && npm run icons"
   },
   "dependencies": {
     "lucide-react": "1.27.0",
