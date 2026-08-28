@@ -132,7 +132,7 @@ export default function StandardsPage() {
           They do not always differ, and where they agree it is worth knowing why. A straight duct
           has no slant and no arc, so both give the same area. An elbow does too — its
           2·cheek + heel + throat development simplifies exactly to mean perimeter × centreline arc,
-          which is Pappus&rsquo;s theorem rather than a coincidence. A dropper goes the other way:
+          which is Pappus&rsquo;s theorem rather than a coincidence. An offset goes the other way:
           its shop blank is <em>smaller</em> than its billed area, because the side cheeks are
           parallelograms and shearing a parallelogram adds no area.
         </p>
@@ -142,7 +142,7 @@ export default function StandardsPage() {
         band="card"
         eyebrow="Formulas"
         title="Every fitting, both standards"
-        lede="W and H are the duct's width and height, L its length, R the inside (throat) radius, θ the included angle, O a dropper's offset and F a collar's flange lip."
+        lede="W and H are the duct's width and height, L its length, R the inside (throat) radius, θ the included angle, O an offset's lateral step and F a collar's flange lip."
       >
         <div className="overflow-x-auto">
           <table className="w-full min-w-[46rem] border-collapse">

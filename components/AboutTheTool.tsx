@@ -139,7 +139,7 @@ export default function AboutTheTool() {
               standards named.
             </p>
             <p className="mt-4">
-              The drawings are there for the same reason. A reducer and a dropper are very different
+              The drawings are there for the same reason. A transition and an offset are very different
               objects that look nearly identical as a row of numbers — seeing the fitting is how you
               catch that you picked the wrong one before the quantity reaches a tender.
             </p>

@@ -1,11 +1,11 @@
 import type {
   Collar,
-  Dropper,
+  Offset,
   Elbow,
   FieldSpec,
   Fitting,
   FittingKind,
-  Reducer,
+  Transition,
   RoundElbow,
   RoundReducer,
   RoundStraight,
@@ -262,13 +262,18 @@ const straight: Spec<Straight> = {
   note: "A straight duct has no slant and no arc, so both standards give exactly the same area.",
 };
 
-/* ---- reducer / transition --------------------------------------------- */
+/* ---- transition --------------------------------------------------------
+ *
+ * Called "Reducer" until 28 Aug 2026, which is the round cone's name. A
+ * rectangular size change is a transition, and it need not reduce — a
+ * transition that grows is still a transition. Old files carry the old kind;
+ * see KIND_ALIASES in lib/project.ts. */
 
-const reducer: Spec<Reducer> = {
-  kind: "reducer",
+const transition: Spec<Transition> = {
+  kind: "transition",
   group: "rectangular",
-  name: "Reducer",
-  blurb: "Transition between two rectangular sizes.",
+  name: "Transition",
+  blurb: "Changes one rectangular size to another.",
   fields: [
     { key: "w1", symbol: "W₁", label: "Inlet width" },
     { key: "h1", symbol: "H₁", label: "Inlet height" },
@@ -276,7 +281,7 @@ const reducer: Spec<Reducer> = {
     { key: "h2", symbol: "H₂", label: "Outlet height" },
     { key: "l", symbol: "L", label: "Length" },
   ],
-  defaults: { kind: "reducer", w1: 800, h1: 400, w2: 500, h2: 300, l: 600 },
+  defaults: { kind: "transition", w1: 800, h1: 400, w2: 500, h2: 300, l: 600 },
   maxDim: (f) => Math.max(f.w1, f.h1, f.w2, f.h2),
   centreline: (f) => f.l,
   perimeter: (f) => f.w1 + f.h1 + f.w2 + f.h2,
@@ -472,20 +477,29 @@ const elbow: Spec<Elbow> = {
   note: "R is the inside (throat) radius, so the centreline radius the billing formula uses is R + W/2. Both standards give the same area here, and that is not a coincidence: 2·cheek + heel + throat simplifies to θπ/180·(2R + W)(W + H), which is the mean perimeter times the centreline arc. A swept constant section develops exactly to its mean perimeter (Pappus), so an elbow bills what it cuts.",
 };
 
-/* ---- dropper / offset -------------------------------------------------- */
+/* ---- offset -------------------------------------------------------------
+ *
+ * Called "Dropper" until 28 Aug 2026, and that was simply wrong. A dropper
+ * drops air DOWN out of a main and carries a grille at its end; this fitting
+ * steps a run sideways and keeps the same section all the way through. The
+ * catalogue name is a rectangular ogee, the site name is an offset.
+ *
+ * The error was visible in the picker before it was visible anywhere else: the
+ * icon drew two walls on different slopes, so the shape tapered. A ten-year
+ * ductworker took one look and called it a taper. He was right. */
 
-const dropper: Spec<Dropper> = {
-  kind: "dropper",
+const offset: Spec<Offset> = {
+  kind: "offset",
   group: "rectangular",
-  name: "Dropper",
-  blurb: "Offset or swan neck.",
+  name: "Offset",
+  blurb: "Steps the run sideways, same section throughout.",
   fields: [
     { key: "w", symbol: "W", label: "Width" },
     { key: "h", symbol: "H", label: "Height" },
     { key: "l", symbol: "L", label: "Run", hint: "Straight-line run of the offset" },
     { key: "o", symbol: "O", label: "Offset", hint: "Lateral displacement" },
   ],
-  defaults: { kind: "dropper", w: 600, h: 400, l: 900, o: 300 },
+  defaults: { kind: "offset", w: 600, h: 400, l: 900, o: 300 },
   maxDim: (f) => Math.max(f.w, f.h),
   centreline: (f) => Math.hypot(f.l, f.o),
   perimeter: (f) => 2 * (f.w + f.h),
@@ -1042,9 +1056,9 @@ type AnySpec = Spec<Fitting>;
 
 export const SPECS: Record<FittingKind, AnySpec> = {
   straight: straight as unknown as AnySpec,
-  reducer: reducer as unknown as AnySpec,
+  transition: transition as unknown as AnySpec,
   elbow: elbow as unknown as AnySpec,
-  dropper: dropper as unknown as AnySpec,
+  offset: offset as unknown as AnySpec,
   collar: collar as unknown as AnySpec,
   wye: wye as unknown as AnySpec,
   "round-straight": roundStraight as unknown as AnySpec,
@@ -1055,9 +1069,9 @@ export const SPECS: Record<FittingKind, AnySpec> = {
 
 export const FITTING_KINDS: readonly FittingKind[] = [
   "straight",
-  "reducer",
+  "transition",
   "elbow",
-  "dropper",
+  "offset",
   "collar",
   "wye",
   "round-straight",

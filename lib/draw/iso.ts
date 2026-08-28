@@ -5,7 +5,7 @@ import type { Label } from "./blueprint";
 /* The isometric view — the fitting as an object rather than as a drawing.
  *
  * This is a true axonometric projection of the same millimetres the formulas
- * use, not a decorative graphic. It exists because a reducer and a dropper are
+ * use, not a decorative graphic. It exists because a transition and an offset are
  * two very different objects that look nearly identical in orthographic
  * elevation, and an estimator who has picked the wrong fitting should be able
  * to see it in one glance rather than find it in a total.
@@ -161,7 +161,7 @@ export function isometric(f: Fitting, L: Label): Scene {
       };
     }
 
-    case "reducer": {
+    case "transition": {
       const { w1, h1, w2, h2, l } = f;
       const a = (y: number, z: number): P3 => [0, y * (w1 / 2), z * (h1 / 2)];
       const b = (y: number, z: number): P3 => [l, y * (w2 / 2), z * (h2 / 2)];
@@ -207,7 +207,7 @@ export function isometric(f: Fitting, L: Label): Scene {
       };
     }
 
-    case "dropper": {
+    case "offset": {
       const { w, h, l, o } = f;
       /* Sheared along z: the section stays W × H the whole way and simply
        * rises by O, which is exactly why the cheeks develop flat. */

@@ -42,12 +42,12 @@ export function blueprint(f: Fitting, L: Label): Scene {
   switch (f.kind) {
     case "straight":
       return straight(f.w, f.h, f.l, L);
-    case "reducer":
-      return reducer(f.w1, f.h1, f.w2, f.h2, f.l, L);
+    case "transition":
+      return transition(f.w1, f.h1, f.w2, f.h2, f.l, L);
     case "elbow":
       return elbow(f.w, f.h, f.r, f.theta, L);
-    case "dropper":
-      return dropper(f.w, f.h, f.l, f.o, L);
+    case "offset":
+      return offset(f.w, f.h, f.l, f.o, L);
     case "collar":
       return collar(f.w, f.h, f.l, f.f, L);
     case "wye":
@@ -252,9 +252,9 @@ function straight(w: number, h: number, l: number, L: Label): Scene {
   };
 }
 
-/* ---- reducer ------------------------------------------------------------ */
+/* ---- transition ------------------------------------------------------------ */
 
-function reducer(
+function transition(
   w1: number,
   h1: number,
   w2: number,
@@ -340,9 +340,9 @@ function elbow(w: number, h: number, r: number, theta: number, L: Label): Scene 
   };
 }
 
-/* ---- dropper ------------------------------------------------------------ */
+/* ---- offset -------------------------------------------------------------- */
 
-function dropper(w: number, h: number, l: number, o: number, L: Label): Scene {
+function offset(w: number, h: number, l: number, o: number, L: Label): Scene {
   const yPlan = o + h / 2 + w / 2 + l * 0.2;
   return {
     shapes: [

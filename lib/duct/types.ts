@@ -10,11 +10,22 @@ import type { UnitSystem } from "./units";
 
 export type Mode = "billing" | "shop";
 
+/* NAMES ARE TRADE NAMES, checked against a manufacturer catalogue rather than
+ * chosen. Two were wrong until 28 Aug 2026 and both are aliased for old saved
+ * files in `lib/project.ts` — see KIND_ALIASES there before renaming anything.
+ *
+ *   `offset` was called `dropper`. It never was one: a dropper drops air down
+ *   to a grille, and this is a constant section displaced sideways — an offset,
+ *   catalogued as a rectangular ogee.
+ *
+ *   `transition` was called `reducer`. A rectangular size change is a
+ *   transition; a reducer is the round cone, which keeps the name.
+ */
 export type FittingKind =
   | "straight"
-  | "reducer"
+  | "transition"
   | "elbow"
-  | "dropper"
+  | "offset"
   | "collar"
   | "wye"
   | "round-straight"
@@ -25,10 +36,10 @@ export type FittingKind =
 /** W × H duct, L long. */
 export type Straight = { kind: "straight"; w: number; h: number; l: number };
 
-/** Transition from W1×H1 to W2×H2 over length L. CONCENTRIC — the shop
- * formula's half-offset terms assume the two openings share a centreline. */
-export type Reducer = {
-  kind: "reducer";
+/** Rectangular size change from W1×H1 to W2×H2 over length L. CONCENTRIC — the
+ * shop formula's half-offset terms assume the two openings share a centreline. */
+export type Transition = {
+  kind: "transition";
   w1: number;
   h1: number;
   w2: number;
@@ -46,9 +57,11 @@ export type Elbow = {
   theta: number;
 };
 
-/** Offset / swan neck: run L, lateral offset O. */
-export type Dropper = {
-  kind: "dropper";
+/** Offset: the run steps sideways by O over a straight-line run L, keeping the
+ * SAME W × H section throughout. Two opposed bends in practice; measured as the
+ * sheared parallelogram it is. */
+export type Offset = {
+  kind: "offset";
   w: number;
   h: number;
   l: number;
@@ -125,9 +138,9 @@ export type SquareToRound = {
 
 export type Fitting =
   | Straight
-  | Reducer
+  | Transition
   | Elbow
-  | Dropper
+  | Offset
   | Collar
   | Wye
   | RoundStraight

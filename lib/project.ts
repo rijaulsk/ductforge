@@ -74,10 +74,36 @@ const num = (v: unknown, fallback: number): number =>
 
 const str = (v: unknown, fallback = ""): string => (typeof v === "string" ? v : fallback);
 
+/**
+ * Fitting kinds this app used to use, and what they are called now.
+ *
+ * RENAMING A KIND WITHOUT AN ENTRY HERE DELETES DATA, silently. `reviveFitting`
+ * returns null for a kind it does not recognise and `reviveProject` filters the
+ * nulls out, so an old saved takeoff would simply open with those lines gone —
+ * no error, no warning, just a shorter schedule and a smaller total. Every
+ * rename goes in this map in the SAME change that renames it.
+ *
+ * The names on the left are not mistakes to be embarrassed about; they are the
+ * documents people already have on their devices. They stay here forever.
+ *
+ * - `dropper` → `offset`, 28 Aug 2026. The fitting was always an offset — a
+ *   constant section displaced sideways, catalogued as a rectangular ogee. It
+ *   was never a dropper, which is a different fitting that drops air down to a
+ *   grille and which this app does not model.
+ * - `reducer` → `transition`, same day. A rectangular size change is a
+ *   transition; "reducer" is the round cone, which keeps the name.
+ */
+const KIND_ALIASES: Record<string, FittingKind> = {
+  dropper: "offset",
+  reducer: "transition",
+};
+
 function reviveFitting(v: unknown): Fitting | null {
   if (!isObject(v)) return null;
-  const kind = v.kind;
-  if (typeof kind !== "string" || !(kind in SPECS)) return null;
+  const raw = v.kind;
+  if (typeof raw !== "string") return null;
+  const kind = raw in SPECS ? raw : KIND_ALIASES[raw];
+  if (!kind || !(kind in SPECS)) return null;
   const spec = SPECS[kind as FittingKind];
   /* Start from the defaults and overwrite only what validates — a document
    * missing a field opens with that field's default rather than with NaN. */
@@ -156,7 +182,15 @@ export function reviveProject(v: unknown): Project | null {
 
 /* ---- the interchange file ------------------------------------------------ */
 
-export const PROJECT_SCHEMA = 1;
+/**
+ * 2 since 28 Aug 2026, when `dropper` became `offset` and `reducer` became
+ * `transition`. A version 1 file still opens: `KIND_ALIASES` translates the old
+ * names on the way in, which is the whole reason that map exists.
+ *
+ * The reader refuses a file from a NEWER schema than it knows, so this number
+ * only goes up when the shape changes in a way an older build could not read.
+ */
+export const PROJECT_SCHEMA = 2;
 
 export type ProjectFile = {
   schema: number;

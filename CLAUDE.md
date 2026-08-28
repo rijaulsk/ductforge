@@ -56,7 +56,7 @@ Non-obvious things it pins, which are properties rather than bugs — do not "fi
 - **Straight duct, elbow, round duct and round elbow: billing === shop, exactly.** The elbow's
   2·cheek + heel + throat development simplifies to mean perimeter × centreline arc. That is
   Pappus's theorem, not a coincidence, and it is why every swept constant section here agrees.
-- **Dropper: shop < billing.** The side cheeks are parallelograms and shearing one adds no area.
+- **Offset: shop < billing.** The side cheeks are parallelograms and shearing one adds no area.
 - **Y-piece: the two standards cross over at Wₙ = W₁/2.** A branch narrower than half the main
   bills for more than it cuts.
 - **Round cone: shop > billing wherever there is a taper, equal where there is not.**

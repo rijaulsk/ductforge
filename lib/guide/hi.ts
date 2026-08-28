@@ -53,12 +53,12 @@ export const hi: Guide = {
     {
       title: "फ़िटिंग चुनिए",
       body: [
-        "छह rectangular और चार round। सीधा रन है तो Straight; साइज़ बदल रहा है तो Reducer; मुड़ रहा है तो Elbow; बग़ल में सरक रहा है तो Dropper; branch निकल रहा है तो Collar या Y-piece। AHU से spiral में जा रहे हैं तो Square to round।",
+        "छह rectangular और चार round। सीधा रन है तो Straight; साइज़ बदल रहा है तो Transition; मुड़ रहा है तो Elbow; बग़ल में सरक रहा है तो Offset; branch निकल रहा है तो Collar या Y-piece। AHU से spiral में जा रहे हैं तो Square to round।",
         "आप जिस zone में काम कर रहे थे वो बना रहता है, तो AHU-1 की बारह fittings के लिए बारह बार zone लिखना नहीं पड़ेगा।",
       ],
       figure: "picker",
       callouts: [
-        "Rectangular: straight duct, reducer, elbow, dropper, collar और Y-piece।",
+        "Rectangular: straight duct, transition, elbow, offset, collar और Y-piece।",
         "Round और spiral: सादा डक्ट, gored elbow, concentric cone और square-to-round।",
       ],
     },
@@ -78,7 +78,7 @@ export const hi: Guide = {
     {
       title: "ड्रॉइंग देख लीजिए",
       body: [
-        "Blueprint में fitting नाप के साथ आती है, और formula की हर नाप उस पर दिखती है। Flat pattern में वो blank है जो वर्कशॉप काटेगा: ठोस लाइन मतलब कट, डैश लाइन मतलब मोड़। Isometric में चीज़ कैसी दिखती है — reducer समझकर dropper डाल दिया हो तो यहीं सबसे जल्दी पकड़ में आता है।",
+        "Blueprint में fitting नाप के साथ आती है, और formula की हर नाप उस पर दिखती है। Flat pattern में वो blank है जो वर्कशॉप काटेगा: ठोस लाइन मतलब कट, डैश लाइन मतलब मोड़। Isometric में चीज़ कैसी दिखती है — transition समझकर offset डाल दिया हो तो यहीं सबसे जल्दी पकड़ में आता है।",
         "Seam lap और flange का माल जान-बूझकर flat pattern में नहीं खींचा गया — वो waste allowance में पहले से है, दोबारा गिनने पर हिसाब बढ़ जाएगा।",
       ],
       figure: "drawing",

@@ -205,15 +205,15 @@ console.log("\n3. degenerate geometry does not break the viewer");
 const DEGENERATE = [
   ["straight, zero length", { kind: "straight", w: 600, h: 400, l: 0 }],
   ["straight, everything zero", { kind: "straight", w: 0, h: 0, l: 0 }],
-  ["reducer, no reduction", { kind: "reducer", w1: 500, h1: 400, w2: 500, h2: 400, l: 600 }],
-  ["reducer, growing not shrinking", { kind: "reducer", w1: 200, h1: 200, w2: 900, h2: 700, l: 400 }],
-  ["reducer, zero length", { kind: "reducer", w1: 800, h1: 400, w2: 500, h2: 300, l: 0 }],
+  ["transition, no reduction", { kind: "transition", w1: 500, h1: 400, w2: 500, h2: 400, l: 600 }],
+  ["transition, growing not shrinking", { kind: "transition", w1: 200, h1: 200, w2: 900, h2: 700, l: 400 }],
+  ["transition, zero length", { kind: "transition", w1: 800, h1: 400, w2: 500, h2: 300, l: 0 }],
   ["elbow, 1 degree", { kind: "elbow", w: 600, h: 400, r: 300, theta: 1 }],
   ["elbow, 180 degrees", { kind: "elbow", w: 600, h: 400, r: 300, theta: 180 }],
   ["elbow, zero throat radius", { kind: "elbow", w: 600, h: 400, r: 0, theta: 90 }],
   ["elbow, 359 degrees", { kind: "elbow", w: 300, h: 300, r: 400, theta: 359 }],
-  ["dropper, no offset", { kind: "dropper", w: 600, h: 400, l: 900, o: 0 }],
-  ["dropper, offset only", { kind: "dropper", w: 600, h: 400, l: 0, o: 500 }],
+  ["offset, straight through", { kind: "offset", w: 600, h: 400, l: 900, o: 0 }],
+  ["offset, no run", { kind: "offset", w: 600, h: 400, l: 0, o: 500 }],
   ["collar, no flange", { kind: "collar", w: 300, h: 300, l: 250, f: 0 }],
   ["collar, flange larger than neck", { kind: "collar", w: 100, h: 100, l: 40, f: 90 }],
   ["wye, equal branches", { kind: "wye", w1: 800, h: 400, w2: 400, w3: 400, r: 250, theta: 45 }],
@@ -225,7 +225,7 @@ const DEGENERATE = [
   ["round elbow, sixteen gores", { kind: "round-elbow", d: 400, r: 600, theta: 90, gores: 16 }],
   ["round elbow, tight radius", { kind: "round-elbow", d: 600, r: 300, theta: 90, gores: 4 }],
   ["round elbow, 180 degrees", { kind: "round-elbow", d: 300, r: 450, theta: 180, gores: 6 }],
-  /* The cone development divides by (r1 − r2), so a reducer that reduces
+  /* The cone development divides by (r1 − r2), so a round reducer that reduces
    * nothing is a division by zero unless the degenerate branch catches it. */
   ["round reducer, no taper", { kind: "round-reducer", d1: 400, d2: 400, l: 600 }],
   ["round reducer, flat annulus", { kind: "round-reducer", d1: 800, d2: 300, l: 0 }],
@@ -254,7 +254,7 @@ const AWKWARD = [
   ["small branch off a large main", { kind: "wye", w1: 2000, h: 400, w2: 150, w3: 150, r: 150, theta: 30 }],
   ["90° Y-piece", { kind: "wye", w1: 900, h: 400, w2: 450, w3: 450, r: 200, theta: 90 }],
   ["deep flange collar", { kind: "collar", w: 250, h: 250, l: 150, f: 50 }],
-  ["big-ratio reducer", { kind: "reducer", w1: 1600, h1: 900, w2: 250, h2: 200, l: 500 }],
+  ["big-ratio transition", { kind: "transition", w1: 1600, h1: 900, w2: 250, h2: 200, l: 500 }],
   ["two-gore round elbow", { kind: "round-elbow", d: 500, r: 750, theta: 90, gores: 2 }],
   ["six-gore round elbow", { kind: "round-elbow", d: 500, r: 750, theta: 90, gores: 6 }],
   ["steep cone", { kind: "round-reducer", d1: 900, d2: 150, l: 200 }],
@@ -309,6 +309,78 @@ for (const view of VIEWS) {
       `${view}: ${label} fills the frame (${(ratio * 100).toFixed(0)}% of the available axis)`,
     );
   }
+}
+
+console.log("\n5. the picker glyphs draw the right object");
+
+/* THE BUG THIS EXISTS FOR, and it shipped and stayed shipped.
+ *
+ * The offset's glyph ran its top wall from y=6 to y=20 and its bottom from
+ * y=15 to y=25 — two different slopes — so the duct narrowed along its length
+ * and its end caps came out 9 units and 5. An offset keeps ONE section all the
+ * way through; what the icon drew was a taper.
+ *
+ * Nothing in this file could see it. Every coordinate was finite, every path
+ * inside its box, no label overlapped anything. It took a ductworker of ten
+ * years glancing at the picker to say "that's a taper" — and he was right,
+ * while the formula and the blueprint beside it were both correct.
+ *
+ * So the glyphs get asserted on the properties that define the object, not on
+ * being well-formed. A drawing can be perfectly valid and still a lie.
+ */
+{
+  const { GLYPH_PATHS } = await import("../lib/duct/glyphs.ts");
+
+  for (const kind of FITTING_KINDS) {
+    const d = GLYPH_PATHS[kind];
+    check(typeof d === "string" && d.length > 0, `${kind}: has a glyph`);
+    check(!/NaN|undefined/.test(d), `${kind}: glyph has no NaN`);
+    for (const n of numbersIn(d)) {
+      check(Number.isFinite(n) && n >= -2 && n <= 46, `${kind}: glyph point ${n} is in its box`);
+    }
+  }
+
+  /* Vertical end caps, as `M x y1 V y2` or `M x y1 L x y2`. */
+  const capsIn = (d) =>
+    [...d.matchAll(/M\s*(-?[\d.]+)\s+(-?[\d.]+)V\s*(-?[\d.]+)/g)].map((m) =>
+      Math.abs(Number(m[3]) - Number(m[2])),
+    );
+
+  const straightCaps = capsIn(GLYPH_PATHS.straight);
+  check(straightCaps.length === 2, `straight: two end caps (${straightCaps.length})`);
+  check(
+    straightCaps.length === 2 && Math.abs(straightCaps[0] - straightCaps[1]) < 0.001,
+    `straight: a plain duct does not change section (${straightCaps.join(" vs ")})`,
+  );
+
+  const offsetCaps = capsIn(GLYPH_PATHS.offset);
+  check(offsetCaps.length === 2, `offset: two end caps (${offsetCaps.length})`);
+  check(
+    offsetCaps.length === 2 && Math.abs(offsetCaps[0] - offsetCaps[1]) < 0.001,
+    `offset: SAME SECTION AT BOTH ENDS — it is an offset, not a taper (${offsetCaps.join(" vs ")})`,
+  );
+
+  /* And the transition must still taper, so the fix above cannot be "make
+   * every glyph parallel" and pass. */
+  const transitionCaps = capsIn(GLYPH_PATHS.transition);
+  check(
+    transitionCaps.length === 2 && Math.abs(transitionCaps[0] - transitionCaps[1]) > 2,
+    `transition: DOES change section — it is a taper (${transitionCaps.join(" vs ")})`,
+  );
+
+  /* The square-to-round's round end is a FULL ellipse. Drawn as a far-end half
+   * it was the identical sliver the round reducer uses, and the two marks were
+   * indistinguishable at picker size — reported as "still looks like a
+   * reducer". Two arc commands means a closed ellipse; one means a half. */
+  const arcs = (d) => (d.match(/A/g) ?? []).length;
+  check(
+    arcs(GLYPH_PATHS["square-to-round"]) >= 2,
+    `square-to-round: its round end is a closed ellipse, not a half (${arcs(GLYPH_PATHS["square-to-round"])} arcs)`,
+  );
+  check(
+    GLYPH_PATHS["square-to-round"] !== GLYPH_PATHS["round-reducer"],
+    "square-to-round and round reducer are different marks",
+  );
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

@@ -56,12 +56,12 @@ export const bn: Guide = {
     {
       title: "ফিটিং বাছুন",
       body: [
-        "ছ'টা rectangular, চারটে round। সোজা রান হলে Straight; সাইজ বদলালে Reducer; ঘুরলে Elbow; পাশে সরলে Dropper; ব্রাঞ্চ বেরোলে Collar বা Y-piece। AHU থেকে spiral-এ নামলে Square to round।",
+        "ছ'টা rectangular, চারটে round। সোজা রান হলে Straight; সাইজ বদলালে Transition; ঘুরলে Elbow; পাশে সরলে Offset; ব্রাঞ্চ বেরোলে Collar বা Y-piece। AHU থেকে spiral-এ নামলে Square to round।",
         "যে zone-এ কাজ করছিলেন সেটা ধরে রাখে, তাই AHU-1-এর বারোটা ফিটিং করতে বারোবার zone লিখতে হবে না।",
       ],
       figure: "picker",
       callouts: [
-        "Rectangular: straight duct, reducer, elbow, dropper, collar আর Y-piece।",
+        "Rectangular: straight duct, transition, elbow, offset, collar আর Y-piece।",
         "Round আর spiral: সাধারণ ডাক্ট, gored elbow, concentric cone আর square-to-round।",
       ],
     },
@@ -81,7 +81,7 @@ export const bn: Guide = {
     {
       title: "ড্রয়িংটা দেখে নিন",
       body: [
-        "Blueprint-এ ফিটিং মাপ সমেত থাকে, আর formula-র প্রতিটা মাপ ওখানে দেখা যায়। Flat pattern-এ ওয়ার্কশপ যে ব্ল্যাঙ্ক কাটবে সেটা: সলিড লাইন মানে কাটা, ড্যাশ লাইন মানে ভাঁজ। Isometric-এ জিনিসটা দেখতে কেমন — reducer ভেবে dropper বসিয়ে ফেলেছেন কিনা, এখানেই সবচেয়ে তাড়াতাড়ি ধরা পড়ে।",
+        "Blueprint-এ ফিটিং মাপ সমেত থাকে, আর formula-র প্রতিটা মাপ ওখানে দেখা যায়। Flat pattern-এ ওয়ার্কশপ যে ব্ল্যাঙ্ক কাটবে সেটা: সলিড লাইন মানে কাটা, ড্যাশ লাইন মানে ভাঁজ। Isometric-এ জিনিসটা দেখতে কেমন — transition ভেবে offset বসিয়ে ফেলেছেন কিনা, এখানেই সবচেয়ে তাড়াতাড়ি ধরা পড়ে।",
         "Seam lap আর flange-এর মাল ইচ্ছে করেই flat pattern-এ আঁকা হয়নি — ওটা waste allowance-এ ধরা আছে, দু'বার ধরলে হিসেব বেড়ে যাবে।",
       ],
       figure: "drawing",

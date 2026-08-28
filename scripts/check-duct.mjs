@@ -2,7 +2,7 @@
  *
  * WHY THIS EXISTS. A duct area that is wrong does not look wrong. Every figure
  * this app prints is plausible: swap a half-offset for a full one in the
- * reducer, grade an imperial job against the metric gauge bands, or round a
+ * transition, grade an imperial job against the metric gauge bands, or round a
  * density from 4.3175 to 4.32 at the wrong moment, and the screen still shows
  * a tidy number with three decimals that somebody will put on an invoice.
  * Inspection cannot catch that. So correctness here is established three ways:
@@ -15,7 +15,7 @@
  *      transcriptions being wrong the same way still fails.
  *   3. IDENTITIES AND INVARIANTS. Things that must hold for reasons other than
  *      arithmetic: Pappus's theorem making the elbow's two standards agree,
- *      the dropper's shop blank being smaller than its billing area, gauge
+ *      the offset's shop blank being smaller than its billing area, gauge
  *      band edges, the published density table, and the rounding rule that
  *      makes a schedule's total equal the sum of its printed rows.
  *
@@ -56,6 +56,7 @@ const units = await import("../lib/duct/units.ts");
 const { computeEntry, computeTotals } = await import("../lib/duct/compute.ts");
 const parse = await import("../lib/duct/parse.ts");
 const draft = await import("../lib/draft.ts");
+const project = await import("../lib/project.ts");
 
 let pass = 0;
 let fail = 0;
@@ -83,7 +84,7 @@ const ORACLE = {
     billing: (f) => 2 * (f.w + f.h) * f.l,
     shop: (f) => 2 * (f.w + f.h) * f.l,
   },
-  reducer: {
+  transition: {
     billing: (f) => (f.w1 + f.h1 + f.w2 + f.h2) * f.l,
     shop: (f) =>
       (f.w1 + f.w2) * hyp(f.l, (f.h1 - f.h2) / 2) +
@@ -98,7 +99,7 @@ const ORACLE = {
       return 2 * cheek + heel + throat;
     },
   },
-  dropper: {
+  offset: {
     billing: (f) => 2 * (f.w + f.h) * hyp(f.l, f.o),
     shop: (f) => 2 * (f.l * f.h) + 2 * (f.w * hyp(f.l, f.o)),
   },
@@ -164,7 +165,7 @@ function randomFitting(kind) {
   switch (kind) {
     case "straight":
       return { kind, w: dim(100, 2500), h: dim(100, 2500), l: dim(300, 6000) };
-    case "reducer":
+    case "transition":
       return {
         kind,
         w1: dim(200, 2500),
@@ -175,7 +176,7 @@ function randomFitting(kind) {
       };
     case "elbow":
       return { kind, w: dim(100, 2000), h: dim(100, 2000), r: dim(50, 1200), theta: dim(15, 180) };
-    case "dropper":
+    case "offset":
       return { kind, w: dim(100, 2000), h: dim(100, 2000), l: dim(200, 3000), o: dim(50, 1500) };
     case "collar":
       return { kind, w: dim(100, 900), h: dim(100, 900), l: dim(100, 800), f: dim(20, 50) };
@@ -215,9 +216,9 @@ function randomFitting(kind) {
 section("1. engine vs independent transcription (360 random geometries)");
 const KINDS = [
   "straight",
-  "reducer",
+  "transition",
   "elbow",
-  "dropper",
+  "offset",
   "collar",
   "wye",
   "round-straight",
@@ -251,9 +252,9 @@ for (const kind of KINDS) {
 section("2. hand-computed anchors (mm²)");
 const A = {
   straight: { kind: "straight", w: 600, h: 400, l: 3000 },
-  reducer: { kind: "reducer", w1: 800, h1: 400, w2: 500, h2: 300, l: 600 },
+  transition: { kind: "transition", w1: 800, h1: 400, w2: 500, h2: 300, l: 600 },
   elbow: { kind: "elbow", w: 600, h: 400, r: 300, theta: 90 },
-  dropper: { kind: "dropper", w: 600, h: 400, l: 900, o: 300 },
+  offset: { kind: "offset", w: 600, h: 400, l: 900, o: 300 },
   collar: { kind: "collar", w: 300, h: 300, l: 250, f: 35 },
   wye: { kind: "wye", w1: 800, h: 400, w2: 500, w3: 400, r: 250, theta: 45 },
   "round-straight": { kind: "round-straight", d: 400, l: 3000 },
@@ -265,12 +266,12 @@ const area = (kind, mode) => SPECS[kind][mode].compute(A[kind]);
 
 near(area("straight", "billing"), 6_000_000, 1e-9, "straight billing 2(600+400)×3000");
 near(area("straight", "shop"), 6_000_000, 1e-9, "straight shop");
-near(area("reducer", "billing"), 1_200_000, 1e-9, "reducer billing (800+400+500+300)×600");
-near(area("reducer", "shop"), 1_215_629.739, 0.01, "reducer shop 1300×√362500 + 700×√382500");
+near(area("transition", "billing"), 1_200_000, 1e-9, "transition billing (800+400+500+300)×600");
+near(area("transition", "shop"), 1_215_629.739, 0.01, "transition shop 1300×√362500 + 700×√382500");
 near(area("elbow", "billing"), 600_000 * Math.PI, 1e-6, "elbow billing 2000×(π/2)×600");
 near(area("elbow", "shop"), 600_000 * Math.PI, 1e-6, "elbow shop 2 cheeks + heel + throat");
-near(area("dropper", "billing"), 1_897_366.596, 0.01, "dropper billing 2000×√900000");
-near(area("dropper", "shop"), 1_858_419.958, 0.01, "dropper shop 720000 + 1200×√900000");
+near(area("offset", "billing"), 1_897_366.596, 0.01, "offset billing 2000×√900000");
+near(area("offset", "shop"), 1_858_419.958, 0.01, "offset shop 720000 + 1200×√900000");
 near(area("collar", "billing"), 342_000, 1e-9, "collar billing 1200×285");
 near(area("collar", "shop"), 346_900, 1e-9, "collar shop 300000 + 42000 + 4900");
 near(area("wye", "billing"), (Math.PI / 4) * 1_570_000, 1e-6, "wye billing (π/4)×1,570,000");
@@ -337,21 +338,21 @@ for (const kind of ["round-straight", "round-elbow"]) {
 }
 
 section("4. which standard reads larger, and why");
-let droppersChecked = 0;
+let offsetsChecked = 0;
 for (let i = 0; i < 40; i++) {
-  const f = randomFitting("dropper");
-  const b = SPECS.dropper.billing.compute(f);
-  const s = SPECS.dropper.shop.compute(f);
+  const f = randomFitting("offset");
+  const b = SPECS.offset.billing.compute(f);
+  const s = SPECS.offset.shop.compute(f);
   /* The documented case: the side cheeks are parallelograms, and shearing a
    * parallelogram adds no area, so the blank is SMALLER than the billed area
    * whenever there is any offset at all. */
   if (f.o > 0) {
-    check(s < b, `dropper shop < billing at O${f.o}`);
-    droppersChecked++;
+    check(s < b, `offset shop < billing at O${f.o}`);
+    offsetsChecked++;
   }
 }
-check(droppersChecked > 30, `dropper inequality actually exercised (${droppersChecked} cases)`);
-for (const kind of ["reducer", "collar"]) {
+check(offsetsChecked > 30, `offset inequality actually exercised (${offsetsChecked} cases)`);
+for (const kind of ["transition", "collar"]) {
   let ok = true;
   for (let i = 0; i < 25; i++) {
     const f = randomFitting(kind);
@@ -539,8 +540,8 @@ section("10. rounding: the printed total is the sum of the printed rows");
     entry("straight", 3, 12, "AHU-1"),
     entry("elbow", 4, 15, "AHU-1"),
     entry("collar", 12, 8, "AHU-2"),
-    entry("reducer", 2, 12, "AHU-2"),
-    entry("dropper", 1, 20, ""),
+    entry("transition", 2, 12, "AHU-2"),
+    entry("offset", 1, 20, ""),
     entry("wye", 2, 15, ""),
     entry("round-straight", 5, 12, "AHU-2"),
     entry("round-elbow", 6, 15, "AHU-1"),
@@ -1138,6 +1139,90 @@ section("12n. an `=` step's printed operands really do reproduce it");
     units.printsExactly(r.mass, units.PRECISION.detail) &&
       units.printsExactly(value.value, units.PRECISION.detail),
     "the value step's = is derived from the numbers",
+  );
+}
+
+/* ---- 12o. old documents still open -------------------------------------- */
+
+section("12o. a takeoff saved before a rename still opens");
+{
+  /* THE FAILURE THIS PREVENTS IS SILENT DATA LOSS.
+   *
+   * `reviveFitting` returns null for a kind it does not recognise, and
+   * `reviveProject` filters the nulls out. So renaming a fitting without an
+   * alias does not error — it opens the user's saved takeoff with those lines
+   * simply GONE, and a smaller total, and no indication anything happened.
+   *
+   * On 28 Aug 2026 `dropper` became `offset` and `reducer` became `transition`.
+   * Anyone who saved a takeoff before that has documents on their device and in
+   * their exports using the old names. They must keep working, forever.
+   */
+  const v1 = JSON.stringify({
+    schema: 1,
+    app: "ductforge",
+    exportedAt: "2026-08-01T00:00:00.000Z",
+    project: {
+      id: "old",
+      name: "Saved before the rename",
+      reference: "DS/2026/001",
+      units: "metric",
+      mode: "billing",
+      material: "gi",
+      waste: 12,
+      ancillaries: { insulationMm: 0, standardLengthMm: 0, supportSpacingMm: 0 },
+      rates: { label: "", perKg: 0, perM2: 0 },
+      updatedAt: 0,
+      entries: [
+        {
+          id: "a",
+          qty: 2,
+          waste: 12,
+          gauge: null,
+          zone: "AHU-1",
+          note: "",
+          fitting: { kind: "dropper", w: 600, h: 400, l: 900, o: 300 },
+        },
+        {
+          id: "b",
+          qty: 1,
+          waste: 10,
+          gauge: null,
+          zone: "",
+          note: "",
+          fitting: { kind: "reducer", w1: 800, h1: 400, w2: 500, h2: 300, l: 600 },
+        },
+      ],
+    },
+  });
+
+  const opened = project.fromProjectFile(v1);
+  check(opened.ok, "a version 1 document opens at all");
+  if (opened.ok) {
+    const kinds = opened.project.entries.map((e) => e.fitting.kind);
+    eq(kinds.length, 2, "BOTH lines survive the rename — neither is dropped");
+    eq(kinds[0], "offset", "a saved dropper opens as an offset");
+    eq(kinds[1], "transition", "a saved reducer opens as a transition");
+
+    /* Not just present — intact. An alias that reset the dimensions to the
+     * spec defaults would pass a count check and still lose the user's job. */
+    const off = opened.project.entries[0].fitting;
+    eq(off.w, 600, "the offset kept its width");
+    eq(off.h, 400, "the offset kept its height");
+    eq(off.l, 900, "the offset kept its run");
+    eq(off.o, 300, "the offset kept its offset");
+    const tr = opened.project.entries[1].fitting;
+    eq(tr.w1, 800, "the transition kept its inlet width");
+    eq(tr.h2, 300, "the transition kept its outlet height");
+  }
+
+  /* And a kind that never existed is still refused, so the alias map has not
+   * turned the validator into something that accepts anything. */
+  const bogus = project.fromProjectFile(
+    v1.replace('"kind":"dropper"', '"kind":"banana"').replace('"kind": "dropper"', '"kind": "banana"'),
+  );
+  check(
+    !bogus.ok || bogus.project.entries.length === 1,
+    "an unknown kind is still dropped, not aliased to something",
   );
 }
 

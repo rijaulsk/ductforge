@@ -132,7 +132,7 @@ export function flat(f: Fitting, L: Label, gap?: number): FlatScene {
       ]);
     }
 
-    case "reducer": {
+    case "transition": {
       const slantTop = Math.hypot(f.l, (f.h1 - f.h2) / 2);
       const slantSide = Math.hypot(f.l, (f.w1 - f.w2) / 2);
       return layout(gap, [
@@ -151,7 +151,7 @@ export function flat(f: Fitting, L: Label, gap?: number): FlatScene {
       ]);
     }
 
-    case "dropper": {
+    case "offset": {
       const slant = Math.hypot(f.l, f.o);
       return layout(gap, [
         {
@@ -404,7 +404,7 @@ function gores(d: number, r: number, theta: number, count: number, L: Label): Pi
  * exactly: sector area = π(r₁+r₂)·slant, which is the shop formula to the
  * digit. When the two diameters are equal there is no cone at all and the
  * development degenerates to the cylinder's rectangle — handled, because a
- * reducer with nothing to reduce is a thing people type.
+ * round reducer with nothing to reduce is a thing people type.
  */
 function cone(d1: number, d2: number, l: number, L: Label): Piece {
   const r1 = Math.max(d1, d2) / 2;
