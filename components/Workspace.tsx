@@ -41,6 +41,19 @@ import { Button, Card, Eyebrow, Note, PanelHeading } from "./ui";
 
 type Notice = { tone: "info" | "error"; text: string } | null;
 
+/**
+ * A picker row: the catalogue name plus the commonest other one.
+ *
+ * A select is scanned, not read, and "Transition" on its own is invisible to
+ * everyone who calls the thing a reducer — which is most of the trade. Only the
+ * FIRST alias goes here; a dropdown row is not the place for three, and the
+ * full list is under the heading once a fitting is chosen.
+ */
+const pickerLabel = (kind: FittingKind) => {
+  const spec = SPECS[kind];
+  return spec.aka.length ? `${spec.name} (${spec.aka[0]})` : spec.name;
+};
+
 export default function Workspace() {
   const uid = useId();
   const [hydrated, setHydrated] = useState(false);
@@ -312,14 +325,14 @@ export default function Workspace() {
                   <optgroup label="Rectangular">
                     {RECTANGULAR_KINDS.map((kind) => (
                       <option key={kind} value={kind}>
-                        {SPECS[kind].name}
+                        {pickerLabel(kind)}
                       </option>
                     ))}
                   </optgroup>
                   <optgroup label="Round and spiral">
                     {ROUND_KINDS.map((kind) => (
                       <option key={kind} value={kind}>
-                        {SPECS[kind].name}
+                        {pickerLabel(kind)}
                       </option>
                     ))}
                   </optgroup>
@@ -334,10 +347,23 @@ export default function Workspace() {
             </div>
 
             <div className="mt-7 border-t-[1.5px] border-rule pt-7">
+              {/* BOTH NAMES, because one fitting has several and all of them
+                * are right to somebody. Renaming Reducer to Transition was
+                * correct and made the picker unfindable for everyone who
+                * learned the other word — see `aka` in lib/duct/formulas.ts.
+                *
+                * `formerly` is separate and worded as a correction, not as a
+                * synonym: somebody who used this app before needs to find the
+                * fitting they remember, but printing the old name as though it
+                * were a trade name would re-import the mistake. */}
               <div className="mb-5">
                 <Eyebrow>Step two</Eyebrow>
                 <h2 className="mt-2 text-h3 font-bold text-heading">{spec.name} dimensions</h2>
                 <p className="mt-1 text-small text-body">{spec.blurb}</p>
+                <p className="mt-1 text-small text-muted">
+                  Also called {spec.aka.join(", ")}.
+                  {spec.formerly && ` Listed as ${spec.formerly} in earlier versions of DuctForge — that name was wrong.`}
+                </p>
               </div>
               <ParamForm
                 draft={draft}

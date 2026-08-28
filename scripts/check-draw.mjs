@@ -311,7 +311,62 @@ for (const view of VIEWS) {
   }
 }
 
-console.log("\n5. the picker glyphs draw the right object");
+console.log("\n5. the isometric survives every angle the camera can reach");
+
+/* The projection used to be one hard-coded matrix and the depth key was
+ * `x + y + z`, which is the distance from the eye ONLY when the eye is on the
+ * (1,1,1) axis. Now the camera moves, so both are general — and a projection
+ * that is fine at 45°/30° can still put a coordinate off-canvas or divide by a
+ * cosine that has gone to zero somewhere else in the range.
+ *
+ * So: sweep the whole allowed turntable on every fitting and re-run the same
+ * invariants section 1 applies at the home angle. Cheap, and it is the only
+ * thing standing between a drag gesture and a blank viewer. */
+{
+  const { CAMERA } = await import("../lib/draw/index.ts");
+  const yaws = [CAMERA.yaw.min, -5, 20, 45, 70, 95, CAMERA.yaw.max];
+  const pitches = [CAMERA.pitch.min, 15, 30, 45, CAMERA.pitch.max];
+  let swept = 0;
+  for (const kind of FITTING_KINDS) {
+    for (const yaw of yaws) {
+      for (const pitch of pitches) {
+        const scene = buildView(SPECS[kind].defaults, "iso", "metric", { yaw, pitch });
+        let bad = 0;
+        let outside = 0;
+        for (const s of scene.shapes) {
+          if (/NaN|Infinity|undefined/.test(s.d)) bad++;
+          for (const n of numbersIn(s.d)) {
+            if (!Number.isFinite(n)) bad++;
+            if (n < -400 || n > Math.max(VIEW_W, VIEW_H) + 400) outside++;
+          }
+        }
+        check(scene.shapes.length > 0, `${kind} @ ${yaw}/${pitch}: draws something`);
+        check(bad === 0, `${kind} @ ${yaw}/${pitch}: no NaN (${bad})`);
+        check(outside === 0, `${kind} @ ${yaw}/${pitch}: fits the viewBox (${outside} stray)`);
+        for (const d of scene.dims) {
+          check(
+            Number.isFinite(d.x) && Number.isFinite(d.y),
+            `${kind} @ ${yaw}/${pitch}: dimension is positioned`,
+          );
+        }
+        swept++;
+      }
+    }
+  }
+  check(swept === FITTING_KINDS.length * yaws.length * pitches.length, `swept ${swept} cameras`);
+
+  /* The home angle must still be the classic isometric it always was, to the
+   * pixel — the parameterisation was meant to add angles, not change the
+   * default drawing. */
+  const home = buildView(SPECS.elbow.defaults, "iso", "metric");
+  const explicit = buildView(SPECS.elbow.defaults, "iso", "metric", CAMERA.home);
+  check(
+    JSON.stringify(home.shapes) === JSON.stringify(explicit.shapes),
+    "the default isometric IS the home camera — parameterising changed nothing",
+  );
+}
+
+console.log("\n6. the picker glyphs draw the right object");
 
 /* THE BUG THIS EXISTS FOR, and it shipped and stayed shipped.
  *

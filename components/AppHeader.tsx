@@ -1,33 +1,37 @@
 import type { ReactNode } from "react";
 import SiteNav, { type NavKey } from "./SiteNav";
+import ThemeToggle from "./ThemeToggle";
 import Wordmark from "./Wordmark";
 
-/* THE ONLY HEADER. Every page, every width, one shell.
+/* THE ONLY HEADER. Every page, every width, one shell — and now one HEIGHT.
  *
- * It was not. The calculator rendered a `ProjectBar` and the content pages
- * rendered this, and the two disagreed about nearly everything:
+ * Unifying the two headers killed the horizontal jump. It did not kill the
+ * vertical one, and the reason was structural: the identity row had no reserved
+ * height, so its height was `max(children) + padding`, and the tallest child was
+ * the `right` slot — which held a 44px theme toggle on the calculator, 37px
+ * language pills on the guide, and NOTHING on the standards page. Three routes,
+ * three heights, 6px apart, and the logo centred in each: a 3px twitch on every
+ * navigation. That was the residual shift.
  *
- *   breakpoint   ProjectBar switched layout at `lg`, this switched padding at
- *                `md`. Between 768 and 1023px the calculator showed a
- *                full-bleed phone bar while /standards showed the constrained
- *                desktop header — a visible jump in width on navigation.
- *   container    ProjectBar's phone branch had NO `max-w-canvas` and its own
- *                padding, so the logo sat at a different x on every page.
- *   height       py-3 against py-4, so everything below moved by 8px.
- *   nav          inline here, hidden behind a gear on the calculator.
- *   sticky       `lg:sticky` there, not sticky here.
+ * FIXED HEIGHT ON THE IDENTITY ROW is the fix. `h-14` cannot be pushed by
+ * whatever a page puts in the slot, so no page can move the logo.
  *
- * Reported as a subtle width change on desktop and chaos on mobile. Both were
- * the same cause: two components pretending to be one thing.
+ * THE THEME TOGGLE MOVED IN HERE, and that is a bug fix, not tidying: it was
+ * mounted only by ProjectBar, so there was no way to change theme from
+ * /standards or /guide at all.
  *
- * Now there is one identity row — wordmark, sections, page extras — and pages
- * that need more chrome pass it as `children`, where it renders on its own
- * line INSIDE the same container. The identity row's geometry cannot vary by
- * page, because there is only one of it.
+ * ON MOBILE THE WORDMARK BECOMES THE TILE ALONE. The full lockup is 170px and
+ * the three nav pills are ~281px — 471px of `shrink-0` content in a 350px line,
+ * which cannot not wrap, and wrapped to a different number of lines per route.
+ * The tile is 38px, so 38 + 281 fits on one line and the header stops being a
+ * paragraph. This is not "the mark without its tile" — the tile IS the mark's
+ * home; see scripts/mark.mjs.
  *
- * Sticky on every page rather than none: the project bar's stickiness was
- * genuinely useful on a long takeoff, and the fix for inconsistency is to give
- * every page the good behaviour rather than to take it away from one.
+ * NOT STICKY BELOW `lg`. Sticky was given to every page for consistency and on
+ * a phone that was the wrong trade: the calculator's header is two rows, and
+ * pinning ~110px of a 844px screen for the whole session to keep a project name
+ * visible is a bad bargain on the surface with the least room. Desktop keeps it,
+ * where a 56px bar against 900px costs nothing.
  */
 export default function AppHeader({
   current,
@@ -42,12 +46,16 @@ export default function AppHeader({
   children?: ReactNode;
 }) {
   return (
-    <header className="sticky top-0 z-40 border-b-[1.5px] border-line bg-page/95 backdrop-blur print:hidden">
+    <header className="border-b-[1.5px] border-line bg-page/95 backdrop-blur lg:sticky lg:top-0 lg:z-40 print:hidden">
       <div className="mx-auto w-full max-w-canvas px-5 md:px-8">
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-3 py-3">
-          <Wordmark size="sm" />
+        {/* Fixed height, so no page's `right` slot can move the logo. */}
+        <div className="flex h-14 items-center gap-x-4">
+          <Wordmark size="sm" compact />
           <SiteNav current={current} labels={labels} />
-          {right && <div className="ml-auto flex items-center gap-2">{right}</div>}
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            {right}
+            <ThemeToggle />
+          </div>
         </div>
         {children && <div className="border-t-[1.5px] border-rule py-3">{children}</div>}
       </div>

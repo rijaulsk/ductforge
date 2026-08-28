@@ -18,28 +18,97 @@ import type { Label } from "./blueprint";
 
 type P3 = [number, number, number];
 
-const COS30 = Math.cos(deg(30));
-const SIN30 = Math.sin(deg(30));
+/* ---- THE CAMERA -----------------------------------------------------------
+ *
+ * This view was always TRUE 3D — real millimetres in model space, real faces,
+ * hidden surfaces resolved by depth — but it was projected through one
+ * hard-coded matrix, so it could only ever be looked at from one angle. It
+ * read as a flat picture because it was one picture.
+ *
+ * Now the projection takes a yaw and a pitch, and `Viewer` lets you drag them.
+ * Nothing about the geometry changed; the fittings were already solids.
+ *
+ * WHY THE ANGLES ARE CLAMPED rather than a free orbit. Hidden surfaces here are
+ * resolved by a painter's algorithm — sort the faces back to front and let near
+ * ones cover far ones — which has no depth buffer and therefore no way to
+ * handle a face that is partly in front of and partly behind another. The
+ * concave fittings do exactly that: an elbow's throat passes behind its own
+ * heel. Inside a turntable's range the sort is stable; swing underneath the
+ * object and it is not. A constrained turntable is a view you can trust, and a
+ * free orbit is one that occasionally lies about which surface is nearer.
+ */
+export const CAMERA = {
+  /** True isometric, and where Reset returns to. */
+  home: { yaw: 45, pitch: 30 },
+  yaw: { min: -15, max: 105 },
+  pitch: { min: 8, max: 62 },
+} as const;
 
-/** Model (x along the duct, y across, z up) → the 2D scene. */
-const iso = ([x, y, z]: P3): Pt => [(x - y) * COS30, (x + y) * SIN30 - z];
+export type Camera = { yaw: number; pitch: number };
+
+export const clampCamera = ({ yaw, pitch }: Camera): Camera => ({
+  yaw: Math.min(CAMERA.yaw.max, Math.max(CAMERA.yaw.min, yaw)),
+  pitch: Math.min(CAMERA.pitch.max, Math.max(CAMERA.pitch.min, pitch)),
+});
+
+/**
+ * Model (x along the duct, y across, z up) → the 2D scene, from a given angle.
+ *
+ * Yaw turns the object about its vertical axis; pitch raises the eye. At
+ * yaw 45° / pitch 30° this reduces to the classic isometric the view used to
+ * hard-code — `(x−y)·cos30` across and `(x+y)·sin30 − z` down — so the default
+ * drawing is pixel-for-pixel what it always was.
+ */
+function projector({ yaw, pitch }: Camera) {
+  const cy = Math.cos(deg(yaw));
+  const sy = Math.sin(deg(yaw));
+  const cp = Math.cos(deg(pitch));
+  const sp = Math.sin(deg(pitch));
+  /* Screen right and screen down, as unit vectors in model space. Screen down
+   * carries −z so that up in the model is up on the page. */
+  const project = ([x, y, z]: P3): Pt => [x * sy - y * cy, (x * cy + y * sy) * sp - z * cp];
+  /* Toward the camera. A face's depth is its centroid on this axis, which is
+   * the general form of the old `x + y + z`. */
+  const view: P3 = [cy * cp, sy * cp, sp];
+  return { project, view };
+}
+
+/* THE ACTIVE LENS.
+ *
+ * Module state rather than a parameter threaded through twenty call sites.
+ * `isometric()` sets it once at the top and every helper below — `paint`, and
+ * the `iso()` used to place dimension tags — reads it. Building a scene is
+ * synchronous and single-threaded, so there is no window in which two cameras
+ * could be live at once. Threading a camera argument through `tag`, `tube`,
+ * `sweep` and ten switch branches would be the same thing with more surface.
+ */
+let lens = projector(CAMERA.home);
+
+/** Model → screen, through whatever camera `isometric` was last given. */
+const iso = (p: P3): Pt => lens.project(p);
 
 type Face = { pts: P3[]; role: Role };
 
 /**
- * Painter's algorithm. The projection collapses the (1,1,1) axis, so a point's
- * distance from the camera is exactly x + y + z: sort ascending, draw in that
- * order, and near faces cover far ones. It handles the concave fittings — an
- * elbow's throat hides behind its own heel — without a depth buffer.
+ * Painter's algorithm, from wherever the camera is.
+ *
+ * The depth key used to be `x + y + z`, which is only the distance from the eye
+ * when the eye is on the (1,1,1) axis — true for the old fixed projection and
+ * false the moment the camera moves. It is the centroid's dot product with the
+ * view direction now, which is the same number at the home angle and the right
+ * one everywhere else.
  */
 function paint(faces: Face[]): Shape[] {
+  const { project, view } = lens;
   return faces
     .map((f) => ({
       f,
-      depth: f.pts.reduce((s, [x, y, z]) => s + x + y + z, 0) / f.pts.length,
+      depth:
+        f.pts.reduce((s, [x, y, z]) => s + x * view[0] + y * view[1] + z * view[2], 0) /
+        f.pts.length,
     }))
     .sort((a, b) => a.depth - b.depth)
-    .map(({ f }) => poly(f.pts.map(iso), f.role));
+    .map(({ f }) => poly(f.pts.map(project), f.role));
 }
 
 const quad = (a: P3, b: P3, c: P3, d: P3, role: Role): Face => ({ pts: [a, b, c, d], role });
@@ -147,7 +216,10 @@ function tag(a: P3, b: P3, text: string, dx = 0, dy = 0): Dim {
   return { t: "note", at: mid, text, dx, dy };
 }
 
-export function isometric(f: Fitting, L: Label): Scene {
+export function isometric(f: Fitting, L: Label, camera: Camera = CAMERA.home): Scene {
+  /* Set the lens once, here, before any helper runs. Clamped rather than
+   * trusted: the caller is a drag handler and a drag has no natural limits. */
+  lens = projector(clampCamera(camera));
   switch (f.kind) {
     case "straight": {
       const { w, h, l } = f;

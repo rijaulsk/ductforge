@@ -5,7 +5,6 @@ import { useId, useRef, useState } from "react";
 import type { Mode, Project } from "@/lib/duct/types";
 import type { UnitSystem } from "@/lib/duct/units";
 import AppHeader from "./AppHeader";
-import ThemeToggle from "./ThemeToggle";
 import { Button, Segmented } from "./ui";
 
 /* Project chrome: which job, in what units, measured to which standard.
@@ -221,8 +220,11 @@ export default function ProjectBar({
     />
   );
 
+  /* No `right` prop: AppHeader mounts the theme toggle on every page now,
+   * which is also how /standards and /guide got one at all — it used to be
+   * mounted here and therefore existed only on the calculator. */
   return (
-    <AppHeader current="calculator" right={<ThemeToggle />}>
+    <AppHeader current="calculator">
       {/* One file input for both layouts. */}
       <input
         ref={fileRef}
@@ -245,7 +247,7 @@ export default function ProjectBar({
         *
         * No wordmark and no nav here any more — AppHeader owns the identity row
         * on every page, which is what stopped the logo moving on navigation. */}
-      <div className="lg:hidden">
+      <div className="relative lg:hidden">
         <div className="flex items-center gap-3">
           <label htmlFor={`${uid}-name-m`} className="sr-only">
             Project name
@@ -267,8 +269,26 @@ export default function ProjectBar({
           </button>
         </div>
 
+        {/* AN OVERLAY, NOT AN IN-FLOW BLOCK, and this is a real bug fix.
+          *
+          * The panel used to render inside the header's own flow. Opening it
+          * grew the header by ~400px — from a quarter of a phone screen to
+          * three quarters — and pushed the entire document down by that much
+          * without the scroll position moving, so the content under your thumb
+          * changed while you were looking at it.
+          *
+          * Worse: a `position: sticky` element TALLER THAN THE VIEWPORT can
+          * never scroll its own bottom into view. On a smaller phone the last
+          * two buttons in here — Print and Delete — were simply unreachable.
+          *
+          * Absolutely positioned, it overlays the page instead of displacing
+          * it, and it scrolls internally if it runs out of room. Nothing below
+          * moves, and nothing can become unreachable. */}
         {panelOpen && (
-          <div id={`${uid}-panel`} className="mt-3 space-y-4 border-t-[1.5px] border-rule pt-4">
+          <div
+            id={`${uid}-panel`}
+            className="absolute inset-x-0 top-full z-50 mt-3 max-h-[70svh] space-y-4 overflow-y-auto overscroll-contain rounded-card border-[1.5px] border-line bg-page p-4 shadow-none"
+          >
             <div className="flex items-center gap-2">
               <label htmlFor={`${uid}-project-m`} className="sr-only">
                 Open a saved takeoff

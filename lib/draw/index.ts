@@ -2,8 +2,11 @@ import type { Fitting } from "../duct/types";
 import { type UnitSystem, fmtLength, lengthUnit } from "../duct/units";
 import { blueprint } from "./blueprint";
 import { flat } from "./flat";
-import { isometric } from "./iso";
+import { CAMERA, type Camera, clampCamera, isometric } from "./iso";
 import { type ViewScene, project } from "./scene";
+
+export { CAMERA, clampCamera };
+export type { Camera };
 
 export type ViewKind = "blueprint" | "flat" | "iso";
 
@@ -35,6 +38,8 @@ export function buildView(
   fitting: Fitting,
   view: ViewKind,
   us: UnitSystem,
+  /** Only the isometric reads this; the other two views have no camera. */
+  camera?: Camera,
 ): ViewScene {
   const L = (mm: number) => fmtLength(mm, us);
 
@@ -63,7 +68,7 @@ export function buildView(
     return projected;
   }
 
-  const scene = view === "blueprint" ? blueprint(fitting, L) : isometric(fitting, L);
+  const scene = view === "blueprint" ? blueprint(fitting, L) : isometric(fitting, L, camera);
   return project(scene, VIEW_W, VIEW_H);
 }
 

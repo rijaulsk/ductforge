@@ -43,11 +43,73 @@ import {
  * cover just "DuctForge" has to cover the block. */
 const HEIGHTS = { sm: 38, md: 50 } as const;
 
-export default function Wordmark({ size = "md" }: { size?: keyof typeof HEIGHTS }) {
+export default function Wordmark({
+  size = "md",
+  /**
+   * Drop to the tile alone below `lg`.
+   *
+   * The full lockup is 170px wide and the three nav pills are ~281px — 471px of
+   * unshrinkable content in a 350px line on a 390px phone. It could not not
+   * wrap, and it wrapped to a different number of lines on each route, which is
+   * most of why the mobile header was a mess. The tile is 38px, so tile + nav
+   * fits one line.
+   *
+   * This does NOT break "never show the mark without its tile": the tile is
+   * exactly what stays. What is dropped is the type beside it, which the page
+   * title and the byline in the footer both still carry.
+   */
+  compact = false,
+}: {
+  size?: keyof typeof HEIGHTS;
+  compact?: boolean;
+}) {
   const height = HEIGHTS[size];
   const width = Math.round((LOGO.width / LOGO.height) * height);
   const inner = LOGO.tileSize * (1 - TILE.inset * 2);
   const at = LOGO.tileSize * TILE.inset;
+
+  /* One viewBox per breakpoint, both on the SAME artwork — the tile crop is
+   * literally the left square of the lockup, so nothing can drift. */
+  const tileBox = `${-LOGO.tileSize * 0.06} ${-LOGO.tileSize * 0.06} ${LOGO.tileSize * 1.12} ${LOGO.tileSize * 1.12}`;
+
+  const art = (viewBox: string, w: number, className: string) => (
+    <svg
+      viewBox={viewBox}
+      width={w}
+      height={height}
+      role="img"
+      aria-hidden="true"
+      focusable="false"
+      className={className}
+    >
+      <path d={TILE_PATH} fill={TILE.ground} transform={`scale(${LOGO.tileSize / 100})`} />
+      <path
+        d={MARK_PATH}
+        fill={TILE.mark}
+        fillRule={MARK_FILL_RULE}
+        transform={`translate(${at} ${at}) scale(${inner / 100})`}
+      />
+      <path
+        d={WORDMARK_PATH}
+        fill="var(--ds-accent)"
+        transform={`translate(${LOGO.textX} ${LOGO.baseline})`}
+      />
+      <path
+        d={BYLINE_PATH}
+        fill="var(--ds-body)"
+        transform={`translate(${LOGO.textX} ${LOGO.bylineBaseline})`}
+      />
+    </svg>
+  );
+
+  if (compact) {
+    return (
+      <Link href="/" className="inline-flex shrink-0" aria-label="DuctForge by DebugSwift, home">
+        {art(tileBox, Math.round(height * 1.0), "lg:hidden")}
+        {art(LOGO.viewBox, width, "hidden lg:block")}
+      </Link>
+    );
+  }
 
   return (
     <Link

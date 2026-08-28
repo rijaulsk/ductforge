@@ -131,7 +131,30 @@ type Spec<T extends Fitting> = {
   kind: T["kind"];
   /** Which picker group it belongs to. */
   group: "rectangular" | "round";
+  /** The trade name, checked against a manufacturer catalogue. */
   name: string;
+  /**
+   * What the same fitting is called elsewhere.
+   *
+   * ONE FITTING HAS MANY NAMES AND ALL OF THEM ARE RIGHT to somebody. A
+   * rectangular size change is a transition on a US drawing, a reducer to half
+   * the trade, and a taper on site in India. Picking one correct name and
+   * showing only that makes the picker unsearchable for everyone who learned a
+   * different one — which is what happened here the moment `Reducer` became
+   * `Transition` and nobody could find it.
+   *
+   * So the picker shows both: the catalogue name, then what else it is called.
+   */
+  aka: readonly string[];
+  /**
+   * A name THIS APP used and got wrong. Not a synonym — a correction.
+   *
+   * Separate from `aka` on purpose. Somebody who used DuctForge before needs to
+   * find the fitting they remember, but printing the old name as though it were
+   * a trade name would re-introduce the mistake a ductworker of ten years had
+   * to point out. Shown as a correction, worded as one.
+   */
+  formerly?: string;
   blurb: string;
   fields: FieldSpec[];
   defaults: T;
@@ -230,6 +253,7 @@ const straight: Spec<Straight> = {
   kind: "straight",
   group: "rectangular",
   name: "Straight duct",
+  aka: ["Plain duct", "Run"],
   blurb: "A plain rectangular run.",
   fields: [
     { key: "w", symbol: "W", label: "Width" },
@@ -273,6 +297,7 @@ const transition: Spec<Transition> = {
   kind: "transition",
   group: "rectangular",
   name: "Transition",
+  aka: ["Reducer", "Taper"],
   blurb: "Changes one rectangular size to another.",
   fields: [
     { key: "w1", symbol: "W₁", label: "Inlet width" },
@@ -378,6 +403,7 @@ const elbow: Spec<Elbow> = {
   kind: "elbow",
   group: "rectangular",
   name: "Elbow",
+  aka: ["Bend", "Radius elbow"],
   blurb: "Radiused bend through an angle.",
   fields: [
     { key: "w", symbol: "W", label: "Width", hint: "In the plane of the bend" },
@@ -492,6 +518,8 @@ const offset: Spec<Offset> = {
   kind: "offset",
   group: "rectangular",
   name: "Offset",
+  aka: ["Swan neck", "Ogee"],
+  formerly: "Dropper",
   blurb: "Steps the run sideways, same section throughout.",
   fields: [
     { key: "w", symbol: "W", label: "Width" },
@@ -555,6 +583,7 @@ const collar: Spec<Collar> = {
   kind: "collar",
   group: "rectangular",
   name: "Collar",
+  aka: ["Takeoff", "Tap", "Spigot"],
   blurb: "Branch takeoff with a flange lip.",
   fields: [
     { key: "w", symbol: "W", label: "Width" },
@@ -648,6 +677,7 @@ const wye: Spec<Wye> = {
   kind: "wye",
   group: "rectangular",
   name: "Y-piece",
+  aka: ["Wye", "Trouser", "Breeches"],
   blurb: "Trouser splitting one duct into two.",
   fields: [
     { key: "w1", symbol: "W₁", label: "Main width" },
@@ -743,6 +773,7 @@ const roundStraight: Spec<RoundStraight> = {
   kind: "round-straight",
   group: "round",
   name: "Round duct",
+  aka: ["Spiral duct"],
   blurb: "A plain round or spiral run.",
   fields: [
     { key: "d", symbol: "D", label: "Diameter" },
@@ -780,6 +811,7 @@ const roundElbow: Spec<RoundElbow> = {
   kind: "round-elbow",
   group: "round",
   name: "Round elbow",
+  aka: ["Gored bend", "Segmented elbow"],
   blurb: "Gored bend in round duct.",
   fields: [
     { key: "d", symbol: "D", label: "Diameter" },
@@ -848,6 +880,7 @@ const roundReducer: Spec<RoundReducer> = {
   kind: "round-reducer",
   group: "round",
   name: "Round reducer",
+  aka: ["Cone", "Concentric reducer"],
   blurb: "Concentric cone between two diameters.",
   fields: [
     { key: "d1", symbol: "D₁", label: "Inlet diameter" },
@@ -974,6 +1007,7 @@ const squareToRound: Spec<SquareToRound> = {
   kind: "square-to-round",
   group: "round",
   name: "Square to round",
+  aka: ["Transition piece", "Shoe"],
   blurb: "Rectangular one end, round the other.",
   fields: [
     { key: "w", symbol: "W", label: "Width", hint: "Rectangular end" },
