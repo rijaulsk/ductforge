@@ -301,11 +301,22 @@ const SIZES = [
   ["a tight elbow", { kind: "elbow", w: 200, h: 150, r: 100, theta: 90 }],
   ["a large elbow", { kind: "elbow", w: 2000, h: 1500, r: 1200, theta: 90 }],
 ];
+/* THE ISOMETRIC IS ALLOWED TO FILL LESS, and it is a deliberate trade.
+ *
+ * The other two views are fitted to what they actually occupy, so they can fill
+ * the frame. The isometric is fitted to its bounding SPHERE, because it can be
+ * rotated and a box-fit rescales on every frame — which made the drawing zoom
+ * and jump while being dragged. A sphere-fit holds one scale at every angle and
+ * pays for it in fill: a long thin fitting like a 12 m riser sweeps its own
+ * length horizontally as it spins, so the frame has to hold that at all times.
+ *
+ * A drawing that sits still and reads slightly small beats one that lurches. */
+const FILL_MIN = { blueprint: 0.55, flat: 0.55, iso: 0.45 };
 for (const view of VIEWS) {
   for (const [label, fitting] of SIZES) {
     const ratio = fillRatio(buildView(fitting, view, "metric"));
     check(
-      ratio > 0.55 && ratio < 1.02,
+      ratio > FILL_MIN[view] && ratio < 1.02,
       `${view}: ${label} fills the frame (${(ratio * 100).toFixed(0)}% of the available axis)`,
     );
   }
@@ -324,8 +335,10 @@ console.log("\n5. the isometric survives every angle the camera can reach");
  * thing standing between a drag gesture and a blank viewer. */
 {
   const { CAMERA } = await import("../lib/draw/index.ts");
-  const yaws = [CAMERA.yaw.min, -5, 20, 45, 70, 95, CAMERA.yaw.max];
-  const pitches = [CAMERA.pitch.min, 15, 30, 45, CAMERA.pitch.max];
+  /* Yaw wraps, so sweep the whole turn — the clamp that used to stop a drag
+   * halfway is gone and every one of these is now reachable by a thumb. */
+  const yaws = [0, 45, 90, 135, 180, 225, 270, 315, 359];
+  const pitches = [CAMERA.pitch.min, 15, 30, 45, 60, CAMERA.pitch.max];
   let swept = 0;
   for (const kind of FITTING_KINDS) {
     for (const yaw of yaws) {
@@ -364,6 +377,23 @@ console.log("\n5. the isometric survives every angle the camera can reach");
     JSON.stringify(home.shapes) === JSON.stringify(explicit.shapes),
     "the default isometric IS the home camera — parameterising changed nothing",
   );
+
+  /* THE SCALE MUST NOT MOVE WHEN THE CAMERA DOES.
+   *
+   * `project` fits a scene by measuring it, so a rotating object rescaled on
+   * every frame and the drawing appeared to zoom and jump while being dragged.
+   * The isometric now fits to its own bounding sphere, which no rotation can
+   * change. If this ever regresses, the symptom is exactly that zoom. */
+  for (const kind of FITTING_KINDS) {
+    const scales = yaws.map(
+      (yaw) => buildView(SPECS[kind].defaults, "iso", "metric", { yaw, pitch: 30 }).scale,
+    );
+    const spread = Math.max(...scales) - Math.min(...scales);
+    check(
+      spread < 1e-9,
+      `${kind}: one scale at every yaw — no zoom while turning (spread ${spread.toExponential(2)})`,
+    );
+  }
 }
 
 console.log("\n6. the picker glyphs draw the right object");

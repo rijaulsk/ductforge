@@ -60,6 +60,21 @@ export type Scene = {
    * geometry lands on top of a dimension whenever the drawing scales down.
    */
   captions?: { at: Pt; text: string; anchor?: Anchor; dy?: number }[];
+  /**
+   * A fixed extent to fit to, instead of the scene's own bounding box.
+   *
+   * WHY A ROTATING DRAWING NEEDED THIS. `project` normally measures what the
+   * scene occupies and scales it to fill the frame. That is right for a static
+   * drawing and wrong for one you can turn: as the object rotates its
+   * projected box changes shape, so the fitted scale changes with it, and the
+   * drawing appears to zoom in and out and jump about while you drag. Reported
+   * as "while rotating it's getting zoomed and losing shape".
+   *
+   * The isometric supplies its own extent — the object's bounding SPHERE, which
+   * by definition does not change with the camera — so the scale is constant at
+   * every angle and only the object turns.
+   */
+  fit?: Bounds;
 };
 
 export const deg = (d: number) => (d * Math.PI) / 180;
@@ -232,11 +247,16 @@ export function project(
 ): ViewScene {
   const room = Math.max(pad, annotationReach(scene) + 10);
   let box = EMPTY;
-  for (const s of scene.shapes) for (const p of primPoints(s.prim)) box = grow(box, p);
-  for (const d of scene.dims) {
-    if (d.t === "len") box = grow(grow(box, d.a), d.b);
-    if (d.t === "rad" || d.t === "ang") box = grow(box, d.c);
-    if (d.t === "note") box = grow(box, d.at);
+  if (scene.fit) {
+    /* A camera-independent extent, so a rotating drawing keeps one scale. */
+    box = scene.fit;
+  } else {
+    for (const s of scene.shapes) for (const p of primPoints(s.prim)) box = grow(box, p);
+    for (const d of scene.dims) {
+      if (d.t === "len") box = grow(grow(box, d.a), d.b);
+      if (d.t === "rad" || d.t === "ang") box = grow(box, d.c);
+      if (d.t === "note") box = grow(box, d.at);
+    }
   }
   if (!Number.isFinite(box.minX)) box = { minX: 0, minY: 0, maxX: 1, maxY: 1 };
 

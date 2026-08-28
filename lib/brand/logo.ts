@@ -17,7 +17,7 @@
 
 /** The elbow, in a 100 × 100 box. Always drawn inside `TILE`. */
 export const MARK_PATH =
-  "M37.5 0L52 0A48 48 0 0 1 100 48L100 62.5A5 5 0 0 1 95 67.5L75 67.5A5 5 0 0 1 70 62.5L70 48A18 18 0 0 0 52 30L37.5 30A5 5 0 0 1 32.5 25L32.5 5A5 5 0 0 1 37.5 0ZM5 0L23 0A5 5 0 0 1 28 5L28 25A5 5 0 0 1 23 30L5 30A5 5 0 0 1 0 25L0 5A5 5 0 0 1 5 0ZM75 72L95 72A5 5 0 0 1 100 77L100 95A5 5 0 0 1 95 100L75 100A5 5 0 0 1 70 95L70 77A5 5 0 0 1 75 72Z";
+  "M37.5 0L52 0A48 48 0 0 1 100 48L100 62.5A5 5 0 0 1 95 67.5L71 67.5A5 5 0 0 1 66 62.5L66 48A14 14 0 0 0 52 34L37.5 34A5 5 0 0 1 32.5 29L32.5 5A5 5 0 0 1 37.5 0ZM5 0L23 0A5 5 0 0 1 28 5L28 29A5 5 0 0 1 23 34L5 34A5 5 0 0 1 0 29L0 5A5 5 0 0 1 5 0ZM71 72L95 72A5 5 0 0 1 100 77L100 95A5 5 0 0 1 95 100L71 100A5 5 0 0 1 66 95L66 77A5 5 0 0 1 71 72Z";
 
 /** Pass to `fillRule` / `fill-rule` wherever MARK_PATH is drawn. */
 export const MARK_FILL_RULE = "evenodd" as const;
@@ -31,7 +31,7 @@ export const TILE = {
   /** Corner radius, as a fraction of the tile's side. */
   radius: 0.24,
   /** Inset of the mark inside the tile, as a fraction of the side. */
-  inset: 0.21,
+  inset: 0.25,
   /** The indigo ground. Fixed in both themes — an app icon does not restyle. */
   ground: "#6467F2",
   /** The elbow's colour on that ground. */

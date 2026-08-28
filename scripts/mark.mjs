@@ -41,8 +41,14 @@
 
 /* PROPORTIONS, measured off logo4 rather than invented. */
 
+/* Owner's call, 28 Aug 2026: a little thicker, and more air inside the tile.
+ * 30 → 34 on the band and 21 → 25 on the inset. The mark had been drawn to fill
+ * its box and a filled box has no breathing room; pulling it in and fattening
+ * the duct at the same time keeps the same visual weight while the tile stops
+ * feeling packed. */
+
 /** Wall-to-wall width of the duct. */
-export const BAND = 30;
+export const BAND = 34;
 /** Outer radius of the bend. The throat's follows: R_OUTER − BAND. */
 export const R_OUTER = 48;
 /** Length of a delivered section, along the run. */
@@ -150,7 +156,7 @@ export const MARK_FILL_RULE = "evenodd";
 export const TILE_RADIUS = 0.24;
 
 /** How far the mark is inset inside the tile, in the same 100 units. */
-export const TILE_INSET = 21;
+export const TILE_INSET = 25;
 
 /**
  * The inset to use at a given pixel size, as a fraction.

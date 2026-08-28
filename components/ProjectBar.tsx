@@ -224,7 +224,7 @@ export default function ProjectBar({
    * which is also how /standards and /guide got one at all — it used to be
    * mounted here and therefore existed only on the calculator. */
   return (
-    <AppHeader current="calculator">
+    <AppHeader current="calculator" held={panelOpen}>
       {/* One file input for both layouts. */}
       <input
         ref={fileRef}

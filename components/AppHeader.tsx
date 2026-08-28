@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import SiteNav, { type NavKey } from "./SiteNav";
+import StickyHeader from "./StickyHeader";
 import ThemeToggle from "./ThemeToggle";
 import Wordmark from "./Wordmark";
 
@@ -27,38 +28,45 @@ import Wordmark from "./Wordmark";
  * paragraph. This is not "the mark without its tile" — the tile IS the mark's
  * home; see scripts/mark.mjs.
  *
- * NOT STICKY BELOW `lg`. Sticky was given to every page for consistency and on
- * a phone that was the wrong trade: the calculator's header is two rows, and
- * pinning ~110px of a 844px screen for the whole session to keep a project name
- * visible is a bad bargain on the surface with the least room. Desktop keeps it,
- * where a 56px bar against 900px costs nothing.
+ * IT HIDES ON THE WAY DOWN AND COMES BACK ON THE WAY UP — see StickyHeader.
+ * A sticky bar is a standing tax on the viewport, charged at every scroll
+ * position for the whole session, and on the calculator it is two rows. Rather
+ * than choose between keeping the nav and seeing the content, it gets out of
+ * the way while you read and returns on a small upward flick.
  */
 export default function AppHeader({
   current,
   labels,
   right,
   children,
+  held = false,
 }: {
   current: NavKey;
   labels?: Partial<Record<NavKey, string>>;
   right?: ReactNode;
   /** Page-specific chrome, on its own row under the identity row. */
   children?: ReactNode;
+  /** Hold it on screen — a disclosure inside it is open. */
+  held?: boolean;
 }) {
   return (
-    <header className="border-b-[1.5px] border-line bg-page/95 backdrop-blur lg:sticky lg:top-0 lg:z-40 print:hidden">
-      <div className="mx-auto w-full max-w-canvas px-5 md:px-8">
-        {/* Fixed height, so no page's `right` slot can move the logo. */}
-        <div className="flex h-14 items-center gap-x-4">
-          <Wordmark size="sm" compact />
-          <SiteNav current={current} labels={labels} />
-          <div className="ml-auto flex shrink-0 items-center gap-2">
-            {right}
-            <ThemeToggle />
+    <StickyHeader className="print:hidden" held={held}>
+      <header className="border-b-[1.5px] border-line bg-page/95 backdrop-blur">
+        <div className="mx-auto w-full max-w-canvas px-5 md:px-8">
+          {/* Fixed height, so no page's `right` slot can move the logo. 48px
+            * rather than 56: it is one row of 38px artwork and 32px pills, and
+            * every pixel of a sticky bar is charged on every scroll position. */}
+          <div className="flex h-12 items-center gap-x-4">
+            <Wordmark size="sm" compact />
+            <SiteNav current={current} labels={labels} />
+            <div className="ml-auto flex shrink-0 items-center gap-2">
+              {right}
+              <ThemeToggle />
+            </div>
           </div>
+          {children && <div className="border-t-[1.5px] border-rule py-2.5">{children}</div>}
         </div>
-        {children && <div className="border-t-[1.5px] border-rule py-3">{children}</div>}
-      </div>
-    </header>
+      </header>
+    </StickyHeader>
   );
 }

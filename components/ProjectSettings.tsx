@@ -123,13 +123,27 @@ function NumberField({
   value: string;
   onChange: (v: string) => void;
 }) {
+  /* THE INPUTS IN A ROW HAVE TO LINE UP, and they did not.
+   *
+   * `hint` is optional and every field's is a different length — "Thickness on
+   * the outside of the duct." against "Sets how many pieces a straight run is,
+   * and so the flange count." — so in a three-column grid each label block was
+   * a different height and each input box started at a different y. Three boxes
+   * on three different lines, which is what was reported.
+   *
+   * The label block now reserves two lines of hint whether or not it has them,
+   * so the inputs align across the row at every width. A fixed reservation
+   * beats `items-end` here because the presets underneath have to line up too,
+   * and they hang off the input rather than off the grid cell. */
   return (
     <div>
-      <label htmlFor={id} className="font-medium text-heading">
-        {label}
-      </label>
-      {hint && <p className="mt-1 text-small text-muted">{hint}</p>}
-      <div className="mt-2 flex items-center gap-2">
+      <div className="min-h-[4.25rem]">
+        <label htmlFor={id} className="font-medium text-heading">
+          {label}
+        </label>
+        {hint && <p className="mt-1 text-small text-muted">{hint}</p>}
+      </div>
+      <div className="flex items-center gap-2">
         <input
           id={id}
           type="text"

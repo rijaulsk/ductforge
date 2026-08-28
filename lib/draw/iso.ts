@@ -1,5 +1,14 @@
 import type { Fitting } from "../duct/types";
-import { type Dim, type Pt, type Role, type Scene, type Shape, deg, poly } from "./scene";
+import {
+  type Bounds,
+  type Dim,
+  type Pt,
+  type Role,
+  type Scene,
+  type Shape,
+  deg,
+  poly,
+} from "./scene";
 import type { Label } from "./blueprint";
 
 /* The isometric view — the fitting as an object rather than as a drawing.
@@ -40,14 +49,22 @@ type P3 = [number, number, number];
 export const CAMERA = {
   /** True isometric, and where Reset returns to. */
   home: { yaw: 45, pitch: 30 },
-  yaw: { min: -15, max: 105 },
-  pitch: { min: 8, max: 62 },
+  /* PITCH IS CLAMPED, YAW IS NOT. Yaw was clamped to a 120° arc and a single
+   * thumb-swipe crossed the whole of it, so the object stopped dead halfway
+   * through the gesture — reported as "rotation is stopping halfway". Spinning
+   * about the vertical axis is a turntable and every angle of it is a real
+   * view of the object, so it wraps instead.
+   *
+   * Pitch is a different case and stays bounded: at 0° the eye is level with
+   * the object and every horizontal face collapses to a line, and past 90° you
+   * are looking at it upside down. Neither is a drawing anybody wants. */
+  pitch: { min: 6, max: 84 },
 } as const;
 
 export type Camera = { yaw: number; pitch: number };
 
 export const clampCamera = ({ yaw, pitch }: Camera): Camera => ({
-  yaw: Math.min(CAMERA.yaw.max, Math.max(CAMERA.yaw.min, yaw)),
+  yaw: ((yaw % 360) + 360) % 360,
   pitch: Math.min(CAMERA.pitch.max, Math.max(CAMERA.pitch.min, pitch)),
 });
 
@@ -100,6 +117,9 @@ type Face = { pts: P3[]; role: Role };
  */
 function paint(faces: Face[]): Shape[] {
   const { project, view } = lens;
+  /* Remember what this scene occupies in MODEL space, so `fitOf` can hand
+   * `project` an extent that does not move when the camera does. */
+  lastFaces = faces;
   return faces
     .map((f) => ({
       f,
@@ -109,6 +129,46 @@ function paint(faces: Face[]): Shape[] {
     }))
     .sort((a, b) => a.depth - b.depth)
     .map(({ f }) => poly(f.pts.map(project), f.role));
+}
+
+let lastFaces: Face[] = [];
+
+/**
+ * The object's bounding SPHERE, projected — a fit extent that is the same at
+ * every camera angle.
+ *
+ * A rotation moves points around the model's centre without changing their
+ * distance from it, so every projected point stays inside a circle of that
+ * radius about the projected centre. Fitting to that circle rather than to the
+ * scene's own box is what stops the drawing zooming and jumping while it turns.
+ *
+ * Slightly conservative — the object never quite fills the frame the way a
+ * box-fit would — and that is the price of a scale that holds still.
+ */
+function fitOf(): Bounds | undefined {
+  if (lastFaces.length === 0) return undefined;
+  let minX = Infinity;
+  let minY = Infinity;
+  let minZ = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  let maxZ = -Infinity;
+  for (const f of lastFaces) {
+    for (const [x, y, z] of f.pts) {
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+      if (z < minZ) minZ = z;
+      if (z > maxZ) maxZ = z;
+    }
+  }
+  if (!Number.isFinite(minX)) return undefined;
+  const centre: P3 = [(minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2];
+  const r =
+    Math.hypot(maxX - minX, maxY - minY, maxZ - minZ) / 2 || Math.max(1e-6, maxX - minX) / 2;
+  const [cx, cy] = lens.project(centre);
+  return { minX: cx - r, maxX: cx + r, minY: cy - r, maxY: cy + r };
 }
 
 const quad = (a: P3, b: P3, c: P3, d: P3, role: Role): Face => ({ pts: [a, b, c, d], role });
@@ -220,6 +280,14 @@ export function isometric(f: Fitting, L: Label, camera: Camera = CAMERA.home): S
   /* Set the lens once, here, before any helper runs. Clamped rather than
    * trusted: the caller is a drag handler and a drag has no natural limits. */
   lens = projector(clampCamera(camera));
+  lastFaces = [];
+  const scene = build(f, L);
+  /* Attach the camera-independent extent AFTER building, because it is
+   * measured from the faces the build produced. */
+  return { ...scene, fit: fitOf() };
+}
+
+function build(f: Fitting, L: Label): Scene {
   switch (f.kind) {
     case "straight": {
       const { w, h, l } = f;
