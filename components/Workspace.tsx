@@ -307,58 +307,59 @@ export default function Workspace() {
           )}
         </div>
 
-        {/* ---- THE TOOL: ONE SCREEN, NEVER A SCROLL ------------------------
+        {/* ---- THE TAB BAR, OUTSIDE EVERYTHING IT SWITCHES ------------------
           *
-          * This was ten stacked full-width blocks and about six thousand pixels
-          * on a phone, with the one button that does anything sitting fourteen
-          * hundred pixels down. You scrolled a screen and a half to add a
-          * fitting, then scrolled back to change it.
+          * It used to live inside the tool wrapper, which is hidden when the
+          * Takeoff tab is chosen — so picking Takeoff removed the tabs and
+          * there was no way back. A dead end, found by opening the thing in a
+          * browser and clicking it, which is the only way that class of bug is
+          * ever found.
           *
-          * It is an app now, not a page. The work area is exactly one viewport
-          * tall and every panel inside it scrolls ITSELF; below `lg` the panels
-          * become tabs, so only one is on screen at a time and the live result
-          * and the primary action live in a bar that is always there.
-          *
-          * The explainer and the footer still sit below all of this, in the DOM
-          * and server-rendered, because they are what the page is found by. The
-          * rule is not "the document never scrolls" — it is that you never
-          * scroll to USE the tool. */}
-        <div className={`${tab === "takeoff" ? "hidden" : ""} lg:block`}>
-          {/* The mobile tab bar. Four destinations, and every one of them is a
-            * thing you were previously scrolling to. */}
-          <div className="mb-4 flex gap-1.5 overflow-x-auto lg:hidden" role="tablist">
-            {TABS.map((t) => (
-              <button
-                key={t.key}
-                type="button"
-                role="tab"
-                aria-selected={tab === t.key}
-                onClick={() => setTab(t.key)}
-                className={`shrink-0 whitespace-nowrap rounded-full border-[1.5px] px-3.5 py-1.5 text-small font-medium transition-colors duration-200 ease-out ${
-                  tab === t.key
-                    ? "border-line bg-heading text-page"
-                    : "border-transparent text-body hover:bg-sunk"
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
+          * Below `lg` these four are the whole app: each was previously a
+          * screen of scrolling. */}
+        <div className="mb-4 flex gap-1.5 overflow-x-auto lg:hidden" role="tablist">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              role="tab"
+              aria-selected={tab === t.key}
+              onClick={() => setTab(t.key)}
+              className={`shrink-0 whitespace-nowrap rounded-full border-[1.5px] px-3.5 py-1.5 text-small font-medium transition-colors duration-200 ease-out ${
+                tab === t.key
+                  ? "border-line bg-heading text-page"
+                  : "border-transparent text-body hover:bg-sunk"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
 
-          <div className="grid gap-6 lg:h-[calc(100svh-9rem)] lg:grid-cols-12 lg:gap-8">
+        <div className={`${tab === "takeoff" ? "hidden" : ""} lg:block`}>
+
+          {/* THE SHELL IS MOBILE-ONLY, and that is a correction.
+            *
+            * A fixed-height desktop shell was tried and it broke three things
+            * at once, all visible in one screenshot: the form card collapsed to
+            * about forty pixels with the fitting name clipped mid-word, the
+            * drawing pane rendered EMPTY because its box had no height, and the
+            * picker's listbox — absolutely positioned inside a card that had
+            * become `overflow-y-auto` — was cut off after its first row.
+            *
+            * Desktop has 900px and never had the scrolling problem; the
+            * complaint there was the header eating the top of the screen, which
+            * the hide-on-scroll header answers. So desktop keeps the 5/7 grid
+            * that worked, at natural height, and the tabs and the action bar
+            * stay where they earned their place. */}
+          <div className="grid gap-6 lg:grid-cols-12 lg:gap-8">
             <Card
               as="section"
-              className={`lg:col-span-5 lg:flex lg:min-h-0 lg:flex-col ${
-                tab === "fitting" ? "" : "hidden lg:flex"
-              }`}
+              className={`lg:col-span-5 ${tab === "fitting" ? "" : "hidden lg:block"}`}
             >
             {/* Our own listbox, not a `<select>`: the native list picked its
               * own side and picked upward when the control sat low, and it had
               * no room for the glyph or the alias. See FittingPicker. */}
-            {/* The form scrolls, the action does not. On a long fitting like a
-              * Y-piece the fields overflow; the button stays pinned below them
-              * so it is never the thing you have to scroll to reach. */}
-            <div className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain lg:pr-1">
             <div>
               <Eyebrow>Step one</Eyebrow>
               <p className="mb-3 mt-2 text-h3 font-bold text-heading">Fitting</p>
@@ -392,11 +393,9 @@ export default function Workspace() {
               />
             </div>
 
-            </div>
-
-            {/* Pinned below the scroll area on desktop; on mobile the sticky
-              * action bar at the foot of the screen carries it instead, so it
-              * is never off-screen on either. */}
+            {/* Desktop only. On mobile the sticky action bar at the foot of the
+              * screen carries this instead, so exactly one of the two is ever
+              * on screen and the clay budget still reads one per viewport. */}
             <div className="mt-7 hidden flex-wrap items-center gap-3 border-t-[1.5px] border-rule pt-7 lg:flex">
               {/* The one clay element in this view. Nothing else may claim it. */}
               <Button variant="primary" onClick={commit}>
@@ -418,9 +417,7 @@ export default function Workspace() {
 
           <Card
             as="section"
-            className={`lg:col-span-7 lg:flex lg:min-h-0 lg:flex-col ${
-              tab === "drawing" ? "" : "hidden lg:flex"
-            }`}
+            className={`lg:col-span-7 ${tab === "drawing" ? "" : "hidden lg:block"}`}
           >
             <PanelHeading
               eyebrow="Step three"
@@ -431,15 +428,13 @@ export default function Workspace() {
                 </p>
               }
             />
-            <div className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain">
-              <Viewer
-                fitting={fitting}
-                units={project.units}
-                mode={project.mode}
-                view={view}
-                onView={setView}
-              />
-            </div>
+            <Viewer
+              fitting={fitting}
+              units={project.units}
+              mode={project.mode}
+              view={view}
+              onView={setView}
+            />
           </Card>
 
           {/* The one deliberate grid break: the result strip runs the full

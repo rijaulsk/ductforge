@@ -56,7 +56,11 @@ export default function AppHeader({
           {/* Fixed height, so no page's `right` slot can move the logo. 48px
             * rather than 56: it is one row of 38px artwork and 32px pills, and
             * every pixel of a sticky bar is charged on every scroll position. */}
-          <div className="flex h-12 items-center gap-x-4">
+          {/* Tighter gaps on a phone. Tile + three pills + theme toggle came to
+            * ~380px in a 350px line, so "Standards" was clipped; the nav scrolls
+            * rather than breaking, but a label cut mid-word looks like a fault
+            * rather than a affordance. These two reclaim enough to fit at 390. */}
+          <div className="flex h-12 items-center gap-x-2 md:gap-x-4">
             <Wordmark size="sm" compact />
             <SiteNav current={current} labels={labels} />
             <div className="ml-auto flex shrink-0 items-center gap-2">

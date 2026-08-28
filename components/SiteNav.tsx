@@ -40,9 +40,15 @@ export default function SiteNav({
    * medium weight in both states, so selecting a section cannot reflow
    * anything. */
   return (
+    /* `min-w-0` and NOT `shrink-0`: the nav is the only flexible thing in the
+     * header row. With `shrink-0` the wordmark, the three pills and the theme
+     * toggle came to ~380px in a 350px line on a phone, so the toggle was
+     * pushed off the right edge and clipped. Letting the nav shrink means it
+     * scrolls its own pills — which it was already set up to do — and
+     * everything else stays put. */
     <nav
       aria-label="Sections"
-      className={`flex shrink-0 flex-nowrap gap-1.5 overflow-x-auto ${className ?? ""}`}
+      className={`flex min-w-0 flex-nowrap gap-1.5 overflow-x-auto ${className ?? ""}`}
     >
       {ITEMS.map((item) => {
         const on = item.key === current;
@@ -51,7 +57,7 @@ export default function SiteNav({
             key={item.key}
             href={item.href}
             aria-current={on ? "page" : undefined}
-            className={`shrink-0 whitespace-nowrap rounded-full border-[1.5px] px-3.5 py-1.5 text-small font-medium transition-colors duration-200 ease-out ${
+            className={`shrink-0 whitespace-nowrap rounded-full border-[1.5px] px-3 py-1.5 text-small font-medium transition-colors duration-200 ease-out md:px-3.5 ${
               on
                 ? "border-line bg-heading text-page"
                 : "border-transparent text-body hover:bg-sunk hover:text-heading"
