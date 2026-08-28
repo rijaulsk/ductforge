@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import type { ViewKind } from "@/lib/draw";
 import { computeFor, computeTotals } from "@/lib/duct/compute";
 import { SPECS } from "@/lib/duct/formulas";
+import { areaUnit, fmtArea, fmtMass, massUnit } from "@/lib/duct/units";
 import { toQty, toWaste } from "@/lib/duct/parse";
 import type { Entry, FittingKind, Project } from "@/lib/duct/types";
 import { type Draft, convertDraft, draftFromEntry, fittingFromDraft, newDraft } from "@/lib/draft";
@@ -41,8 +42,27 @@ import { Button, Card, Eyebrow, Note, PanelHeading } from "./ui";
 
 type Notice = { tone: "info" | "error"; text: string } | null;
 
+/**
+ * The four places the tool has, below `lg`.
+ *
+ * Every one of them used to be a scroll: the form, the drawing, the live
+ * result and the schedule were four full-width blocks stacked down a six
+ * thousand pixel page. They are one screen and a tap now.
+ */
+type Tab = "fitting" | "drawing" | "result" | "takeoff";
+
+const TABS: { key: Tab; label: string }[] = [
+  { key: "fitting", label: "Fitting" },
+  { key: "drawing", label: "Drawing" },
+  { key: "result", label: "Result" },
+  { key: "takeoff", label: "Takeoff" },
+];
+
 export default function Workspace() {
   const [hydrated, setHydrated] = useState(false);
+  /* Only meaningful below `lg`; at `lg` every panel is visible at once and the
+   * classes that read this are overridden. */
+  const [tab, setTab] = useState<Tab>("fitting");
 
   /* THE WORKSPACE RENDERS IMMEDIATELY, EMPTY, AND FILLS IN.
    *
@@ -287,18 +307,58 @@ export default function Workspace() {
           )}
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-12 lg:gap-8">
-          <Card as="section" className="lg:col-span-5">
-            {/* A SELECT, not a ten-tile grid.
-              * Ten tiles was two rows of pictures and roughly a phone screen
-              * of height, above the fields you actually came to fill in — so
-              * every fitting change meant scrolling back up, choosing, and
-              * scrolling back down. A grouped select is one tap, names the
-              * thing, and costs one line. The glyph moves next to the heading,
-              * where it still confirms what you picked. */}
+        {/* ---- THE TOOL: ONE SCREEN, NEVER A SCROLL ------------------------
+          *
+          * This was ten stacked full-width blocks and about six thousand pixels
+          * on a phone, with the one button that does anything sitting fourteen
+          * hundred pixels down. You scrolled a screen and a half to add a
+          * fitting, then scrolled back to change it.
+          *
+          * It is an app now, not a page. The work area is exactly one viewport
+          * tall and every panel inside it scrolls ITSELF; below `lg` the panels
+          * become tabs, so only one is on screen at a time and the live result
+          * and the primary action live in a bar that is always there.
+          *
+          * The explainer and the footer still sit below all of this, in the DOM
+          * and server-rendered, because they are what the page is found by. The
+          * rule is not "the document never scrolls" — it is that you never
+          * scroll to USE the tool. */}
+        <div className={`${tab === "takeoff" ? "hidden" : ""} lg:block`}>
+          {/* The mobile tab bar. Four destinations, and every one of them is a
+            * thing you were previously scrolling to. */}
+          <div className="mb-4 flex gap-1.5 overflow-x-auto lg:hidden" role="tablist">
+            {TABS.map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                role="tab"
+                aria-selected={tab === t.key}
+                onClick={() => setTab(t.key)}
+                className={`shrink-0 whitespace-nowrap rounded-full border-[1.5px] px-3.5 py-1.5 text-small font-medium transition-colors duration-200 ease-out ${
+                  tab === t.key
+                    ? "border-line bg-heading text-page"
+                    : "border-transparent text-body hover:bg-sunk"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="grid gap-6 lg:h-[calc(100svh-9rem)] lg:grid-cols-12 lg:gap-8">
+            <Card
+              as="section"
+              className={`lg:col-span-5 lg:flex lg:min-h-0 lg:flex-col ${
+                tab === "fitting" ? "" : "hidden lg:flex"
+              }`}
+            >
             {/* Our own listbox, not a `<select>`: the native list picked its
               * own side and picked upward when the control sat low, and it had
               * no room for the glyph or the alias. See FittingPicker. */}
+            {/* The form scrolls, the action does not. On a long fitting like a
+              * Y-piece the fields overflow; the button stays pinned below them
+              * so it is never the thing you have to scroll to reach. */}
+            <div className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain lg:pr-1">
             <div>
               <Eyebrow>Step one</Eyebrow>
               <p className="mb-3 mt-2 text-h3 font-bold text-heading">Fitting</p>
@@ -332,7 +392,12 @@ export default function Workspace() {
               />
             </div>
 
-            <div className="mt-7 flex flex-wrap items-center gap-3 border-t-[1.5px] border-rule pt-7">
+            </div>
+
+            {/* Pinned below the scroll area on desktop; on mobile the sticky
+              * action bar at the foot of the screen carries it instead, so it
+              * is never off-screen on either. */}
+            <div className="mt-7 hidden flex-wrap items-center gap-3 border-t-[1.5px] border-rule pt-7 lg:flex">
               {/* The one clay element in this view. Nothing else may claim it. */}
               <Button variant="primary" onClick={commit}>
                 <Plus size={18} strokeWidth={2} />
@@ -351,7 +416,12 @@ export default function Workspace() {
             </div>
           </Card>
 
-          <Card as="section" className="lg:col-span-7">
+          <Card
+            as="section"
+            className={`lg:col-span-7 lg:flex lg:min-h-0 lg:flex-col ${
+              tab === "drawing" ? "" : "hidden lg:flex"
+            }`}
+          >
             <PanelHeading
               eyebrow="Step three"
               title="Check the drawing"
@@ -361,19 +431,24 @@ export default function Workspace() {
                 </p>
               }
             />
-            <Viewer
-              fitting={fitting}
-              units={project.units}
-              mode={project.mode}
-              view={view}
-              onView={setView}
-            />
+            <div className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain">
+              <Viewer
+                fitting={fitting}
+                units={project.units}
+                mode={project.mode}
+                view={view}
+                onView={setView}
+              />
+            </div>
           </Card>
 
           {/* The one deliberate grid break: the result strip runs the full
             * twelve columns under a 5/7 split, so the figure the two panels
             * above are both about is not itself trapped in a column. */}
-          <Card as="section" className="lg:col-span-12">
+          <Card
+            as="section"
+            className={`lg:col-span-12 ${tab === "result" ? "" : "hidden lg:block"}`}
+          >
             <PanelHeading
               eyebrow="This fitting"
               title={editingId ? "Line being edited" : "Not added yet"}
@@ -386,20 +461,27 @@ export default function Workspace() {
               waste={previewEntry.waste}
             />
           </Card>
+          </div>
         </div>
 
-        {/* Keyed on the unit system so switching metric ↔ imperial remounts it
-          * and its raw-string inputs re-seed from the project. Cheaper and
-          * clearer than an effect syncing props into state. */}
-        <div className="mt-8">
-          <ProjectSettings
-            key={`${project.id}-${project.units}`}
-            project={project}
-            savedCount={store.projects.length}
-            onPatch={patchProject}
-            onClearAll={clearEverything}
-          />
-        </div>
+        {/* ---- THE TAKEOFF AND THE SETTINGS -------------------------------
+          *
+          * One instance, two placements. Below `lg` this is the fourth tab, so
+          * the schedule is a tap rather than four screens of scrolling; at `lg`
+          * it is always visible under the tool, where there is room for it. */}
+        <div className={`${tab === "takeoff" ? "" : "hidden"} lg:block`}>
+          {/* Keyed on the unit system so switching metric ↔ imperial remounts it
+            * and its raw-string inputs re-seed from the project. Cheaper and
+            * clearer than an effect syncing props into state. */}
+          <div className="lg:mt-8">
+            <ProjectSettings
+              key={`${project.id}-${project.units}`}
+              project={project}
+              savedCount={store.projects.length}
+              onPatch={patchProject}
+              onClearAll={clearEverything}
+            />
+          </div>
 
         <section className="mt-10 lg:mt-14">
           <PanelHeading
@@ -472,6 +554,38 @@ export default function Workspace() {
             </p>
           </div>
         </section>
+        </div>
+
+      {/* ---- THE ACTION BAR, phones only --------------------------------
+        *
+        * The live figure you are working toward and the one button that acts on
+        * it, pinned to the foot of the screen. Previously the button was the
+        * last child of the tallest card and sat about fourteen hundred pixels
+        * down: you scrolled a screen and a half to add a fitting, and scrolled
+        * back to change it.
+        *
+        * Still exactly one clay element per viewport — the desktop button is
+        * `lg:flex` and this one is `lg:hidden`, so the two are never both on
+        * screen.
+        *
+        * Inside `main` rather than after it, deliberately: a sticky element
+        * pins for the length of its containing block, so out here it would
+        * hover over the explainer and the footer for the whole page. Ending
+        * with `main` means it is present for exactly as long as the tool is. */}
+      <div className="sticky bottom-0 z-30 -mx-5 mt-6 border-t-[1.5px] border-line bg-page/95 px-5 py-3 backdrop-blur md:-mx-8 md:px-8 lg:hidden">
+        <div className="flex items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-small text-muted">
+              {spec.name} · {fmtArea(preview.grossAreaMinor)} {areaUnit(project.units)} ·{" "}
+              {fmtMass(preview.massMinor)} {massUnit(project.units)}
+            </p>
+          </div>
+          <Button variant="primary" onClick={commit} className="shrink-0">
+            <Plus size={18} strokeWidth={2} />
+            {editingId ? "Update" : "Add"}
+          </Button>
+        </div>
+      </div>
       </main>
 
       <BoqSheet project={project} />
