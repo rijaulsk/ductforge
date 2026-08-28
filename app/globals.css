@@ -215,6 +215,20 @@
 }
 
 @layer base {
+  /* RESERVE THE SCROLLBAR'S WIDTH, ALWAYS.
+   *
+   * Without this, a page tall enough to scroll gets a scrollbar and a page
+   * short enough not to does not — and the centred canvas inside is therefore
+   * about 15px narrower on one than the other. Navigate between them and every
+   * centred thing on the page shifts sideways. Reported as a subtle width
+   * change on desktop, and it is subtle: it is half a scrollbar each side.
+   *
+   * `stable` reserves the gutter whether or not it is needed, so the content
+   * box is the same width on every page and nothing moves. */
+  html {
+    scrollbar-gutter: stable;
+  }
+
   body {
     background-color: var(--ds-page);
     color: var(--ds-body);

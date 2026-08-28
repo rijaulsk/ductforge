@@ -4,9 +4,8 @@ import { Download, FilePlus2, Printer, Settings2, Trash2, Upload } from "lucide-
 import { useId, useRef, useState } from "react";
 import type { Mode, Project } from "@/lib/duct/types";
 import type { UnitSystem } from "@/lib/duct/units";
-import SiteNav from "./SiteNav";
+import AppHeader from "./AppHeader";
 import ThemeToggle from "./ThemeToggle";
-import Wordmark from "./Wordmark";
 import { Button, Segmented } from "./ui";
 
 /* Project chrome: which job, in what units, measured to which standard.
@@ -223,7 +222,7 @@ export default function ProjectBar({
   );
 
   return (
-    <header className="border-b-[1.5px] border-line bg-page lg:sticky lg:top-0 lg:z-40 lg:bg-page/95 lg:backdrop-blur print:hidden">
+    <AppHeader current="calculator" right={<ThemeToggle />}>
       {/* One file input for both layouts. */}
       <input
         ref={fileRef}
@@ -242,10 +241,12 @@ export default function ProjectBar({
       {/* ---- phone ----
         * Explicit state rather than a <details>: the name field has to live in
         * the same row as the toggle, and an <input> inside a <summary> hands
-        * every tap to the disclosure instead of to the field. */}
+        * every tap to the disclosure instead of to the field.
+        *
+        * No wordmark and no nav here any more — AppHeader owns the identity row
+        * on every page, which is what stopped the logo moving on navigation. */}
       <div className="lg:hidden">
-        <div className="flex items-center gap-3 px-5 py-3">
-          <Wordmark size="sm" />
+        <div className="flex items-center gap-3">
           <label htmlFor={`${uid}-name-m`} className="sr-only">
             Project name
           </label>
@@ -267,14 +268,12 @@ export default function ProjectBar({
         </div>
 
         {panelOpen && (
-          <div id={`${uid}-panel`} className="space-y-4 border-t-[1.5px] border-rule px-5 py-4">
-            <SiteNav current="calculator" />
+          <div id={`${uid}-panel`} className="mt-3 space-y-4 border-t-[1.5px] border-rule pt-4">
             <div className="flex items-center gap-2">
               <label htmlFor={`${uid}-project-m`} className="sr-only">
                 Open a saved takeoff
               </label>
               <div className="min-w-0 flex-1">{projectSelect(`${uid}-project-m`)}</div>
-              <ThemeToggle />
             </div>
             <div className="flex flex-wrap gap-x-6 gap-y-3">
               {unitsControl}
@@ -298,12 +297,12 @@ export default function ProjectBar({
         )}
       </div>
 
-      {/* ---- desktop ---- */}
-      <div className="mx-auto hidden w-full max-w-canvas px-8 py-3 lg:block">
+      {/* ---- desktop ----
+        * No container of its own: AppHeader's is the container, on every page.
+        * This block used to carry `mx-auto max-w-canvas px-8`, which is why it
+        * disagreed with the content pages between md and lg. */}
+      <div className="hidden lg:block">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-          <Wordmark size="sm" />
-          <SiteNav current="calculator" className="shrink-0" />
-
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <label htmlFor={`${uid}-name`} className="sr-only">
               Project name
@@ -327,7 +326,6 @@ export default function ProjectBar({
               Open a saved takeoff
             </label>
             <div className="max-w-[11rem]">{projectSelect(`${uid}-project`)}</div>
-            <ThemeToggle />
           </div>
         </div>
 
@@ -339,6 +337,6 @@ export default function ProjectBar({
           {actions}
         </div>
       </div>
-    </header>
+    </AppHeader>
   );
 }
