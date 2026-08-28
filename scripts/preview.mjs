@@ -323,6 +323,79 @@ if (process.argv[2] === "icons") {
   ROWS.forEach(([name], i) => console.log(`  row ${i + 1}  ${name}`));
 }
 
+/* How wide should a mitre cut be? `node scripts/preview.mjs seams`
+ *
+ * One row per candidate width, at the sizes the icon is actually seen at. This
+ * exists because the number has now been wrong in both directions by reasoning
+ * about it — too wide and the cuts sever the duct into floating pieces, too
+ * narrow and they are invisible below poster size — and both times the mistake
+ * was obvious within a second of looking at a rendered sheet.
+ */
+if (process.argv[2] === "seams") {
+  const { CREAM: MC, INDIGO: MI, TILE_RADIUS, elbow, insetFor, roundedRect } = await import(
+    "./mark.mjs"
+  );
+  const WIDTHS = [1.5, 2.5, 3, 3.5, 4.5];
+  /* Zooms chosen so every column comes out the SAME height. They did not, and
+   * the tall ones overran the row below into an unreadable smear. */
+  const SIZES = [
+    [192, 1],
+    [64, 3],
+    [32, 6],
+  ];
+
+  const one = (seam, size, zoom) => {
+    const inset = insetFor(size);
+    const pad = size * inset;
+    const inner = size - pad * 2;
+    const shapes = [
+      { contours: parsePath(roundedRect(size, size * TILE_RADIUS)), color: MI },
+      {
+        contours: transform(parsePath(elbow({ seam }).path), {
+          sx: inner / 100,
+          tx: pad,
+          ty: pad,
+        }),
+        color: MC,
+        rule: "evenodd",
+      },
+    ];
+    return { rgba: rasterise({ width: size, height: size, shapes, background: CREAM }), size, zoom };
+  };
+
+  const cells = WIDTHS.map((w) => SIZES.map(([s, z]) => one(w, s, z)));
+  const colW = SIZES.map(([s, z]) => s * z + 24);
+  const rowH = Math.max(...SIZES.map(([s, z]) => s * z)) + 24;
+  const width = colW.reduce((a, b) => a + b, 0);
+  const height = rowH * WIDTHS.length;
+  const canvas = Buffer.alloc(width * height * 4);
+  for (let i = 0; i < width * height; i++) {
+    canvas[i * 4] = 0xe4;
+    canvas[i * 4 + 1] = 0xe0;
+    canvas[i * 4 + 2] = 0xd8;
+    canvas[i * 4 + 3] = 255;
+  }
+  cells.forEach((row, r) => {
+    let x0 = 12;
+    row.forEach((c, ci) => {
+      const y0 = r * rowH + 12;
+      for (let y = 0; y < c.size * c.zoom; y++) {
+        const sy = Math.floor(y / c.zoom);
+        for (let x = 0; x < c.size * c.zoom; x++) {
+          const sx = Math.floor(x / c.zoom);
+          const from = (sy * c.size + sx) * 4;
+          const to = ((y0 + y) * width + x0 + x) * 4;
+          if (to + 4 <= canvas.length) c.rgba.copy(canvas, to, from, from + 4);
+        }
+      }
+      x0 += colW[ci];
+    });
+  });
+  writeFileSync(out("preview/seams.png"), encodePng(width, height, canvas));
+  console.log(`preview/seams.png  ${width} × ${height}   columns: 200 · 64 (×4) · 32 (×8)`);
+  WIDTHS.forEach((w, i) => console.log(`  row ${i + 1}  seam ${w}`));
+}
+
 if (process.argv[2] === "glyphs") {
   /* The glyphs live in TypeScript beside the rest of the duct code; node 24
    * strips the types, and the hook bridges its need for a full specifier. */

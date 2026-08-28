@@ -12,10 +12,22 @@
  * non-zero they close up; filled with a background colour on top they would be
  * cream slashes across the indigo app icon. Use `MARK_FILL_RULE`. */
 export const MARK_PATH =
-  "M24 0L50 0A50 50 0 0 1 100 50L100 76L76 76L76 50A26 26 0 0 0 50 24L24 24ZM0 0H22V24H0ZM76 78H100V100H76ZM24 0L26 0L50 24L48 24ZM76 76L100 52L100 50L76 74Z";
+  "M0 0L50 0A50 50 0 0 1 100 50L100 100L80 100L80 50A30 30 0 0 0 50 20L0 20ZM26.5 0L30 0L50 20L46.5 20ZM100 73.5L100 70L80 50L80 53.5Z";
 
 /** Pass to `fillRule` / `fill-rule` wherever MARK_PATH is drawn. */
 export const MARK_FILL_RULE = "evenodd" as const;
+
+/** The app-icon tile, for anywhere the mark is drawn on its indigo ground.
+ *
+ * Exported so React surfaces build the same tile the generated PNGs do. The
+ * OG card used to hard-code its own radius and inset and drew a visibly
+ * different tile from every other icon we ship. */
+export const TILE = {
+  /** Corner radius, as a fraction of the tile's side. */
+  radius: 0.3,
+  /** Inset of the mark inside the tile, as a fraction of the side. */
+  inset: 0.25,
+} as const;
 
 /** "DuctForge" outlined, sitting on a baseline at y = 0. */
 export const WORDMARK_PATH =

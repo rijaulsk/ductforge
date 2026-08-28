@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { ImageResponse } from "next/og";
-import { MARK_FILL_RULE, MARK_PATH } from "@/lib/brand/logo";
+import { MARK_FILL_RULE, MARK_PATH, TILE } from "@/lib/brand/logo";
 
 /* The card a shared link unfurls into.
  *
@@ -27,6 +27,8 @@ const CREAM = "#F7F3EB";
 const INDIGO = "#6467F2";
 const INDIGO_600 = "#5251DA";
 const SLATE = "#5E5A53";
+/** Side of the icon tile in the card's masthead. */
+const TILE_PX = 72;
 
 export default async function OpengraphImage() {
   const satoshi = await readFile(join(process.cwd(), "assets/fonts/Satoshi-Bold.ttf"));
@@ -64,22 +66,27 @@ export default async function OpengraphImage() {
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+              {/* The tile is BUILT FROM THE SHARED CONSTANTS, not eyeballed.
+                  Both the radius and the inset used to be hard-coded here and
+                  drew a visibly different tile from every icon we ship — and
+                  the mark inside it had fallen two revisions behind, still
+                  being the radiused elbow the app dropped two marks ago. */}
               <div
                 style={{
-                  width: 64,
-                  height: 64,
+                  width: TILE_PX,
+                  height: TILE_PX,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   background: INDIGO,
-                  borderRadius: 14,
+                  borderRadius: TILE_PX * TILE.radius,
                 }}
               >
-                {/* IMPORTED from the generated data, not pasted. The copy that
-                    was here had fallen two marks behind — it was still the
-                    radiused elbow the app dropped before the square-backed one,
-                    which itself has since been replaced. */}
-                <svg width="40" height="40" viewBox="0 0 100 100">
+                <svg
+                  width={TILE_PX * (1 - TILE.inset * 2)}
+                  height={TILE_PX * (1 - TILE.inset * 2)}
+                  viewBox="0 0 100 100"
+                >
                   <path d={MARK_PATH} fillRule={MARK_FILL_RULE} fill={CREAM} />
                 </svg>
               </div>

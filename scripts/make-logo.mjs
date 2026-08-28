@@ -34,6 +34,7 @@ import {
   MARK_FILL_RULE,
   MARK_PATH,
   TILE_INSET,
+  TILE_RADIUS,
   roundedRect,
 } from "./mark.mjs";
 
@@ -386,7 +387,7 @@ writeFileSync(
   out("public/brand/ductforge-tile.svg"),
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100" role="img" aria-label="DuctForge">
   <title>DuctForge</title>
-  <path d="${roundedRect(100, 22)}" fill="${INDIGO}"/>
+  <path d="${roundedRect(100, TILE_RADIUS * 100)}" fill="${INDIGO}"/>
   <g fill="${CREAM}">${markAt(TILE_INSET, TILE_INSET, 100 - TILE_INSET * 2)}</g>
 </svg>
 `,
@@ -414,6 +415,18 @@ export const MARK_PATH =
 
 /** Pass to \`fillRule\` / \`fill-rule\` wherever MARK_PATH is drawn. */
 export const MARK_FILL_RULE = ${JSON.stringify(MARK_FILL_RULE)} as const;
+
+/** The app-icon tile, for anywhere the mark is drawn on its indigo ground.
+ *
+ * Exported so React surfaces build the same tile the generated PNGs do. The
+ * OG card used to hard-code its own radius and inset and drew a visibly
+ * different tile from every other icon we ship. */
+export const TILE = {
+  /** Corner radius, as a fraction of the tile's side. */
+  radius: ${TILE_RADIUS},
+  /** Inset of the mark inside the tile, as a fraction of the side. */
+  inset: ${TILE_INSET / 100},
+} as const;
 
 /** "DuctForge" outlined, sitting on a baseline at y = 0. */
 export const WORDMARK_PATH =

@@ -21,6 +21,7 @@ import {
   MARK_FILL_RULE,
   MARK_PATH,
   TILE_INSET,
+  TILE_RADIUS,
   insetFor,
   roundedRect,
 } from "./mark.mjs";
@@ -45,7 +46,7 @@ function icon(size, { rounded = true, inset = insetFor(size) } = {}) {
 
   if (rounded) {
     shapes.push({
-      contours: parsePath(roundedRect(size, size * 0.22)),
+      contours: parsePath(roundedRect(size, size * TILE_RADIUS)),
       color: INDIGO,
     });
   } else {
@@ -104,7 +105,7 @@ writeFileSync(
     table. The mark fills EVEN-ODD — its mitre seams are holes, so they show
     the indigo ground through rather than being painted on top of it.
   -->
-  <rect width="100" height="100" rx="22" fill="${INDIGO}" />
+  <rect width="100" height="100" rx="${TILE_RADIUS * 100}" fill="${INDIGO}" />
   <path
     d="${MARK_PATH}"
     fill-rule="${MARK_FILL_RULE}"
