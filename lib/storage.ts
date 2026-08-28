@@ -42,7 +42,7 @@ function drop(key: string): void {
   }
 }
 
-export function loadProjects(): Project[] {
+function loadProjects(): Project[] {
   const raw = read(PROJECTS_KEY);
   if (!raw) return [];
   try {
@@ -63,7 +63,7 @@ export function saveProjects(projects: Project[]): void {
   write(PROJECTS_KEY, JSON.stringify(projects));
 }
 
-export function loadActiveId(): string | null {
+function loadActiveId(): string | null {
   return read(ACTIVE_KEY);
 }
 

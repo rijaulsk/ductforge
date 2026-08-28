@@ -20,7 +20,7 @@
  * Everything this writes is checked in. The build never runs it.
  */
 
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { bounds, encodePng, parsePath, rasterise, transform } from "./raster.mjs";
 
@@ -416,7 +416,6 @@ ${tileMarkup(100)}
 </svg>
 `,
 );
-rmSync(out("public/brand/ductforge-icon.svg"), { force: true });
 
 /* And the same geometry as data, so the app can inline it and let it take the
  * page's own colours instead of shipping two files and swapping them. */
@@ -556,7 +555,6 @@ const rasters = [
   ["public/brand/ductforge-dark-320.png", logoPng(320, WORD_DARK, BYLINE_DARK, null)],
   ["public/brand/ductforge-tile-512.png", tilePng(512)],
 ];
-rmSync(out("public/brand/ductforge-icon-512.png"), { force: true });
 for (const [path, buf] of rasters) {
   writeFileSync(out(path), buf);
   console.log(`wrote           ${path}  ${buf.length} bytes`);

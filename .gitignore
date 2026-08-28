@@ -56,7 +56,6 @@ next-env.d.ts
 # workspace diverges from the marketing site.
 
 # Visual-verification renders — output for a human to look at, not source.
-# Regenerate with scripts/preview.mjs and scripts/mark-candidates.mjs, which
-# ARE tracked: the process of proving a mark works at 16px is worth keeping,
-# the PNGs it emits are not.
+# Regenerate with `node scripts/preview.mjs`, which IS tracked: the process of
+# proving a mark works at 16px is worth keeping, the PNGs it emits are not.
 /preview/

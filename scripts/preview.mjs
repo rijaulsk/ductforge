@@ -28,7 +28,7 @@ const CREAM = "#F7F3EB";
  * rendered. Strokes are expanded to polygons and filled non-zero, which is
  * what a browser does with a stroke.
  */
-export function sheet({ items, box = [44, 28], cell = 240, cols = 3, stroke = 1.5 }) {
+function sheet({ items, box = [44, 28], cell = 240, cols = 3, stroke = 1.5 }) {
   const [bw, bh] = box;
   const scale = cell / bw;
   const cellH = Math.round(bh * scale) + 44;
@@ -48,181 +48,28 @@ export function sheet({ items, box = [44, 28], cell = 240, cols = 3, stroke = 1.
     });
   });
 
-  return { png: encodePng(width, height, rasterise({ width, height, shapes, background: CREAM })), width, height };
-}
-
-/**
- * Blow up a rendered buffer by an integer factor with NO smoothing.
- *
- * A 16px mark shown at 16px on a high-DPI screen is unjudgeable, and a
- * SMOOTHED enlargement hides exactly what you are looking for — a stem gone to
- * one grey pixel, a counter filled in. Nearest-neighbour shows the pixel grid
- * the browser will actually draw.
- */
-function zoomBuffer(rgba, width, height, factor) {
-  const out = Buffer.alloc(width * factor * height * factor * 4);
-  for (let y = 0; y < height * factor; y++) {
-    const sy = Math.floor(y / factor);
-    for (let x = 0; x < width * factor; x++) {
-      const sx = Math.floor(x / factor);
-      rgba.copy(out, (y * width * factor + x) * 4, (sy * width + sx) * 4, (sy * width + sx) * 4 + 4);
-    }
-  }
-  return out;
-}
-
-/** Fill, not stroke — for the logo mark and anything else solid. */
-export function solidSheet({ items, box = [100, 100], cell = 260, cols = 3, zoom = 1 }) {
-  const [bw, bh] = box;
-  const scale = cell / bw;
-  const cellH = Math.round(bh * scale) + 40;
-  const rows = Math.ceil(items.length / cols);
-  const width = cell * cols;
-  const height = cellH * rows;
-
-  const shapes = [];
-  items.forEach((item, i) => {
-    const cx = (i % cols) * cell;
-    const cy = Math.floor(i / cols) * cellH;
-    const inset = cell * 0.12;
-    const s = (cell - inset * 2) / bw;
-    for (const layer of item.layers) {
-      shapes.push({
-        contours: transform(parsePath(layer.d), { sx: s, tx: cx + inset, ty: cy + 20 }),
-        color: layer.color,
-        /* NON-ZERO. A mark built from several overlapping pieces — a band plus
-         * a flange, a tile plus the thing on it — cancels itself out under
-         * even-odd, and the first render of these candidates showed holes
-         * where pieces met rather than the shapes themselves. Holes that are
-         * MEANT to be holes are drawn as a later layer in the ground colour. */
-        rule: layer.rule ?? "nonzero",
-      });
-    }
-  });
-
-  const rgba = rasterise({ width, height, shapes, background: CREAM });
-  if (zoom > 1) {
-    return {
-      png: encodePng(width * zoom, height * zoom, zoomBuffer(rgba, width, height, zoom)),
-      width: width * zoom,
-      height: height * zoom,
-    };
-  }
-  return { png: encodePng(width, height, rgba), width, height };
+  return {
+    png: encodePng(width, height, rasterise({ width, height, shapes, background: CREAM })),
+    width,
+    height,
+  };
 }
 
 mkdirSync(out("preview"), { recursive: true });
 
-if (process.argv[2] === "marks") {
-  const { CANDIDATES } = await import("./mark-candidates.mjs");
-  const INDIGO = "#6467F2";
-  const items = CANDIDATES.map((c) => {
-    const fg = c.ground ? CREAM : INDIGO;
-    const bg = c.ground ? INDIGO : CREAM;
-    return {
-      layers: [
-        { d: c.ground ?? "M0 0H100V100H0Z", color: bg },
-        { d: c.d, color: fg },
-        /* Anything the mark should show THROUGH itself. */
-        ...(c.holes ? [{ d: c.holes, color: bg }] : []),
-      ],
-    };
-  });
-  const { png, width, height } = solidSheet({ items, cols: 3, cell: 240 });
-  writeFileSync(out("preview/marks.png"), png);
-  /* THE SAME MARKS AT FAVICON SIZE. A mark is judged twice — once as artwork
-   * and once as sixteen pixels — and plenty of shapes that look considered at
-   * 240px turn to mud. Rendered small and then blown up with no smoothing, so
-   * what you are looking at is the actual pixel grid. */
-  const small = solidSheet({ items, cols: items.length, cell: 26, zoom: 9 });
-  writeFileSync(out("preview/marks-16.png"), small.png);
-  console.log(`preview/marks-16.png  ${small.width} × ${small.height}  (favicon size)`);
-  console.log(`preview/marks.png  ${width} × ${height}  (${items.length} candidates)`);
-  CANDIDATES.forEach((c, i) => console.log(`  ${i + 1}. ${c.name}`));
-}
+const MODES = {
+  icons: "the app icon at 256/64/32/16, on every ground it lands on",
+  lockup: "the full logo at the sizes the header renders it",
+  joint: "candidate flange-joint widths, side by side",
+  glyphs: "the fitting picker's marks",
+};
 
-/* One mark per ROW, at the three sizes that decide it: artwork, tab, favicon.
- *
- * A shortlist shown at one size is not a shortlist. Every mark on either
- * reference sheet looks considered at 240px; the argument is entirely about
- * what survives at 16, and putting the three next to each other on one line is
- * the only way to have that argument honestly. The small two are magnified
- * with no smoothing, so what you see is the pixel grid.
- */
-if (process.argv[2] === "final") {
-  const { FINALISTS } = await import("./mark-candidates.mjs");
-  const INDIGO = "#6467F2";
-  /* 220 is artwork. 48 is a big app icon. 28 is the in-app header, which is the
-   * size the mark is seen at most and the one nobody checks. 16 is the tab. */
-  const SIZES = [
-    { cell: 220, zoom: 1 },
-    { cell: 48, zoom: 4 },
-    { cell: 28, zoom: 7 },
-    { cell: 18, zoom: 11 },
-  ];
-
-  const layersFor = (c) => {
-    const fg = c.ground ? CREAM : INDIGO;
-    const bg = c.ground ? INDIGO : CREAM;
-    return [
-      { d: c.ground ?? "M0 0H100V100H0Z", color: bg },
-      { d: c.d, color: fg },
-      ...(c.holes ? [{ d: c.holes, color: bg }] : []),
-    ];
-  };
-
-  /* Rendered straight into pixel buffers rather than through solidSheet, which
-   * only knows one cell size per sheet, then composited onto one canvas. */
-  const raw = FINALISTS.map((c) =>
-    SIZES.map(({ cell, zoom }) => {
-      const [bw, bh] = [100, 100];
-      const scale = cell / bw;
-      const cellH = Math.round(bh * scale) + Math.round(cell * 0.15);
-      const inset = cell * 0.12;
-      const s = (cell - inset * 2) / bw;
-      const shapes = layersFor(c).map((layer) => ({
-        contours: transform(parsePath(layer.d), { sx: s, tx: inset, ty: cell * 0.075 }),
-        color: layer.color,
-        rule: "nonzero",
-      }));
-      const rgba = rasterise({ width: cell, height: cellH, shapes, background: CREAM });
-      return { rgba, width: cell, height: cellH, zoom };
-    }),
-  );
-
-  const rowH = Math.max(...raw[0].map((t) => t.height * t.zoom)) + 24;
-  const colW = raw[0].map((t) => t.width * t.zoom + 28);
-  const width = colW.reduce((a, b) => a + b, 0);
-  const height = rowH * FINALISTS.length;
-  const canvas = Buffer.alloc(width * height * 4);
-  for (let i = 0; i < width * height; i++) {
-    canvas[i * 4] = 0xf7;
-    canvas[i * 4 + 1] = 0xf3;
-    canvas[i * 4 + 2] = 0xeb;
-    canvas[i * 4 + 3] = 255;
+if (!MODES[process.argv[2]]) {
+  console.log("usage: node scripts/preview.mjs <mode>\n");
+  for (const [name, what] of Object.entries(MODES)) {
+    console.log(`  ${name.padEnd(8)} ${what}`);
   }
-
-  raw.forEach((row, r) => {
-    let x0 = 14;
-    row.forEach((t, ci) => {
-      const y0 = r * rowH + 12;
-      for (let y = 0; y < t.height * t.zoom; y++) {
-        const sy = Math.floor(y / t.zoom);
-        for (let x = 0; x < t.width * t.zoom; x++) {
-          const sx = Math.floor(x / t.zoom);
-          const from = (sy * t.width + sx) * 4;
-          const to = ((y0 + y) * width + x0 + x) * 4;
-          if (to + 4 <= canvas.length) t.rgba.copy(canvas, to, from, from + 4);
-        }
-      }
-      x0 += colW[ci];
-    });
-  });
-
-  writeFileSync(out("preview/final.png"), encodePng(width, height, canvas));
-  console.log(`preview/final.png  ${width} × ${height}`);
-  console.log("  columns: artwork · 48px (×4) · 16px (×11)");
-  FINALISTS.forEach((c) => console.log(`  ${c.name}`));
+  process.exit(process.argv[2] ? 1 : 0);
 }
 
 /* Every shipped form of the icon, at the sizes it ships at, on every ground it
@@ -323,15 +170,15 @@ if (process.argv[2] === "icons") {
   ROWS.forEach(([name], i) => console.log(`  row ${i + 1}  ${name}`));
 }
 
-/* How wide should a mitre cut be? `node scripts/preview.mjs seams`
+/* How wide should the flange joint be? `node scripts/preview.mjs joint`
  *
  * One row per candidate width, at the sizes the icon is actually seen at. This
- * exists because the number has now been wrong in both directions by reasoning
- * about it — too wide and the cuts sever the duct into floating pieces, too
- * narrow and they are invisible below poster size — and both times the mistake
- * was obvious within a second of looking at a rendered sheet.
+ * exists because the number has been wrong in both directions three times by
+ * being reasoned about — too wide and the gaps sever the duct into floating
+ * pieces, too narrow and they are invisible below poster size — and every time
+ * the mistake was obvious within a second of looking at a rendered sheet.
  */
-if (process.argv[2] === "seams") {
+if (process.argv[2] === "joint") {
   const { CREAM: MC, INDIGO: MI, TILE_RADIUS, elbow, insetFor, roundedRect } = await import(
     "./mark.mjs"
   );
@@ -391,9 +238,9 @@ if (process.argv[2] === "seams") {
       x0 += colW[ci];
     });
   });
-  writeFileSync(out("preview/seams.png"), encodePng(width, height, canvas));
-  console.log(`preview/seams.png  ${width} × ${height}   columns: 200 · 64 (×4) · 32 (×8)`);
-  WIDTHS.forEach((w, i) => console.log(`  row ${i + 1}  seam ${w}`));
+  writeFileSync(out("preview/joint.png"), encodePng(width, height, canvas));
+  console.log(`preview/joint.png  ${width} × ${height}   columns: 192 · 64 (×3) · 32 (×6)`);
+  WIDTHS.forEach((w, i) => console.log(`  row ${i + 1}  joint ${w}`));
 }
 
 /* Node 24 strips types, but its resolver still wants a full specifier. One

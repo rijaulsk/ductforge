@@ -1,7 +1,7 @@
 # CLAUDE.md — DuctForge
 
 An HVAC ductwork takeoff and surface-area calculator: duct area, sheet weight, SMACNA gauge and a
-BOM schedule for **nine fittings** — six rectangular, three round — to either the **commercial
+BOM schedule for **ten fittings** — six rectangular, three round, one square-to-round — to either the **commercial
 billing** standard or the **true shop flat pattern**, in metric or imperial. Also counts
 insulation, flange ends and hangers, groups by zone, and prices at the estimator's own rates.
 Next.js App Router + TypeScript + Tailwind v4. Built on the DebugSwift design system.
@@ -45,10 +45,11 @@ Decided 24 August 2026 with the owner. Recorded here because a future session wi
 ### 1. The numbers
 
 `lib/duct/` is framework-free and is the only place arithmetic happens. `npm run check:duct`
-runs 399 assertions over it and **must pass before any commit that touches it**: an independent
-second transcription of all eighteen formulas fuzzed against the engine, hand-computed anchors,
+runs 909 assertions over it and **must pass before any commit that touches it**: an independent
+second transcription of all twenty formulas fuzzed against the engine, hand-computed anchors,
 the gauge band edges in both unit systems, the published density table reproduced from
-thickness alone, and the rounding rule below.
+thickness alone, the rounding rule below, and a guard that every working line claiming `=`
+multiplies out to the value printed beside it.
 
 Non-obvious things it pins, which are properties rather than bugs — do not "fix" them:
 
@@ -80,7 +81,7 @@ only. No formula branches on unit system; a duplicated formula is a formula that
 `lib/draw/` builds a scene in millimetres and projects it into a fixed 1000 × 640 viewBox.
 `npm run check:draw` asserts the property that actually fails in practice: a NaN in a
 coordinate makes SVG discard the whole path silently, and the viewer renders an empty box with
-no error anywhere. 2825 assertions across nine fittings × three views × both unit systems, plus
+no error anywhere. 4902 assertions across ten fittings × three views × both unit systems, plus
 twenty-six degenerate geometries — including a cone with no taper, which divides by zero unless
 the degenerate branch catches it.
 

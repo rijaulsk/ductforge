@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100" role="img" aria-label="DuctForge">
   <title>DuctForge</title>
   <path d="M24 0L76 0A24 24 0 0 1 100 24L100 76A24 24 0 0 1 76 100L24 100A24 24 0 0 1 0 76L0 24A24 24 0 0 1 24 0Z" fill="#6467F2"/>
-  <path d="M37.5 0L52 0A48 48 0 0 1 100 48L100 95A5 5 0 0 1 95 100L75 100A5 5 0 0 1 70 95L70 48A18 18 0 0 0 52 30L37.5 30A5 5 0 0 1 32.5 25L32.5 5A5 5 0 0 1 37.5 0ZM5 0L23 0A5 5 0 0 1 28 5L28 25A5 5 0 0 1 23 30L5 30A5 5 0 0 1 0 25L0 5A5 5 0 0 1 5 0Z" fill="#F7F3EB" fill-rule="evenodd" transform="translate(21.000 21.000) scale(0.58000)"/>
+  <path d="M37.5 0L52 0A48 48 0 0 1 100 48L100 62.5A5 5 0 0 1 95 67.5L75 67.5A5 5 0 0 1 70 62.5L70 48A18 18 0 0 0 52 30L37.5 30A5 5 0 0 1 32.5 25L32.5 5A5 5 0 0 1 37.5 0ZM5 0L23 0A5 5 0 0 1 28 5L28 25A5 5 0 0 1 23 30L5 30A5 5 0 0 1 0 25L0 5A5 5 0 0 1 5 0ZM75 72L95 72A5 5 0 0 1 100 77L100 95A5 5 0 0 1 95 100L75 100A5 5 0 0 1 70 95L70 77A5 5 0 0 1 75 72Z" fill="#F7F3EB" fill-rule="evenodd" transform="translate(21.000 21.000) scale(0.58000)"/>
 </svg>

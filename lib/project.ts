@@ -64,18 +64,6 @@ export function blankProject(name = "Untitled takeoff"): Project {
   };
 }
 
-export function newEntry(kind: FittingKind, waste: number, zone = ""): Entry {
-  return {
-    id: newId(),
-    fitting: { ...SPECS[kind].defaults },
-    qty: 1,
-    waste,
-    gauge: null,
-    zone,
-    note: "",
-  };
-}
-
 /* ---- validation --------------------------------------------------------- */
 
 const isObject = (v: unknown): v is Record<string, unknown> =>

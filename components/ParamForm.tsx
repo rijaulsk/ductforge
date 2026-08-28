@@ -3,7 +3,7 @@
 import { useId } from "react";
 import { GAUGE_BANDS } from "@/lib/duct/gauge";
 import { SPECS } from "@/lib/duct/formulas";
-import type { FieldKey, FittingKind, GaugeName } from "@/lib/duct/types";
+import type { FieldKey, GaugeName } from "@/lib/duct/types";
 import { type UnitSystem, lengthUnit } from "@/lib/duct/units";
 import { WASTE_PRESETS } from "@/lib/duct/waste";
 import { type Draft, setField } from "@/lib/draft";
@@ -259,6 +259,3 @@ export default function ParamForm({
   );
 }
 
-export function fittingName(kind: FittingKind): string {
-  return SPECS[kind].name;
-}

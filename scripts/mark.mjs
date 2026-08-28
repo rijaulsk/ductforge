@@ -5,35 +5,35 @@
  * a stroked path and the logo was a filled band, and at a glance they were two
  * different symbols.
  *
- * A DUCT ELBOW WITH ONE FLANGE JOINT. Owner's direction, 28 August 2026, from
- * the fourth reference sheet (logo4). Level in from the left, then down —
- * never the mirror of that, which runs up-then-right and is the skeleton of a
- * lowercase r; two earlier marks and one rejected reference sheet were exactly
- * that.
+ * A FLANGED DUCT ELBOW: a bend with a delivered section standing off a joint
+ * at each end. Owner's direction, 28 August 2026, from the fourth reference
+ * sheet (logo4) plus a second joint at the foot, approved from a rendered
+ * proposal.
  *
- * THE MARK IS NEVER SHOWN WITHOUT ITS TILE. Owner's rule, same day. There is no
- * "bare mark" asset any more and there should not be one: the elbow alone is a
- * shape, the elbow in its rounded indigo square is the logo. Everywhere the
- * identity appears — the app header, the favicon, the app icon, the OG card,
- * the printed sheet — it is the tile. See `tileSvg` in make-logo.mjs and the
- * TILE constant that reaches the React side.
+ * THREE RULES, ALL THE OWNER'S, ALL LOAD-BEARING.
  *
- * WHAT CHANGED FROM THE PREVIOUS MARK, and why.
+ *   IT RUNS LEVEL IN AND DROPS.  Never the mirror of that. Up-then-right is
+ *   the skeleton of a lowercase r, and two earlier marks and one rejected
+ *   reference sheet were exactly that before anybody noticed.
  *
- *   ONE CUT, NOT TWO, AND IT IS SQUARE.  Two 45° mitre seams were a drawing of
- *   a fabrication detail; this is the joint itself. A duct run is delivered in
- *   sections that bolt together at flanged ends, and the gap between two of
- *   them is a straight line across the duct, not a diagonal. One joint, drawn
- *   properly, says more than two seams drawn faintly.
+ *   IT IS NEVER SHOWN WITHOUT ITS TILE.  There is no bare-mark asset and
+ *   there should not be one: the elbow alone is a shape, the elbow in its
+ *   rounded indigo square is the logo. Everywhere the identity appears — app
+ *   header, favicon, app icon, OG card, printed sheet — it is the tile.
  *
- *   ROUNDED CORNERS.  Every square end takes the same small radius. The
- *   previous mark was all hard corners inside a soft tile and the two argued;
- *   sharing a radius language is what makes the mark sit in the square rather
- *   than on it.
+ *   THE JOINTS ARE SQUARE, NOT DIAGONAL.  An earlier version drew two 45°
+ *   mitre seams, which is a picture of a fabrication detail. This is the joint
+ *   itself: duct is delivered in sections that bolt together at flanged ends,
+ *   and the gap between two of them is a straight line across the duct.
  *
- *   A THICKER BAND.  30 against the old 20. The mark is read at 24px in the
- *   app header more often than at any other size, and a thin channel with a
- *   gap in it is the first thing to break there.
+ * ONE AT EACH END, because that is what a duct section is. The version that
+ * shipped for a day had a flange on the inlet and a plain cut at the foot — a
+ * piece that connects at one end only. The two are exact mirror images about
+ * the shape's own axis of symmetry, which falls out of the geometry rather
+ * than being eyeballed; see `endY` below.
+ *
+ * Every square end takes the same small radius, so the mark shares a language
+ * with its tile instead of sitting hard-cornered inside a soft square.
  *
  * Everything is in a 100 × 100 box, filled corner to corner, so it places at
  * any size.
@@ -43,17 +43,15 @@
 
 /** Wall-to-wall width of the duct. */
 export const BAND = 30;
-/** Outer radius of the bend. */
+/** Outer radius of the bend. The throat's follows: R_OUTER − BAND. */
 export const R_OUTER = 48;
-/** Radius of the inside (throat) sweep. */
-export const R_INNER = R_OUTER - BAND;
-/** Length of the detached end section, along the run. */
+/** Length of a delivered section, along the run. */
 export const PIECE = 28;
 /* The flange joint: the gap between that section and the rest of the run.
  *
  * This number has been wrong three times by being reasoned about, so it is
  * chosen by rendering five widths at three sizes and looking — `node
- * scripts/preview.mjs seams`. logo4's own gap is nearer 3.5, but the standing
+ * scripts/preview.mjs joint`. logo4's own gap is nearer 3.5, but the standing
  * complaint about every version of this mark has been that the detail cannot
  * be seen; 4.5 is legible at 32px and still reads as a joint rather than two
  * separate objects. */
@@ -71,7 +69,7 @@ export const NIB = 5;
  * everywhere — it costs nothing and it keeps the contract if a hole ever comes
  * back — but nothing depends on it now.
  *
- * A factory rather than a constant so `scripts/preview.mjs seams` can render
+ * A factory rather than a constant so `scripts/preview.mjs joint` can render
  * several joint widths side by side and the choice can be made by looking.
  * That is how the last two widths were found to be wrong.
  */
@@ -82,16 +80,20 @@ export function elbow({ band = BAND, joint = JOINT, piece = PIECE, nib = NIB } =
    * meets the inner edge. Both follow from the radii; neither is a choice. */
   const arcX = 100 - rOuter;
   const cut = piece + joint;
+  /* The run stops short at the foot by the same piece-plus-gap the inlet gives
+   * up, which is what makes the two ends exact mirror images about the shape's
+   * own axis of symmetry (y = 100 − x). Not eyeballed — it falls out. */
+  const endY = 100 - cut;
 
   /* Clockwise from the cut end's top corner, so every convex turn is sweep 1. */
   const body = [
     `M${cut + nib} 0`,
     `L${arcX} 0`,
     `A${rOuter} ${rOuter} 0 0 1 100 ${rOuter}`,
-    `L100 ${100 - nib}`,
-    `A${nib} ${nib} 0 0 1 ${100 - nib} 100`,
-    `L${100 - band + nib} 100`,
-    `A${nib} ${nib} 0 0 1 ${100 - band} ${100 - nib}`,
+    `L100 ${endY - nib}`,
+    `A${nib} ${nib} 0 0 1 ${100 - nib} ${endY}`,
+    `L${100 - band + nib} ${endY}`,
+    `A${nib} ${nib} 0 0 1 ${100 - band} ${endY - nib}`,
     `L${100 - band} ${rOuter}`,
     `A${rInner} ${rInner} 0 0 0 ${arcX} ${band}`,
     `L${cut + nib} ${band}`,
@@ -101,33 +103,42 @@ export function elbow({ band = BAND, joint = JOINT, piece = PIECE, nib = NIB } =
     "Z",
   ].join("");
 
-  /* The delivered section on the other side of the joint: a rounded square of
-   * the duct's own cross-section. */
-  const end = [
-    `M${nib} 0`,
-    `L${piece - nib} 0`,
-    `A${nib} ${nib} 0 0 1 ${piece} ${nib}`,
-    `L${piece} ${band - nib}`,
-    `A${nib} ${nib} 0 0 1 ${piece - nib} ${band}`,
-    `L${nib} ${band}`,
-    `A${nib} ${nib} 0 0 1 0 ${band - nib}`,
-    `L0 ${nib}`,
-    `A${nib} ${nib} 0 0 1 ${nib} 0`,
-    "Z",
-  ].join("");
+  /** A rounded rectangle, clockwise. Both delivered sections are one. */
+  const plate = (x, y, w, h) =>
+    [
+      `M${x + nib} ${y}`,
+      `L${x + w - nib} ${y}`,
+      `A${nib} ${nib} 0 0 1 ${x + w} ${y + nib}`,
+      `L${x + w} ${y + h - nib}`,
+      `A${nib} ${nib} 0 0 1 ${x + w - nib} ${y + h}`,
+      `L${x + nib} ${y + h}`,
+      `A${nib} ${nib} 0 0 1 ${x} ${y + h - nib}`,
+      `L${x} ${y + nib}`,
+      `A${nib} ${nib} 0 0 1 ${x + nib} ${y}`,
+      "Z",
+    ].join("");
 
-  return { body, end, path: body + end };
+  /* The delivered sections on the other side of each joint: a rounded
+   * rectangle of the duct's own cross-section. The inlet's lies along the run,
+   * the foot's is the same rectangle turned, so both read as one piece of duct
+   * standing off a flange rather than as two different objects. */
+  const end = plate(0, 0, piece, band);
+  const foot = plate(100 - band, 100 - piece, band, piece);
+
+  return { body, end, foot, path: body + end + foot };
 }
 
-const MARK = elbow();
+/** The mark: the bend and both delivered sections, as one path. */
+export const MARK_PATH = elbow().path;
 
-/** The elbow without its detached end section. */
-export const MARK_BODY = MARK.body;
-/** That section alone. */
-export const MARK_END = MARK.end;
-export const MARK_PATH = MARK.path;
-
-/** Fill rule MARK_PATH is drawn with. See `elbow` — belt and braces now. */
+/**
+ * Fill rule MARK_PATH is drawn with.
+ *
+ * The three subpaths are disjoint, so either rule renders this mark correctly
+ * — an earlier version cut its joints as HOLES and genuinely depended on
+ * even-odd. Kept and still passed everywhere because it costs nothing and it
+ * keeps the contract if a hole ever comes back.
+ */
 export const MARK_FILL_RULE = "evenodd";
 
 /**

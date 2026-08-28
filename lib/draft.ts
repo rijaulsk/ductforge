@@ -46,7 +46,7 @@ export type Draft = {
  * rendering of the millimetres behind it, not a rounded stand-in. */
 const BOX_DECIMALS: Record<UnitSystem, number> = { metric: 3, imperial: 6 };
 
-export function toInputValue(mm: number, us: UnitSystem): string {
+function toInputValue(mm: number, us: UnitSystem): string {
   return fmtExact(fromMm(mm, us), BOX_DECIMALS[us], false);
 }
 

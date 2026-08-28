@@ -8,7 +8,7 @@
  *
  * So this asserts the properties a drawing must have to exist at all — every
  * coordinate finite, every view non-empty, the geometry inside its own viewBox,
- * every dimension labelled — across all six fittings, all three views, both
+ * every dimension labelled — across all ten fittings, all three views, both
  * unit systems, and a set of degenerate inputs (zero angle, zero offset, equal
  * ends) that have no business crashing the viewer.
  *

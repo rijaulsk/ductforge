@@ -73,21 +73,15 @@ export function bandFor(gauge: GaugeName): GaugeBand {
   return band ?? GAUGE_BANDS[GAUGE_BANDS.length - 1];
 }
 
-/** Decimals the published density tables carry — and therefore the precision
- * this app both prints AND calculates at, so that a weight can be re-derived
- * by hand from the two figures on screen and come out the same. */
-export function densityDecimals(us: UnitSystem): number {
-  return us === "metric" ? 2 : 3;
-}
-
 /** Exact sheet mass per unit area before rounding, kg/m². */
 export function densityKgM2Exact(thicknessMm: number, mat: MaterialKey = "gi"): number {
   return (thicknessMm / 1000) * material(mat).density;
 }
 
 /** The published metric figure: exact density rounded to 2 dp. At 7850 kg/m³,
- * 0.55 mm gives 4.3175, which is the table's 4.32. */
-export function densityKgM2(thicknessMm: number, mat: MaterialKey = "gi"): number {
+ * 0.55 mm gives 4.3175, which is the table's 4.32. Internal — callers want
+ * `densityDisplay`, which knows about unit systems. */
+function densityKgM2(thicknessMm: number, mat: MaterialKey = "gi"): number {
   return Number(densityKgM2Exact(thicknessMm, mat).toFixed(2));
 }
 

@@ -40,10 +40,6 @@ export function areaUnit(us: UnitSystem): string {
   return us === "metric" ? "m²" : "ft²";
 }
 
-export function squareLengthUnit(us: UnitSystem): string {
-  return us === "metric" ? "mm²" : "in²";
-}
-
 export function massUnit(us: UnitSystem): string {
   return us === "metric" ? "kg" : "lb";
 }
@@ -86,11 +82,6 @@ export function squareLengthFromMm2(mm2: number, us: UnitSystem): number {
 /** kg/m² → the user's density unit. 1 kg/m² = 0.204816 lb/ft² exactly. */
 export function densityFromKgM2(kgm2: number, us: UnitSystem): number {
   return us === "metric" ? kgm2 : (kgm2 * MM2_PER_FT2) / (MM2_PER_M2 * KG_PER_LB);
-}
-
-/** kg → the user's mass unit. */
-export function massFromKg(kg: number, us: UnitSystem): number {
-  return us === "metric" ? kg : kg / KG_PER_LB;
 }
 
 /* ---- integer minor units --------------------------------------------- */
