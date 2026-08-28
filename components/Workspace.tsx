@@ -2,10 +2,10 @@
 
 import { Plus, RotateCcw } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useState } from "react";
 import type { ViewKind } from "@/lib/draw";
 import { computeFor, computeTotals } from "@/lib/duct/compute";
-import { RECTANGULAR_KINDS, ROUND_KINDS, SPECS } from "@/lib/duct/formulas";
+import { SPECS } from "@/lib/duct/formulas";
 import { toQty, toWaste } from "@/lib/duct/parse";
 import type { Entry, FittingKind, Project } from "@/lib/duct/types";
 import { type Draft, convertDraft, draftFromEntry, fittingFromDraft, newDraft } from "@/lib/draft";
@@ -16,7 +16,7 @@ import { blankProject, fromProjectFile, newId, toProjectFile } from "@/lib/proje
 import { clearAll, initialState, saveActiveId, saveProjects } from "@/lib/storage";
 import BoqSheet from "./BoqSheet";
 import ChartsPanel from "./ChartsPanel";
-import FittingGlyph from "./FittingGlyph";
+import FittingPicker from "./FittingPicker";
 import ParamForm from "./ParamForm";
 import ProjectBar from "./ProjectBar";
 import ProjectSettings from "./ProjectSettings";
@@ -41,21 +41,7 @@ import { Button, Card, Eyebrow, Note, PanelHeading } from "./ui";
 
 type Notice = { tone: "info" | "error"; text: string } | null;
 
-/**
- * A picker row: the catalogue name plus the commonest other one.
- *
- * A select is scanned, not read, and "Transition" on its own is invisible to
- * everyone who calls the thing a reducer — which is most of the trade. Only the
- * FIRST alias goes here; a dropdown row is not the place for three, and the
- * full list is under the heading once a fitting is chosen.
- */
-const pickerLabel = (kind: FittingKind) => {
-  const spec = SPECS[kind];
-  return spec.aka.length ? `${spec.name} (${spec.aka[0]})` : spec.name;
-};
-
 export default function Workspace() {
-  const uid = useId();
   const [hydrated, setHydrated] = useState(false);
 
   /* THE WORKSPACE RENDERS IMMEDIATELY, EMPTY, AND FILLS IN.
@@ -310,40 +296,13 @@ export default function Workspace() {
               * scrolling back down. A grouped select is one tap, names the
               * thing, and costs one line. The glyph moves next to the heading,
               * where it still confirms what you picked. */}
-            <div className="flex items-end gap-3">
-              <div className="min-w-0 flex-1">
-                <label htmlFor={`${uid}-kind`} className="block">
-                  <Eyebrow>Step one</Eyebrow>
-                  <span className="mt-2 block text-h3 font-bold text-heading">Fitting</span>
-                </label>
-                <select
-                  id={`${uid}-kind`}
-                  value={draft.kind}
-                  onChange={(e) => pickKind(e.target.value as FittingKind)}
-                  className="mt-3 w-full rounded-card border-[1.5px] border-line bg-page px-4 py-3 font-medium text-heading"
-                >
-                  <optgroup label="Rectangular">
-                    {RECTANGULAR_KINDS.map((kind) => (
-                      <option key={kind} value={kind}>
-                        {pickerLabel(kind)}
-                      </option>
-                    ))}
-                  </optgroup>
-                  <optgroup label="Round and spiral">
-                    {ROUND_KINDS.map((kind) => (
-                      <option key={kind} value={kind}>
-                        {pickerLabel(kind)}
-                      </option>
-                    ))}
-                  </optgroup>
-                </select>
-              </div>
-              <span
-                aria-hidden="true"
-                className="mb-1 flex h-[3.25rem] w-16 shrink-0 items-center justify-center rounded-card border-[1.5px] border-rule text-accent"
-              >
-                <FittingGlyph kind={draft.kind} />
-              </span>
+            {/* Our own listbox, not a `<select>`: the native list picked its
+              * own side and picked upward when the control sat low, and it had
+              * no room for the glyph or the alias. See FittingPicker. */}
+            <div>
+              <Eyebrow>Step one</Eyebrow>
+              <p className="mb-3 mt-2 text-h3 font-bold text-heading">Fitting</p>
+              <FittingPicker value={draft.kind} onChange={pickKind} />
             </div>
 
             <div className="mt-7 border-t-[1.5px] border-rule pt-7">
