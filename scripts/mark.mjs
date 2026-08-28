@@ -1,147 +1,145 @@
 /* The DuctForge mark, defined once.
  *
  * Both generators import it — the logo lockup and the favicon set — so the tab
- * icon and the wordmark's mark cannot drift apart. They did once: the favicon
- * was a stroked path and the logo was a filled band, and at a glance they were
- * two different symbols.
+ * icon and the lockup's mark cannot drift apart. They did once: the favicon was
+ * a stroked path and the logo was a filled band, and at a glance they were two
+ * different symbols.
  *
- * A DUCT ELBOW WITH TWO MITRE CUTS. Owner's direction, 28 August 2026, third
- * reference sheet (logo3). Level in from the left, then down — never the
- * mirror of that, which runs up-then-right and is the skeleton of a lowercase
- * r; two earlier marks and one rejected reference sheet were exactly that.
+ * A DUCT ELBOW WITH ONE FLANGE JOINT. Owner's direction, 28 August 2026, from
+ * the fourth reference sheet (logo4). Level in from the left, then down —
+ * never the mirror of that, which runs up-then-right and is the skeleton of a
+ * lowercase r; two earlier marks and one rejected reference sheet were exactly
+ * that.
  *
- * WHAT CHANGED, AND WHY THE PREVIOUS ONE WAS WRONG.
+ * THE MARK IS NEVER SHOWN WITHOUT ITS TILE. Owner's rule, same day. There is no
+ * "bare mark" asset any more and there should not be one: the elbow alone is a
+ * shape, the elbow in its rounded indigo square is the logo. Everywhere the
+ * identity appears — the app header, the favicon, the app icon, the OG card,
+ * the printed sheet — it is the tile. See `tileSvg` in make-logo.mjs and the
+ * TILE constant that reaches the React side.
  *
- * It carried flange plates as well as the seams. Four separate gaps in a shape
- * this small: the eye read fragments, not a fitting, and every one of the four
- * had to be a hairline to stop the mark falling apart — at which point none of
- * them was visible at any size anybody actually sees the icon. Two details
- * fighting for the same small space and both losing.
+ * WHAT CHANGED FROM THE PREVIOUS MARK, and why.
  *
- * So: one detail, stated properly. The plates are gone, the silhouette is the
- * clean bend of the reference, and the two cuts get the room they need to be
- * seen. Subtraction, which is the usual answer when a small mark is busy.
+ *   ONE CUT, NOT TWO, AND IT IS SQUARE.  Two 45° mitre seams were a drawing of
+ *   a fabrication detail; this is the joint itself. A duct run is delivered in
+ *   sections that bolt together at flanged ends, and the gap between two of
+ *   them is a straight line across the duct, not a diagonal. One joint, drawn
+ *   properly, says more than two seams drawn faintly.
  *
- * WHERE THE CUTS SIT is not a look, it is a fact about the object. Each one
- * lands exactly on the tangent point where the straight leg meets the bend —
- * where a fabricated elbow's straight sections are joined to it. That also
- * makes them mirror images of each other about the shape's own axis of
- * symmetry (the anti-diagonal), so the mark stays balanced.
+ *   ROUNDED CORNERS.  Every square end takes the same small radius. The
+ *   previous mark was all hard corners inside a soft tile and the two argued;
+ *   sharing a radius language is what makes the mark sit in the square rather
+ *   than on it.
  *
- * THE CUTS ARE HOLES, NOT PAINT. They are subpaths of MARK_PATH and the whole
- * thing fills EVEN-ODD, so a cut shows whatever is behind the mark. Drawing
- * them as background-coloured strokes on top would look right on cream and
- * wrong everywhere else — cream slashes across the indigo app icon — which is
- * exactly the failure this construction exists to make impossible. Any
- * consumer that fills this path MUST use `MARK_FILL_RULE`.
+ *   A THICKER BAND.  30 against the old 20. The mark is read at 24px in the
+ *   app header more often than at any other size, and a thin channel with a
+ *   gap in it is the first thing to break there.
  *
  * Everything is in a 100 × 100 box, filled corner to corner, so it places at
  * any size.
  */
 
-/* PROPORTIONS, measured off logo3 rather than invented.
- *
- * BAND at 20 is the reference's: a channel, not a pipe. The previous mark ran
- * 24 with plates on the end and read heavy and busy.
- *
- * SEAM is the number this revision exists to get right, and it has been wrong
- * in both directions: at 4 against a band of 24, with four gaps in the shape,
- * the cuts severed the duct into floating pieces; the correction to 2 made
- * them invisible at every size below a poster. Chosen this time by rendering
- * five widths at three sizes and looking — `node scripts/preview.mjs seams`.
- *
- * 3.5 against a band of 20 is visible on a phone home screen, which is the
- * size that decides it, and still reads as a cut rather than a break. Dropping
- * the flange plates is what bought the room: two details in a shape this small
- * meant both had to be hairlines, and a detail nobody can see is not a detail.
- */
+/* PROPORTIONS, measured off logo4 rather than invented. */
 
 /** Wall-to-wall width of the duct. */
-export const BAND = 20;
-/** Width of a mitre cut, measured along the run. */
-export const SEAM = 3.5;
-
-const R_OUTER = 50;
+export const BAND = 30;
+/** Outer radius of the bend. */
+export const R_OUTER = 48;
 /** Radius of the inside (throat) sweep. */
 export const R_INNER = R_OUTER - BAND;
+/** Length of the detached end section, along the run. */
+export const PIECE = 28;
+/* The flange joint: the gap between that section and the rest of the run.
+ *
+ * This number has been wrong three times by being reasoned about, so it is
+ * chosen by rendering five widths at three sizes and looking — `node
+ * scripts/preview.mjs seams`. logo4's own gap is nearer 3.5, but the standing
+ * complaint about every version of this mark has been that the detail cannot
+ * be seen; 4.5 is legible at 32px and still reads as a joint rather than two
+ * separate objects. */
+export const JOINT = 4.5;
+/** Corner radius on every square end. */
+export const NIB = 5;
 
 /**
- * The elbow, its two cuts, and the two as one even-odd path.
+ * The elbow and its detached end section.
  *
- * A factory rather than three constants so `scripts/preview.mjs seams` can
- * render several widths side by side and the choice can be made by looking.
- * That is how both previous seam widths were found to be wrong.
+ * TWO DISJOINT SUBPATHS, which is worth stating because the previous mark's
+ * cuts were HOLES and needed even-odd to show the ground through them. This
+ * gap is simply the space between two closed shapes, so it renders correctly
+ * under either fill rule. `MARK_FILL_RULE` is still exported and still passed
+ * everywhere — it costs nothing and it keeps the contract if a hole ever comes
+ * back — but nothing depends on it now.
+ *
+ * A factory rather than a constant so `scripts/preview.mjs seams` can render
+ * several joint widths side by side and the choice can be made by looking.
+ * That is how the last two widths were found to be wrong.
  */
-export function elbow({ band = BAND, seam = SEAM } = {}) {
-  const rOuter = 50;
+export function elbow({ band = BAND, joint = JOINT, piece = PIECE, nib = NIB } = {}) {
+  const rOuter = R_OUTER;
   const rInner = rOuter - band;
+  /* Where the bend's outer arc leaves the top edge, and where its inner arc
+   * meets the inner edge. Both follow from the radii; neither is a choice. */
+  const arcX = 100 - rOuter;
+  const cut = piece + joint;
 
+  /* Clockwise from the cut end's top corner, so every convex turn is sweep 1. */
   const body = [
-    /* Level in along the top, round the outside, down the right. */
-    `M0 0`,
-    `L50 0`,
-    `A${rOuter} ${rOuter} 0 0 1 100 50`,
-    `L100 100`,
-    `L${100 - band} 100`,
-    `L${100 - band} 50`,
-    `A${rInner} ${rInner} 0 0 0 50 ${band}`,
-    `L0 ${band}`,
+    `M${cut + nib} 0`,
+    `L${arcX} 0`,
+    `A${rOuter} ${rOuter} 0 0 1 100 ${rOuter}`,
+    `L100 ${100 - nib}`,
+    `A${nib} ${nib} 0 0 1 ${100 - nib} 100`,
+    `L${100 - band + nib} 100`,
+    `A${nib} ${nib} 0 0 1 ${100 - band} ${100 - nib}`,
+    `L${100 - band} ${rOuter}`,
+    `A${rInner} ${rInner} 0 0 0 ${arcX} ${band}`,
+    `L${cut + nib} ${band}`,
+    `A${nib} ${nib} 0 0 1 ${cut} ${band - nib}`,
+    `L${cut} ${nib}`,
+    `A${nib} ${nib} 0 0 1 ${cut + nib} 0`,
     "Z",
   ].join("");
 
-  /* Each cut is the parallelogram between two parallel 45° lines, offset ALONG
-   * the run rather than perpendicular to it. A perpendicular strip's corners
-   * stick out past the band's edges, and under even-odd anything sticking out
-   * stops being a hole and becomes a floating shard. Offsetting along the run
-   * keeps all four corners on the band's own edges.
-   *
-   * The leading edge runs from (50 − band, 0) to (50, band): its lower corner
-   * is precisely where the inner arc begins. */
-  const cuts = [
-    `M${50 - band - seam} 0`,
-    `L${50 - band} 0`,
-    `L50 ${band}`,
-    `L${50 - seam} ${band}`,
-    "Z",
-    /* The same cut reflected about y = 100 − x, the shape's own symmetry. */
-    `M100 ${50 + band + seam}`,
-    `L100 ${50 + band}`,
-    `L${100 - band} 50`,
-    `L${100 - band} ${50 + seam}`,
+  /* The delivered section on the other side of the joint: a rounded square of
+   * the duct's own cross-section. */
+  const end = [
+    `M${nib} 0`,
+    `L${piece - nib} 0`,
+    `A${nib} ${nib} 0 0 1 ${piece} ${nib}`,
+    `L${piece} ${band - nib}`,
+    `A${nib} ${nib} 0 0 1 ${piece - nib} ${band}`,
+    `L${nib} ${band}`,
+    `A${nib} ${nib} 0 0 1 0 ${band - nib}`,
+    `L0 ${nib}`,
+    `A${nib} ${nib} 0 0 1 ${nib} 0`,
     "Z",
   ].join("");
 
-  return { body, cuts, path: body + cuts };
+  return { body, end, path: body + end };
 }
 
 const MARK = elbow();
 
-/** The elbow with no cuts — the silhouette, for anywhere detail is pointless. */
+/** The elbow without its detached end section. */
 export const MARK_BODY = MARK.body;
-/** The two mitre cuts alone. */
-export const MARK_SEAMS = MARK.cuts;
+/** That section alone. */
+export const MARK_END = MARK.end;
 export const MARK_PATH = MARK.path;
 
-/** Fill rule MARK_PATH must be drawn with, or the cuts fill in. */
+/** Fill rule MARK_PATH is drawn with. See `elbow` — belt and braces now. */
 export const MARK_FILL_RULE = "evenodd";
 
 /**
  * Corner radius of the icon tile, as a fraction of its side.
  *
- * 0.30, up from 0.22, off logo3 — a soft squircle rather than a rounded
- * rectangle. With a mark this light inside it, a tighter corner made the tile
- * read as the dominant object and the duct as something printed on it.
+ * Off logo4. Reads rounder than the number suggests because the mark inside
+ * shares the radius language rather than fighting it.
  */
-export const TILE_RADIUS = 0.3;
+export const TILE_RADIUS = 0.24;
 
-/**
- * How far the mark is inset when it sits on a tile, in the same 100 units.
- *
- * A quarter of the tile, off logo3, and much more air than the previous mark
- * was given. A small mark in a generous field reads as considered; the same
- * mark pushed out to the edges reads as a screenshot of something bigger.
- */
-export const TILE_INSET = 25;
+/** How far the mark is inset inside the tile, in the same 100 units. */
+export const TILE_INSET = 21;
 
 /**
  * The inset to use at a given pixel size, as a fraction.
@@ -156,7 +154,7 @@ export const TILE_INSET = 25;
  * renders what actually ships. A verification sheet that quietly uses
  * different numbers from the build is worse than no verification sheet.
  */
-export const insetFor = (size) => (size <= 48 ? 0.08 : TILE_INSET / 100);
+export const insetFor = (size) => (size <= 48 ? 0.1 : TILE_INSET / 100);
 
 /** A rounded square, for the icon's ground. */
 export function roundedRect(size, radius) {
@@ -176,6 +174,18 @@ export function roundedRect(size, radius) {
   ].join("");
 }
 
+/* Every value below is `--ds-*` from app/globals.css, so the standalone files
+ * and the in-app inline SVG render the same logo rather than two near-misses.
+ *
+ * The TILE is fixed in both themes — an app icon does not restyle itself — and
+ * only the type follows the theme. Wordmark takes `--ds-accent` (indigo 600 /
+ * indigo 400) rather than the tile's indigo 500, because that is the tone the
+ * token table prescribes for reading, not for a filled ground. */
 export const INDIGO = "#6467F2";
-export const INDIGO_400 = "#8792FE";
 export const CREAM = "#F7F3EB";
+/** `--ds-accent`: the wordmark's colour, light and dark. */
+export const WORD_LIGHT = "#5251DA";
+export const WORD_DARK = "#8792FE";
+/** `--ds-body`: the byline's colour, light and dark. */
+export const BYLINE_LIGHT = "#5E5A53";
+export const BYLINE_DARK = "#D8D4CD";

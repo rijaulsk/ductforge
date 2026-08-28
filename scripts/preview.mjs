@@ -225,16 +225,18 @@ if (process.argv[2] === "final") {
   FINALISTS.forEach((c) => console.log(`  ${c.name}`));
 }
 
-/* Every shipped form of the mark, at the sizes it actually ships at, on every
- * ground it actually lands on. `node scripts/preview.mjs icons`.
+/* Every shipped form of the icon, at the sizes it ships at, on every ground it
+ * lands on. `node scripts/preview.mjs icons`.
  *
- * This exists because the mark is drawn ONE way and rendered five: knocked out
- * of the indigo tile, indigo on cream, cream on the dark theme, ink on paper,
- * and cropped by a launcher's mask. The mitre seams are holes, so each ground
- * shows through them differently, and a mistake there is invisible in the SVG
- * source and obvious the moment you look. The first cut of this mark had seams
- * a fifth of the band's width; on cream they read as fine lines and on the
- * indigo tile they severed the duct into three floating pieces.
+ * IT IS THE TILE IN EVERY ROW, because the mark is never shown without it —
+ * owner's rule, 28 August 2026, and there is no bare-elbow asset any more.
+ * Earlier versions of this sheet rendered a bare mark in three of five rows,
+ * which made it a picture of something we do not ship.
+ *
+ * What varies is the size, the launcher mask, and the PAGE the tile sits on:
+ * an indigo square has to hold up on cream, on the dark theme's near-black and
+ * on printer white, and that is the kind of thing which is invisible in the
+ * source and obvious the moment you look.
  */
 if (process.argv[2] === "icons") {
   const {
@@ -243,42 +245,40 @@ if (process.argv[2] === "icons") {
     INDIGO: MI,
     MARK_PATH: MP,
     TILE_INSET,
+    TILE_RADIUS,
     insetFor,
     roundedRect,
   } = await import("./mark.mjs");
-  const INK = "#221D17";
   const NIGHT = "#10121C";
 
-  /** One cell: a ground, then the mark on it, at `size` px, zoomed. */
-  function cell(size, { tile = false, fg, ground, zoom = 1, maskable = false }) {
-    const shapes = [];
+  /** One cell: the tile at `size` px on `ground`, magnified by `zoom`. */
+  function cell(size, { ground, zoom = 1, maskable = false }) {
     /* The same rule the generator uses, from the same function — see
      * mark.mjs. Recomputing it here is how a verification sheet ends up
      * showing something other than what ships. */
     const inset = maskable ? 0.23 : insetFor(size);
-    if (tile) {
-      shapes.push({
-        contours: parsePath(roundedRect(size, maskable ? 0 : size * 0.22)),
-        color: MI,
-      });
-    }
-    const pad = tile ? size * inset : size * 0.06;
+    const pad = size * inset;
     const inner = size - pad * 2;
-    shapes.push({
-      contours: transform(parsePath(MP), { sx: inner / 100, tx: pad, ty: pad }),
-      color: fg,
-      rule: "evenodd",
-    });
+    const shapes = [
+      {
+        contours: parsePath(roundedRect(size, maskable ? 0 : size * TILE_RADIUS)),
+        color: MI,
+      },
+      {
+        contours: transform(parsePath(MP), { sx: inner / 100, tx: pad, ty: pad }),
+        color: MC,
+        rule: "evenodd",
+      },
+    ];
     const rgba = rasterise({ width: size, height: size, shapes, background: ground });
     return { rgba, size, zoom };
   }
 
   const ROWS = [
-    ["tile", (s, z) => cell(s, { tile: true, fg: MC, ground: CREAM, zoom: z })],
-    ["maskable", (s, z) => cell(s, { tile: true, fg: MC, ground: CREAM, zoom: z, maskable: true })],
-    ["indigo on cream", (s, z) => cell(s, { fg: MI, ground: CREAM, zoom: z })],
-    ["cream on night", (s, z) => cell(s, { fg: MC, ground: NIGHT, zoom: z })],
-    ["ink on paper", (s, z) => cell(s, { fg: INK, ground: "#FFFFFF", zoom: z })],
+    ["app icon, on cream", (s, z) => cell(s, { ground: CREAM, zoom: z })],
+    ["maskable, launcher-cropped", (s, z) => cell(s, { ground: CREAM, zoom: z, maskable: true })],
+    ["on the dark theme", (s, z) => cell(s, { ground: NIGHT, zoom: z })],
+    ["on printer white", (s, z) => cell(s, { ground: "#FFFFFF", zoom: z })],
   ];
   const SIZES = [
     [256, 1],
@@ -335,7 +335,7 @@ if (process.argv[2] === "seams") {
   const { CREAM: MC, INDIGO: MI, TILE_RADIUS, elbow, insetFor, roundedRect } = await import(
     "./mark.mjs"
   );
-  const WIDTHS = [1.5, 2.5, 3, 3.5, 4.5];
+  const WIDTHS = [2.5, 3.5, 4, 5, 6];
   /* Zooms chosen so every column comes out the SAME height. They did not, and
    * the tall ones overran the row below into an unreadable smear. */
   const SIZES = [
@@ -351,7 +351,7 @@ if (process.argv[2] === "seams") {
     const shapes = [
       { contours: parsePath(roundedRect(size, size * TILE_RADIUS)), color: MI },
       {
-        contours: transform(parsePath(elbow({ seam }).path), {
+        contours: transform(parsePath(elbow({ joint: seam }).path), {
           sx: inner / 100,
           tx: pad,
           ty: pad,
@@ -396,9 +396,9 @@ if (process.argv[2] === "seams") {
   WIDTHS.forEach((w, i) => console.log(`  row ${i + 1}  seam ${w}`));
 }
 
-if (process.argv[2] === "glyphs") {
-  /* The glyphs live in TypeScript beside the rest of the duct code; node 24
-   * strips the types, and the hook bridges its need for a full specifier. */
+/* Node 24 strips types, but its resolver still wants a full specifier. One
+ * hook bridges that so this script can import the app's own .ts modules. */
+async function allowTypeScriptImports() {
   const { existsSync } = await import("node:fs");
   const { registerHooks } = await import("node:module");
   registerHooks({
@@ -415,6 +415,90 @@ if (process.argv[2] === "glyphs") {
       return nextResolve(specifier, context);
     },
   });
+}
+
+/* The LOCKUP at the sizes the app renders it. `node scripts/preview.mjs lockup`
+ *
+ * Imports lib/brand/logo.ts — the generated data the components actually use —
+ * so this verifies the shipped artwork rather than a second construction of it.
+ * The header is the surface the logo is seen on most and the one nobody checks;
+ * the byline joined the artwork on 28 August 2026 and its legibility at 38px is
+ * the thing that decides whether that was a good idea.
+ */
+if (process.argv[2] === "lockup") {
+  await allowTypeScriptImports();
+
+  const logo = await import("../lib/brand/logo.ts");
+  const { LOGO, TILE } = logo;
+  const NIGHT = "#10121C";
+  const [vx, vy, vw, vh] = LOGO.viewBox.split(" ").map(Number);
+
+  /** The lockup at `height` px, with the type in the given colours. */
+  function render(height, { ground, word, byline, zoom = 1 }) {
+    const s = height / vh;
+    const width = Math.round(vw * s);
+    /* Scale the path, then place it where the viewBox says — the same order
+     * the SVG's own transform applies, so this cannot drift from the markup. */
+    const at = (d, scale, tx, ty) =>
+      transform(parsePath(d), {
+        sx: s * scale,
+        tx: (tx - vx) * s,
+        ty: (ty - vy) * s,
+      });
+    const inner = (LOGO.tileSize * (1 - TILE.inset * 2)) / 100;
+    const pad = LOGO.tileSize * TILE.inset;
+    const rgba = rasterise({
+      width,
+      height,
+      background: ground,
+      shapes: [
+        { contours: at(logo.TILE_PATH, LOGO.tileSize / 100, 0, 0), color: TILE.ground },
+        { contours: at(logo.MARK_PATH, inner, pad, pad), color: TILE.mark, rule: "evenodd" },
+        { contours: at(logo.WORDMARK_PATH, 1, LOGO.textX, LOGO.baseline), color: word },
+        { contours: at(logo.BYLINE_PATH, 1, LOGO.textX, LOGO.bylineBaseline), color: byline },
+      ],
+    });
+    return { rgba, width, height, zoom };
+  }
+
+  /* 50 is `md`, 38 is `sm` — the one in AppHeader — and 28 is what a cramped
+   * phone header would fall back to if the sizes ever shrank. */
+  const ROWS = [
+    ["light 50", render(50, { ground: CREAM, word: "#5251DA", byline: "#5E5A53", zoom: 3 })],
+    ["light 38", render(38, { ground: CREAM, word: "#5251DA", byline: "#5E5A53", zoom: 4 })],
+    ["light 28", render(28, { ground: CREAM, word: "#5251DA", byline: "#5E5A53", zoom: 5 })],
+    ["dark 38", render(38, { ground: NIGHT, word: "#8792FE", byline: "#D8D4CD", zoom: 4 })],
+  ];
+
+  const width = Math.max(...ROWS.map(([, r]) => r.width * r.zoom)) + 24;
+  const rowH = Math.max(...ROWS.map(([, r]) => r.height * r.zoom)) + 20;
+  const height = rowH * ROWS.length;
+  const canvas = Buffer.alloc(width * height * 4);
+  for (let i = 0; i < width * height; i++) {
+    canvas[i * 4] = 0xe4;
+    canvas[i * 4 + 1] = 0xe0;
+    canvas[i * 4 + 2] = 0xd8;
+    canvas[i * 4 + 3] = 255;
+  }
+  ROWS.forEach(([, r], i) => {
+    const y0 = i * rowH + 10;
+    for (let y = 0; y < r.height * r.zoom; y++) {
+      const sy = Math.floor(y / r.zoom);
+      for (let x = 0; x < r.width * r.zoom; x++) {
+        const sx = Math.floor(x / r.zoom);
+        const from = (sy * r.width + sx) * 4;
+        const to = ((y0 + y) * width + 12 + x) * 4;
+        if (to + 4 <= canvas.length) r.rgba.copy(canvas, to, from, from + 4);
+      }
+    }
+  });
+  writeFileSync(out("preview/lockup.png"), encodePng(width, height, canvas));
+  console.log(`preview/lockup.png  ${width} × ${height}`);
+  ROWS.forEach(([name, r]) => console.log(`  ${name}  ${r.width} × ${r.height} px (×${r.zoom})`));
+}
+
+if (process.argv[2] === "glyphs") {
+  await allowTypeScriptImports();
 
   const { GLYPH_PATHS } = await import("../lib/duct/glyphs.ts");
   const items = Object.values(GLYPH_PATHS).map((d) => ({ d }));

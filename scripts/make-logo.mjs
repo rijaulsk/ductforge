@@ -20,7 +20,7 @@
  * Everything this writes is checked in. The build never runs it.
  */
 
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { bounds, encodePng, parsePath, rasterise, transform } from "./raster.mjs";
 
@@ -30,11 +30,14 @@ const out = (p) => fileURLToPath(new URL(p, ROOT));
 import {
   CREAM,
   INDIGO,
-  INDIGO_400,
   MARK_FILL_RULE,
   MARK_PATH,
+  BYLINE_DARK,
+  BYLINE_LIGHT,
   TILE_INSET,
   TILE_RADIUS,
+  WORD_DARK,
+  WORD_LIGHT,
   roundedRect,
 } from "./mark.mjs";
 
@@ -296,37 +299,51 @@ function outline(font, text, size) {
 
 /* ---- compose -------------------------------------------------------------- */
 
-const font = openFont(out("assets/fonts/Satoshi-Bold.ttf"));
+/* THE LOCKUP IS THREE PARTS, AND THE BYLINE IS ONE OF THEM.
+ *
+ * "by DebugSwift" used to be an HTML line rendered underneath the SVG. Owner's
+ * call, 28 August 2026: it looked bad, and it did — live text beside outlined
+ * type never quite agrees on weight, colour or baseline, it reflows on its own
+ * at small widths, and it is absent the moment the logo leaves the page as a
+ * file. It is artwork now, outlined from Satoshi Medium the same way the
+ * wordmark is outlined from Satoshi Bold, so the whole logo is one object.
+ *
+ * THE MARK IS ALWAYS ON ITS TILE. Also the owner's call: no bare-elbow asset
+ * exists any more. What sits to the left of the type is the app icon.
+ */
 
-/* Cap height sets the lockup: the mark stands the same height as the capital
- * D, which is how a mark and a wordmark are locked in any decent logo — not
- * by matching the em box, which would leave the mark floating above the
- * baseline by the descender's worth of nothing. */
+const bold = openFont(out("assets/fonts/Satoshi-Bold.ttf"));
+const medium = openFont(out("assets/fonts/Satoshi-Medium.ttf"));
+
+/** Cap height of a font at size 100 — what the two weights are locked by. */
+const capOf = (f) => {
+  const contours = f.contoursFor(f.glyphFor("D".codePointAt(0)));
+  return (Math.max(...contours.flat().map((p) => p.y)) / f.unitsPerEm) * 100;
+};
+
 const CAP = 72;
-const capContours = font.contoursFor(font.glyphFor("D".codePointAt(0)));
-const capTop = Math.max(...capContours.flat().map((p) => p.y));
-const capHeight = (capTop / font.unitsPerEm) * 100;
+const capHeight = capOf(bold);
+const wordSized = outline(bold, "DuctForge", 100 * (CAP / capHeight));
 
-/* THE MARK STANDS TALLER THAN THE CAP, and is centred on it.
- *
- * Matching the mark's height to the capital D is the textbook lockup and it is
- * wrong for this mark. The old one was a solid corner that filled its box, so
- * cap height gave it the same visual mass as the type. This one is a band with
- * two plates and a lot of air in the lower left: at cap height it reads as a
- * small pale thing sitting next to a heavy word. The reference sheet sets it
- * larger for exactly this reason.
- *
- * Centred on the cap band rather than sat on the baseline, so the extra height
- * is shared above and below instead of hanging off the bottom. */
-const MARK_SCALE = 1.45;
-const markSize = Number((CAP * MARK_SCALE).toFixed(2));
-const markY = Number(((CAP - markSize) / 2).toFixed(2));
-const wordScale = CAP / capHeight;
-const wordSized = outline(font, "DuctForge", 100 * wordScale);
-/* Off the cap, not off the mark — the optical gap a reader sees is between the
- * mark and the D, and scaling it with the mark opens a hole as the mark grows. */
-const gap = Number((CAP * 0.34).toFixed(2));
+/* The byline, at 36% of the wordmark's cap — measured off logo4, where it is
+ * small enough to read as attribution and big enough to be read. */
+const BYLINE_CAP = Number((CAP * 0.36).toFixed(2));
+const bylineSized = outline(medium, "by DebugSwift", 100 * (BYLINE_CAP / capOf(medium)));
+
+/* Vertical rhythm. The wordmark sits on a baseline at y = CAP, so its cap top
+ * is y = 0. The byline's own cap top clears that baseline by its own height —
+ * a leading equal to the smaller text's cap is the standard two-line lockup
+ * and needs no eyeballing. */
 const baseline = CAP;
+const bylineBaseline = Number((baseline + BYLINE_CAP * 2).toFixed(2));
+
+/* THE TILE SPANS THE WHOLE TEXT BLOCK, cap top to byline baseline. A square
+ * icon shorter than the text it is locked to reads as an afterthought; one
+ * taller than it reads as the logo with a caption. Matching the block is the
+ * only ratio that needs no defending. */
+const tileSize = bylineBaseline;
+const gap = Number((CAP * 0.34).toFixed(2));
+const textX = Number((tileSize + gap).toFixed(2));
 
 /* THE CANVAS COMES FROM THE ARTWORK, not the other way round.
  *
@@ -334,31 +351,48 @@ const baseline = CAP;
  * wordmark sits on a baseline and "Forge" goes below it, which a box that
  * stops at the baseline has no room for. Measuring what the paths actually
  * occupy and padding that is the only way a logo cannot clip itself, and it
- * survives changing the word or the mark. */
-const markPlaced = transform(parsePath(MARK_PATH), { sx: markSize / 100, ty: markY });
-const wordPlaced = transform(parsePath(wordSized.d), {
-  sx: 1,
-  tx: markSize + gap,
-  ty: baseline,
+ * survives changing the word, the byline or the mark. */
+const tilePlaced = transform(parsePath(roundedRect(100, TILE_RADIUS * 100)), {
+  sx: tileSize / 100,
 });
-const box = bounds([...markPlaced, ...wordPlaced]);
-const PAD = markSize * 0.08;
+const markInTile = transform(parsePath(MARK_PATH), {
+  sx: (tileSize * (1 - (TILE_INSET / 100) * 2)) / 100,
+  tx: (tileSize * TILE_INSET) / 100,
+  ty: (tileSize * TILE_INSET) / 100,
+});
+const wordPlaced = transform(parsePath(wordSized.d), { sx: 1, tx: textX, ty: baseline });
+const bylinePlaced = transform(parsePath(bylineSized.d), {
+  sx: 1,
+  tx: textX,
+  ty: bylineBaseline,
+});
+
+const box = bounds([...tilePlaced, ...wordPlaced, ...bylinePlaced]);
+const PAD = CAP * 0.08;
 const viewX = Number((box.minX - PAD).toFixed(2));
 const viewY = Number((box.minY - PAD).toFixed(2));
 const totalW = Number((box.width + PAD * 2).toFixed(2));
 const totalH = Number((box.height + PAD * 2).toFixed(2));
 
-/* fill-rule travels with the path everywhere it is written, because the mark's
- * mitre seams are holes in it — see scripts/mark.mjs. Without the attribute an
- * SVG fills non-zero by default and the seams silently close up. */
-const markAt = (x, y, size) =>
-  `<path d="${MARK_PATH}" fill-rule="${MARK_FILL_RULE}" transform="translate(${x} ${y}) scale(${(size / 100).toFixed(5)})"/>`;
+/** The tile, at any size: indigo ground, cream elbow inset inside it. */
+function tileMarkup(size, indent = "  ") {
+  const inner = size * (1 - (TILE_INSET / 100) * 2);
+  const at = (size * TILE_INSET) / 100;
+  return [
+    `${indent}<path d="${roundedRect(size, size * TILE_RADIUS)}" fill="${INDIGO}"/>`,
+    `${indent}<path d="${MARK_PATH}" fill="${CREAM}" fill-rule="${MARK_FILL_RULE}" transform="translate(${at.toFixed(3)} ${at.toFixed(3)}) scale(${(inner / 100).toFixed(5)})"/>`,
+  ].join("\n");
+}
 
-function lockup(fill, wordFill) {
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewX} ${viewY} ${totalW} ${totalH}" width="${totalW}" height="${totalH}" role="img" aria-label="DuctForge">
-  <title>DuctForge</title>
-  <g fill="${fill}">${markAt(0, markY, markSize)}</g>
-  <g fill="${wordFill}"><path d="${wordSized.d}" transform="translate(${(markSize + gap).toFixed(2)} ${baseline.toFixed(2)})"/></g>
+/* The tile is the SAME in both, and deliberately so: an app icon does not
+ * change colour with the page it is on, and the identity is more recognisable
+ * for being fixed. Only the type follows the theme. */
+function lockup(wordFill, bylineFill) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewX} ${viewY} ${totalW} ${totalH}" width="${totalW}" height="${totalH}" role="img" aria-label="DuctForge by DebugSwift">
+  <title>DuctForge by DebugSwift</title>
+${tileMarkup(tileSize)}
+  <path d="${wordSized.d}" fill="${wordFill}" transform="translate(${textX} ${baseline})"/>
+  <path d="${bylineSized.d}" fill="${bylineFill}" transform="translate(${textX} ${bylineBaseline})"/>
 </svg>
 `;
 }
@@ -367,31 +401,22 @@ mkdirSync(out("public/brand"), { recursive: true });
 mkdirSync(out("lib/brand"), { recursive: true });
 
 /* Standalone files, for anywhere the logo travels without our stylesheet. */
-writeFileSync(out("public/brand/ductforge.svg"), lockup(INDIGO, INDIGO));
-writeFileSync(out("public/brand/ductforge-dark.svg"), lockup(INDIGO_400, CREAM));
-writeFileSync(
-  out("public/brand/ductforge-icon.svg"),
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100" role="img" aria-label="DuctForge">
-  <title>DuctForge</title>
-  <g fill="${INDIGO}">${markAt(0, 0, 100)}</g>
-</svg>
-`,
-);
+writeFileSync(out("public/brand/ductforge.svg"), lockup(WORD_LIGHT, BYLINE_LIGHT));
+writeFileSync(out("public/brand/ductforge-dark.svg"), lockup(WORD_DARK, BYLINE_DARK));
 
-/* The mark on its tile — the app-icon lockup, as a vector.
- *
- * The tile is a filled shape UNDER the mark and the mark is knocked out of it
- * in cream, so the seams show indigo through rather than cream. That only
- * works because the seams are holes; see scripts/mark.mjs. */
+/* The icon on its own — still the tile, never the bare elbow. There used to be
+ * a `ductforge-icon.svg` carrying the elbow with no ground; it is deleted, and
+ * a replacement should not be added. The mark alone is a shape, the mark in
+ * its square is the logo. */
 writeFileSync(
   out("public/brand/ductforge-tile.svg"),
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100" role="img" aria-label="DuctForge">
   <title>DuctForge</title>
-  <path d="${roundedRect(100, TILE_RADIUS * 100)}" fill="${INDIGO}"/>
-  <g fill="${CREAM}">${markAt(TILE_INSET, TILE_INSET, 100 - TILE_INSET * 2)}</g>
+${tileMarkup(100)}
 </svg>
 `,
 );
+rmSync(out("public/brand/ductforge-icon.svg"), { force: true });
 
 /* And the same geometry as data, so the app can inline it and let it take the
  * page's own colours instead of shipping two files and swapping them. */
@@ -399,49 +424,66 @@ writeFileSync(
   out("lib/brand/logo.ts"),
   `/* GENERATED by scripts/make-logo.mjs — do not edit by hand.
  *
- * The wordmark is Satoshi Bold, outlined. It is path data rather than text so
- * it renders identically with no font loaded, and it is inlined rather than
- * served as an image so it can take \`currentColor\` and follow the theme.
+ * The wordmark is Satoshi Bold and the byline Satoshi Medium, both OUTLINED.
+ * They are path data rather than text so they render identically with no font
+ * loaded, and they are inlined rather than served as images so the type can
+ * take the page's own token colours and follow the theme.
+ *
+ * THE BYLINE IS PART OF THE LOGO. It used to be an HTML line under the SVG and
+ * it looked it — live text beside outlined type never quite agrees on weight,
+ * colour or baseline, and it vanished the moment the logo left the page as a
+ * file. Do not pull it back out into markup.
+ *
+ * THE MARK IS NEVER DRAWN WITHOUT ITS TILE. Use \`Lockup\` or \`TileMark\`;
+ * MARK_PATH is exported for those two and for the generators, not so that a
+ * bare elbow can be dropped somewhere new.
  */
 
-/** The elbow mark, in a 100 × 100 box.
- *
- * MUST be filled even-odd: the mitre seams are holes in this path, not paint
- * over it, so that the gap shows whatever ground the mark sits on. Filled
- * non-zero they close up; filled with a background colour on top they would be
- * cream slashes across the indigo app icon. Use \`MARK_FILL_RULE\`. */
+/** The elbow, in a 100 × 100 box. Always drawn inside \`TILE\`. */
 export const MARK_PATH =
   ${JSON.stringify(MARK_PATH)};
 
 /** Pass to \`fillRule\` / \`fill-rule\` wherever MARK_PATH is drawn. */
 export const MARK_FILL_RULE = ${JSON.stringify(MARK_FILL_RULE)} as const;
 
-/** The app-icon tile, for anywhere the mark is drawn on its indigo ground.
- *
- * Exported so React surfaces build the same tile the generated PNGs do. The
- * OG card used to hard-code its own radius and inset and drew a visibly
- * different tile from every other icon we ship. */
+/** The tile's rounded square, in the same 100 × 100 box as MARK_PATH. */
+export const TILE_PATH =
+  ${JSON.stringify(roundedRect(100, TILE_RADIUS * 100))};
+
+/** The tile the mark always sits on. */
 export const TILE = {
   /** Corner radius, as a fraction of the tile's side. */
   radius: ${TILE_RADIUS},
   /** Inset of the mark inside the tile, as a fraction of the side. */
   inset: ${TILE_INSET / 100},
+  /** The indigo ground. Fixed in both themes — an app icon does not restyle. */
+  ground: ${JSON.stringify(INDIGO)},
+  /** The elbow's colour on that ground. */
+  mark: ${JSON.stringify(CREAM)},
 } as const;
 
 /** "DuctForge" outlined, sitting on a baseline at y = 0. */
 export const WORDMARK_PATH =
   ${JSON.stringify(wordSized.d)};
 
+/** "by DebugSwift" outlined, sitting on a baseline at y = 0. */
+export const BYLINE_PATH =
+  ${JSON.stringify(bylineSized.d)};
+
 export const LOGO = {
-  /** Height of the mark. Taller than the cap on purpose — see make-logo.mjs. */
-  markSize: ${markSize},
-  /** Where the mark's box starts, so it sits centred on the cap band. */
-  markY: ${markY},
-  /** Cap height of the wordmark beside it. */
+  /** Side of the tile. Spans the whole text block, cap top to byline baseline. */
+  tileSize: ${tileSize},
+  /** Cap height of the wordmark. */
   cap: ${CAP},
+  /** Cap height of the byline. */
+  bylineCap: ${BYLINE_CAP},
   gap: ${gap},
+  /** Where both text paths start, to the right of the tile. */
+  textX: ${textX},
   /** Where the wordmark's baseline sits, in the same coordinates. */
   baseline: ${baseline},
+  /** Where the byline's baseline sits. */
+  bylineBaseline: ${bylineBaseline},
   /** The viewBox that contains the whole lockup, descenders included. */
   viewBox: "${viewX} ${viewY} ${totalW} ${totalH}",
   width: ${totalW},
@@ -456,15 +498,12 @@ export const LOGO = {
  * an email signature, a supplier's portal, a slide. Same geometry, rasterised
  * here rather than exported from a design tool, so they cannot drift apart. */
 
-const markContours = parsePath(MARK_PATH);
-
 /** The same placement the SVG uses, scaled onto a pixel canvas. */
-function logoPng(height, fill, wordFill, background) {
+function logoPng(height, wordFill, bylineFill, background) {
   const s = height / totalH;
   const width = Math.round(totalW * s);
   const h = Math.round(totalH * s);
-  const place = (contours) =>
-    transform(contours, { sx: s, tx: -viewX * s, ty: -viewY * s });
+  const place = (contours) => transform(contours, { sx: s, tx: -viewX * s, ty: -viewY * s });
   return encodePng(
     width,
     h,
@@ -473,31 +512,37 @@ function logoPng(height, fill, wordFill, background) {
       height: h,
       background,
       /* evenodd stated rather than relied on. The rasteriser happens to
-       * default to it, but the mark's seams depend on it and a default is a
-       * poor place to keep something load-bearing. */
+       * default to it, and a default is a poor place to keep anything that
+       * could ever become load-bearing. */
       shapes: [
-        { contours: place(markPlaced), color: fill, rule: "evenodd" },
+        { contours: place(tilePlaced), color: INDIGO, rule: "evenodd" },
+        { contours: place(markInTile), color: CREAM, rule: "evenodd" },
         { contours: place(wordPlaced), color: wordFill, rule: "evenodd" },
+        { contours: place(bylinePlaced), color: bylineFill, rule: "evenodd" },
       ],
     }),
   );
 }
 
-function iconPng(size, background) {
-  /* The mark alone, inset so it is not jammed against the edge. */
-  const inset = size * 0.16;
-  const inner = size - inset * 2;
+/** The tile alone, square. Never the bare elbow — see the header comment. */
+function tilePng(size) {
+  const inner = size * (1 - (TILE_INSET / 100) * 2);
+  const at = (size * TILE_INSET) / 100;
   return encodePng(
     size,
     size,
     rasterise({
       width: size,
       height: size,
-      background,
       shapes: [
         {
-          contours: transform(markContours, { sx: inner / 100, tx: inset, ty: inset }),
-          color: background ? CREAM : INDIGO,
+          contours: transform(parsePath(roundedRect(100, TILE_RADIUS * 100)), { sx: size / 100 }),
+          color: INDIGO,
+          rule: "evenodd",
+        },
+        {
+          contours: transform(parsePath(MARK_PATH), { sx: inner / 100, tx: at, ty: at }),
+          color: CREAM,
           rule: "evenodd",
         },
       ],
@@ -506,24 +551,24 @@ function iconPng(size, background) {
 }
 
 const rasters = [
-  ["public/brand/ductforge-160.png", logoPng(160, INDIGO, INDIGO, null)],
-  ["public/brand/ductforge-320.png", logoPng(320, INDIGO, INDIGO, null)],
-  ["public/brand/ductforge-dark-320.png", logoPng(320, INDIGO_400, CREAM, null)],
-  ["public/brand/ductforge-icon-512.png", iconPng(512, null)],
+  ["public/brand/ductforge-160.png", logoPng(160, WORD_LIGHT, BYLINE_LIGHT, null)],
+  ["public/brand/ductforge-320.png", logoPng(320, WORD_LIGHT, BYLINE_LIGHT, null)],
+  ["public/brand/ductforge-dark-320.png", logoPng(320, WORD_DARK, BYLINE_DARK, null)],
+  ["public/brand/ductforge-tile-512.png", tilePng(512)],
 ];
+rmSync(out("public/brand/ductforge-icon-512.png"), { force: true });
 for (const [path, buf] of rasters) {
   writeFileSync(out(path), buf);
   console.log(`wrote           ${path}  ${buf.length} bytes`);
 }
 
-console.log(`mark            100 × 100`);
-console.log(`wordmark        ${wordSized.width} × ${markSize} (cap height ${capHeight.toFixed(1)})`);
-console.log(`lockup          ${totalW} × ${markSize}`);
-console.log(`wordmark path   ${wordSized.d.length} chars`);
+console.log(`tile            ${tileSize} square (radius ${TILE_RADIUS}, inset ${TILE_INSET})`);
+console.log(`wordmark        ${wordSized.width} wide, cap ${CAP} (font cap ${capHeight.toFixed(1)})`);
+console.log(`byline          ${bylineSized.width} wide, cap ${BYLINE_CAP}`);
+console.log(`lockup          ${totalW} × ${totalH}`);
 for (const f of [
   "public/brand/ductforge.svg",
   "public/brand/ductforge-dark.svg",
-  "public/brand/ductforge-icon.svg",
   "public/brand/ductforge-tile.svg",
   "lib/brand/logo.ts",
 ]) {

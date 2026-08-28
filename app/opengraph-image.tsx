@@ -1,7 +1,15 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { ImageResponse } from "next/og";
-import { MARK_FILL_RULE, MARK_PATH, TILE } from "@/lib/brand/logo";
+import {
+  BYLINE_PATH,
+  LOGO,
+  MARK_FILL_RULE,
+  MARK_PATH,
+  TILE,
+  TILE_PATH,
+  WORDMARK_PATH,
+} from "@/lib/brand/logo";
 
 /* The card a shared link unfurls into.
  *
@@ -27,8 +35,8 @@ const CREAM = "#F7F3EB";
 const INDIGO = "#6467F2";
 const INDIGO_600 = "#5251DA";
 const SLATE = "#5E5A53";
-/** Side of the icon tile in the card's masthead. */
-const TILE_PX = 72;
+/** Height of the logo lockup in the card's masthead. */
+const LOCKUP_PX = 84;
 
 export default async function OpengraphImage() {
   const satoshi = await readFile(join(process.cwd(), "assets/fonts/Satoshi-Bold.ttf"));
@@ -66,33 +74,37 @@ export default async function OpengraphImage() {
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
-              {/* The tile is BUILT FROM THE SHARED CONSTANTS, not eyeballed.
-                  Both the radius and the inset used to be hard-coded here and
-                  drew a visibly different tile from every icon we ship — and
-                  the mark inside it had fallen two revisions behind, still
-                  being the radiused elbow the app dropped two marks ago. */}
-              <div
-                style={{
-                  width: TILE_PX,
-                  height: TILE_PX,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  background: INDIGO,
-                  borderRadius: TILE_PX * TILE.radius,
-                }}
+              {/* THE WHOLE LOCKUP AS ARTWORK, not a rebuild of it.
+                  This used to be a hand-assembled tile with its own hard-coded
+                  radius and inset, a stale copy of the mark path, and the name
+                  set as live text. Three chances to drift, all three taken. */}
+              <svg
+                width={Math.round((LOGO.width / LOGO.height) * LOCKUP_PX)}
+                height={LOCKUP_PX}
+                viewBox={LOGO.viewBox}
               >
-                <svg
-                  width={TILE_PX * (1 - TILE.inset * 2)}
-                  height={TILE_PX * (1 - TILE.inset * 2)}
-                  viewBox="0 0 100 100"
-                >
-                  <path d={MARK_PATH} fillRule={MARK_FILL_RULE} fill={CREAM} />
-                </svg>
-              </div>
-              <div style={{ display: "flex", fontSize: 52, fontWeight: 700, color: INK }}>
-                DuctForge
-              </div>
+                <path
+                  d={TILE_PATH}
+                  fill={TILE.ground}
+                  transform={`scale(${LOGO.tileSize / 100})`}
+                />
+                <path
+                  d={MARK_PATH}
+                  fill={TILE.mark}
+                  fillRule={MARK_FILL_RULE}
+                  transform={`translate(${LOGO.tileSize * TILE.inset} ${LOGO.tileSize * TILE.inset}) scale(${(LOGO.tileSize * (1 - TILE.inset * 2)) / 100})`}
+                />
+                <path
+                  d={WORDMARK_PATH}
+                  fill={INK}
+                  transform={`translate(${LOGO.textX} ${LOGO.baseline})`}
+                />
+                <path
+                  d={BYLINE_PATH}
+                  fill={SLATE}
+                  transform={`translate(${LOGO.textX} ${LOGO.bylineBaseline})`}
+                />
+              </svg>
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>

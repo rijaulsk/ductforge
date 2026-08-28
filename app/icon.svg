@@ -5,11 +5,11 @@
     table. The mark fills EVEN-ODD — its mitre seams are holes, so they show
     the indigo ground through rather than being painted on top of it.
   -->
-  <rect width="100" height="100" rx="30" fill="#6467F2" />
+  <rect width="100" height="100" rx="24" fill="#6467F2" />
   <path
-    d="M0 0L50 0A50 50 0 0 1 100 50L100 100L80 100L80 50A30 30 0 0 0 50 20L0 20ZM26.5 0L30 0L50 20L46.5 20ZM100 73.5L100 70L80 50L80 53.5Z"
+    d="M37.5 0L52 0A48 48 0 0 1 100 48L100 95A5 5 0 0 1 95 100L75 100A5 5 0 0 1 70 95L70 48A18 18 0 0 0 52 30L37.5 30A5 5 0 0 1 32.5 25L32.5 5A5 5 0 0 1 37.5 0ZM5 0L23 0A5 5 0 0 1 28 5L28 25A5 5 0 0 1 23 30L5 30A5 5 0 0 1 0 25L0 5A5 5 0 0 1 5 0Z"
     fill-rule="evenodd"
-    transform="translate(25 25) scale(0.5000)"
+    transform="translate(21 21) scale(0.5800)"
     fill="#F7F3EB"
   />
 </svg>

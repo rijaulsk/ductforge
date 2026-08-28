@@ -21,9 +21,17 @@ import {
   massUnit,
   runUnit,
 } from "@/lib/duct/units";
-import { MARK_FILL_RULE, MARK_PATH } from "@/lib/brand/logo";
+import {
+  BYLINE_PATH,
+  LOGO,
+  MARK_FILL_RULE,
+  MARK_PATH,
+  TILE,
+  TILE_PATH,
+  WORDMARK_PATH,
+} from "@/lib/brand/logo";
 import { assumptions } from "@/lib/export/csv";
-import { APP_CREDIT, MAKER_NAME } from "@/lib/site";
+import { APP_CREDIT } from "@/lib/site";
 
 /* The issuable document.
  *
@@ -34,6 +42,47 @@ import { APP_CREDIT, MAKER_NAME } from "@/lib/site";
  * assumptions block is the same text the CSV footer uses, from one function,
  * so the two documents can never drift apart.
  */
+
+/* The logo at letterhead size, with every colour named.
+ *
+ * The tile keeps its indigo — a printed quantity sheet is a document that
+ * leaves the building, and the logo on it should be the logo. Ink and slate
+ * for the type rather than the screen's accent, because those are what read on
+ * paper. */
+const LETTERHEAD_HEIGHT = 30;
+
+function PrintLockup() {
+  const width = Math.round((LOGO.width / LOGO.height) * LETTERHEAD_HEIGHT);
+  const inner = LOGO.tileSize * (1 - TILE.inset * 2);
+  const at = LOGO.tileSize * TILE.inset;
+  return (
+    <svg
+      viewBox={LOGO.viewBox}
+      width={width}
+      height={LETTERHEAD_HEIGHT}
+      role="img"
+      aria-label="DuctForge by DebugSwift"
+    >
+      <path d={TILE_PATH} fill={TILE.ground} transform={`scale(${LOGO.tileSize / 100})`} />
+      <path
+        d={MARK_PATH}
+        fill={TILE.mark}
+        fillRule={MARK_FILL_RULE}
+        transform={`translate(${at} ${at}) scale(${inner / 100})`}
+      />
+      <path
+        d={WORDMARK_PATH}
+        fill="#221D17"
+        transform={`translate(${LOGO.textX} ${LOGO.baseline})`}
+      />
+      <path
+        d={BYLINE_PATH}
+        fill="#5E5A53"
+        transform={`translate(${LOGO.textX} ${LOGO.bylineBaseline})`}
+      />
+    </svg>
+  );
+}
 
 export default function BoqSheet({ project }: { project: Project }) {
   const { units: us, mode } = project;
@@ -63,20 +112,17 @@ export default function BoqSheet({ project }: { project: Project }) {
         * a logo that disappears when somebody prints is worse than none. */}
       <header className="mb-5">
         <div className="flex flex-col items-center border-b-[1.5px] border-ink pb-4 text-center">
-          <div className="flex items-center gap-2">
-            {/* Imported, not pasted. This used to carry its own copy of the
-                path and had quietly fallen a mark behind — the printed sheet,
-                the favicon and the OG card were each showing a different
-                elbow. Ink rather than currentColor because a print stylesheet
-                cannot be relied on for a filled shape. */}
-            <svg width="18" height="18" viewBox="0 0 100 100" aria-hidden="true">
-              <path d={MARK_PATH} fillRule={MARK_FILL_RULE} fill="#221D17" />
-            </svg>
-            <span className="text-[11pt] font-bold tracking-tight text-ink">
-              Duct<span className="font-bold">Forge</span>
-            </span>
-            <span className="text-[9pt] text-ink">by {MAKER_NAME}</span>
-          </div>
+          {/* THE REAL LOCKUP, not a rebuild of it.
+              This used to be a hand-assembled row — a copy of the mark path, a
+              styled "DuctForge" span and a "by DebugSwift" span — which is
+              three chances to drift from the logo and had already taken two of
+              them. It is the generated artwork now, at print scale.
+
+              Every colour is stated: a print stylesheet cannot be relied on to
+              resolve a CSS variable, and "background graphics off" is the
+              default in every browser's print dialogue, so the tile is drawn
+              as a filled path rather than as a background. */}
+          <PrintLockup />
           <h1 className="mt-3 text-[19pt] font-bold leading-tight text-ink">
             Duct takeoff schedule
           </h1>
