@@ -20,7 +20,7 @@
  * Everything this writes is checked in. The build never runs it.
  */
 
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { bounds, encodePng, parsePath, rasterise, transform } from "./raster.mjs";
 
@@ -374,25 +374,64 @@ const viewY = Number((box.minY - PAD).toFixed(2));
 const totalW = Number((box.width + PAD * 2).toFixed(2));
 const totalH = Number((box.height + PAD * 2).toFixed(2));
 
-/** The tile, at any size: indigo ground, cream elbow inset inside it. */
-function tileMarkup(size, indent = "  ") {
+/**
+ * The tile, at any size and position: ground, then the elbow inset inside it.
+ *
+ * `ground` and `mark` are parameters because of the ONE-COLOUR versions. A
+ * two-colour logo is unusable where reproduction is single-colour — a rubber
+ * stamp, an etched plate, a fax of a drawing, a one-colour print run, an
+ * embroidered shirt — and the honest answer there is not "use the colour one
+ * smaller", it is a version drawn for it. Ink-on-nothing and cream-on-nothing
+ * keep the mark as a hole in a solid tile, which is what survives those.
+ */
+function tileMarkup(size, { indent = "  ", x = 0, y = 0, ground = INDIGO, mark = CREAM } = {}) {
   const inner = size * (1 - (TILE_INSET / 100) * 2);
   const at = (size * TILE_INSET) / 100;
+  const place = (sx, extra = "") =>
+    `translate(${(x + (extra ? at : 0)).toFixed(3)} ${(y + (extra ? at : 0)).toFixed(3)})${sx}`;
   return [
-    `${indent}<path d="${roundedRect(size, size * TILE_RADIUS)}" fill="${INDIGO}"/>`,
-    `${indent}<path d="${MARK_PATH}" fill="${CREAM}" fill-rule="${MARK_FILL_RULE}" transform="translate(${at.toFixed(3)} ${at.toFixed(3)}) scale(${(inner / 100).toFixed(5)})"/>`,
+    `${indent}<path d="${roundedRect(size, size * TILE_RADIUS)}" fill="${ground}" transform="${place("")}"/>`,
+    `${indent}<path d="${MARK_PATH}" fill="${mark}" fill-rule="${MARK_FILL_RULE}" transform="${place(` scale(${(inner / 100).toFixed(5)})`, true)}"/>`,
   ].join("\n");
 }
 
 /* The tile is the SAME in both, and deliberately so: an app icon does not
  * change colour with the page it is on, and the identity is more recognisable
  * for being fixed. Only the type follows the theme. */
-function lockup(wordFill, bylineFill) {
+function lockup(wordFill, bylineFill, tile = {}) {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewX} ${viewY} ${totalW} ${totalH}" width="${totalW}" height="${totalH}" role="img" aria-label="DuctForge by DebugSwift">
   <title>DuctForge by DebugSwift</title>
-${tileMarkup(tileSize)}
+${tileMarkup(tileSize, tile)}
   <path d="${wordSized.d}" fill="${wordFill}" transform="translate(${textX} ${baseline})"/>
   <path d="${bylineSized.d}" fill="${bylineFill}" transform="translate(${textX} ${bylineBaseline})"/>
+</svg>
+`;
+}
+
+/* ---- the stacked lockup -------------------------------------------------
+ *
+ * The horizontal one is 4.5 times as wide as it is tall, which is right for a
+ * header and wrong for everything square — a profile picture, a slide corner,
+ * a sponsor board, a stamp on a drawing. Placed in a square it either shrinks
+ * to illegibility or sits in a sea of white.
+ *
+ * Tile centred above the type, both text lines centred under it. Same three
+ * pieces of artwork, same proportions, no second design to keep in sync.
+ */
+const stackTile = Math.round(CAP * 2.2);
+const stackGap = Math.round(CAP * 0.42);
+const stackWordY = stackTile + stackGap + CAP;
+const stackBylineY = stackWordY + BYLINE_CAP * 2;
+const stackW = Math.max(stackTile, wordSized.width, bylineSized.width);
+const stackPad = CAP * 0.08;
+
+function stackedLockup(wordFill, bylineFill, tile = {}) {
+  const mid = stackW / 2;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-stackPad} ${-stackPad} ${(stackW + stackPad * 2).toFixed(2)} ${(stackBylineY + BYLINE_CAP * 0.35 + stackPad * 2).toFixed(2)}" role="img" aria-label="DuctForge by DebugSwift">
+  <title>DuctForge by DebugSwift</title>
+${tileMarkup(stackTile, { ...tile, x: mid - stackTile / 2 })}
+  <path d="${wordSized.d}" fill="${wordFill}" transform="translate(${(mid - wordSized.width / 2).toFixed(2)} ${stackWordY})"/>
+  <path d="${bylineSized.d}" fill="${bylineFill}" transform="translate(${(mid - bylineSized.width / 2).toFixed(2)} ${stackBylineY})"/>
 </svg>
 `;
 }
@@ -400,9 +439,30 @@ ${tileMarkup(tileSize)}
 mkdirSync(out("public/brand"), { recursive: true });
 mkdirSync(out("lib/brand"), { recursive: true });
 
-/* Standalone files, for anywhere the logo travels without our stylesheet. */
+/* Standalone files, for anywhere the logo travels without our stylesheet.
+ *
+ * INK and CREAM are the one-colour versions: the whole lockup in a single
+ * value, tile included, for single-colour reproduction. They are not "the
+ * colour one in grey" — the tile becomes solid ink or solid cream with the
+ * elbow knocked out of it, which is what stays legible when there is only one
+ * ink to give. */
+const INK = "#221D17";
 writeFileSync(out("public/brand/ductforge.svg"), lockup(WORD_LIGHT, BYLINE_LIGHT));
 writeFileSync(out("public/brand/ductforge-dark.svg"), lockup(WORD_DARK, BYLINE_DARK));
+writeFileSync(
+  out("public/brand/ductforge-ink.svg"),
+  lockup(INK, INK, { ground: INK, mark: "#FFFFFF" }),
+);
+writeFileSync(
+  out("public/brand/ductforge-cream.svg"),
+  lockup(CREAM, CREAM, { ground: CREAM, mark: INK }),
+);
+
+writeFileSync(out("public/brand/ductforge-stacked.svg"), stackedLockup(WORD_LIGHT, BYLINE_LIGHT));
+writeFileSync(
+  out("public/brand/ductforge-stacked-dark.svg"),
+  stackedLockup(WORD_DARK, BYLINE_DARK),
+);
 
 /* The icon on its own — still the tile, never the bare elbow. There used to be
  * a `ductforge-icon.svg` carrying the elbow with no ground; it is deleted, and
@@ -497,7 +557,17 @@ export const LOGO = {
  * an email signature, a supplier's portal, a slide. Same geometry, rasterised
  * here rather than exported from a design tool, so they cannot drift apart. */
 
-/** The same placement the SVG uses, scaled onto a pixel canvas. */
+/**
+ * The same placement the SVG uses, scaled onto a pixel canvas.
+ *
+ * Sized by WIDTH rather than height, because every place a PNG lockup gets
+ * dropped — an email signature, a supplier's portal, a slide, a README — has a
+ * column width and no opinion about height.
+ */
+function logoPngWide(width, wordFill, bylineFill, background) {
+  return logoPng(Math.round((width / totalW) * totalH), wordFill, bylineFill, background);
+}
+
 function logoPng(height, wordFill, bylineFill, background) {
   const s = height / totalH;
   const width = Math.round(totalW * s);
@@ -549,24 +619,100 @@ function tilePng(size) {
   );
 }
 
+/** The stacked lockup as pixels, sized by width like its horizontal sibling. */
+function stackedPng(width, wordFill, bylineFill) {
+  const s = width / stackW;
+  const h = Math.round((stackBylineY + BYLINE_CAP * 0.35) * s);
+  const mid = stackW / 2;
+  const at = (stackTile * TILE_INSET) / 100;
+  const inner = stackTile * (1 - (TILE_INSET / 100) * 2);
+  const tileX = mid - stackTile / 2;
+  return encodePng(
+    Math.round(width),
+    h,
+    rasterise({
+      width: Math.round(width),
+      height: h,
+      shapes: [
+        {
+          contours: transform(parsePath(roundedRect(stackTile, stackTile * TILE_RADIUS)), {
+            sx: s,
+            tx: tileX * s,
+          }),
+          color: INDIGO,
+          rule: "evenodd",
+        },
+        {
+          contours: transform(parsePath(MARK_PATH), {
+            sx: (inner / 100) * s,
+            tx: (tileX + at) * s,
+            ty: at * s,
+          }),
+          color: CREAM,
+          rule: "evenodd",
+        },
+        {
+          contours: transform(parsePath(wordSized.d), {
+            sx: s,
+            tx: (mid - wordSized.width / 2) * s,
+            ty: stackWordY * s,
+          }),
+          color: wordFill,
+          rule: "evenodd",
+        },
+        {
+          contours: transform(parsePath(bylineSized.d), {
+            sx: s,
+            tx: (mid - bylineSized.width / 2) * s,
+            ty: stackBylineY * s,
+          }),
+          color: bylineFill,
+          rule: "evenodd",
+        },
+      ],
+    }),
+  );
+}
+
+/* THE KIT. Every file here comes from the one path and the two outlined
+ * words, so no two of them can disagree — which is the entire reason this is
+ * a script and not a folder somebody exported once.
+ *
+ * Widths rather than heights on the lockups: 320 for a README or an email
+ * signature, 640 for a slide, 1280 for print and for anyone who needs to scale
+ * it down themselves. */
 const rasters = [
-  ["public/brand/ductforge-160.png", logoPng(160, WORD_LIGHT, BYLINE_LIGHT, null)],
-  ["public/brand/ductforge-320.png", logoPng(320, WORD_LIGHT, BYLINE_LIGHT, null)],
-  ["public/brand/ductforge-dark-320.png", logoPng(320, WORD_DARK, BYLINE_DARK, null)],
+  ["public/brand/ductforge-320.png", logoPngWide(320, WORD_LIGHT, BYLINE_LIGHT, null)],
+  ["public/brand/ductforge-640.png", logoPngWide(640, WORD_LIGHT, BYLINE_LIGHT, null)],
+  ["public/brand/ductforge-1280.png", logoPngWide(1280, WORD_LIGHT, BYLINE_LIGHT, null)],
+  ["public/brand/ductforge-dark-320.png", logoPngWide(320, WORD_DARK, BYLINE_DARK, null)],
+  ["public/brand/ductforge-dark-640.png", logoPngWide(640, WORD_DARK, BYLINE_DARK, null)],
+  ["public/brand/ductforge-dark-1280.png", logoPngWide(1280, WORD_DARK, BYLINE_DARK, null)],
+  ["public/brand/ductforge-stacked-512.png", stackedPng(512, WORD_LIGHT, BYLINE_LIGHT)],
+  ["public/brand/ductforge-stacked-dark-512.png", stackedPng(512, WORD_DARK, BYLINE_DARK)],
+  /* 1024 is what app stores and social avatars ask for; 512 is the manifest. */
   ["public/brand/ductforge-tile-512.png", tilePng(512)],
+  ["public/brand/ductforge-tile-1024.png", tilePng(1024)],
 ];
 for (const [path, buf] of rasters) {
   writeFileSync(out(path), buf);
   console.log(`wrote           ${path}  ${buf.length} bytes`);
 }
+/* The old 160 was replaced by the width-sized set. */
+rmSync(out("public/brand/ductforge-160.png"), { force: true });
 
 console.log(`tile            ${tileSize} square (radius ${TILE_RADIUS}, inset ${TILE_INSET})`);
 console.log(`wordmark        ${wordSized.width} wide, cap ${CAP} (font cap ${capHeight.toFixed(1)})`);
 console.log(`byline          ${bylineSized.width} wide, cap ${BYLINE_CAP}`);
 console.log(`lockup          ${totalW} × ${totalH}`);
+console.log(`stacked         ${stackW.toFixed(0)} × ${stackBylineY.toFixed(0)}`);
 for (const f of [
   "public/brand/ductforge.svg",
   "public/brand/ductforge-dark.svg",
+  "public/brand/ductforge-ink.svg",
+  "public/brand/ductforge-cream.svg",
+  "public/brand/ductforge-stacked.svg",
+  "public/brand/ductforge-stacked-dark.svg",
   "public/brand/ductforge-tile.svg",
   "lib/brand/logo.ts",
 ]) {
