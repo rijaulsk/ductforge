@@ -24,6 +24,7 @@ export const bn: Guide = {
     "আপনার কাজ আপনার ডিভাইসেই থাকে, কোথাও যায় না। তাই নিশ্চিন্তে চেষ্টা করে দেখতে পারেন — ভাঙার কিছু নেই।",
   ],
 
+  standardsEyebrow: "দুটো standard",
   standardsHeading: "প্রথমে যে সিদ্ধান্তটা সবচেয়ে জরুরি",
   standardsLede:
     "একই ডাক্ট, কে জিজ্ঞেস করছে তার উপর হিসেব বদলে যায়। ভুল স্ট্যান্ডার্ড বাছলে নিচের প্রতিটা সংখ্যা ভুল হবে — অথচ দেখে কিছুই বোঝা যাবে না।",
@@ -38,6 +39,7 @@ export const bn: Guide = {
     },
   ],
 
+  stepsEyebrow: "ধাপে ধাপে",
   stepsHeading: "কাজের ধাপ",
   steps: [
     {
@@ -142,6 +144,7 @@ export const bn: Guide = {
     },
   ],
 
+  watchEyebrow: "সীমা",
   watchHeading: "যেগুলো জেনে রাখা ভালো",
   watch: [
     {

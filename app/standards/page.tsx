@@ -15,7 +15,7 @@ import { fmt } from "@/lib/duct/units";
 import { WASTE_PRESETS } from "@/lib/duct/waste";
 import AppHeader from "@/components/AppHeader";
 import SiteFooter from "@/components/SiteFooter";
-import { variantClasses } from "@/components/ui";
+import { variantClasses } from "@/components/variants";
 
 /* Everything the calculator believes, written out.
  *

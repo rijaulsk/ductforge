@@ -4,7 +4,7 @@ import type { Guide } from "@/lib/guide/types";
 import AppHeader from "./AppHeader";
 import GuideFigure from "./GuideFigure";
 import SiteFooter from "./SiteFooter";
-import { variantClasses } from "./ui";
+import { variantClasses } from "./variants";
 
 /* One component, three languages.
  *
@@ -21,34 +21,51 @@ import { variantClasses } from "./ui";
 export default function GuidePage({ guide }: { guide: Guide }) {
   return (
     <>
+      {/* THE LANGUAGE SWITCHER IS A ROW, NOT A CORNER, and that is a bug fix.
+        *
+        * It used to sit in the header's `right` slot, which is `shrink-0`. Three
+        * language pills plus the label came to 270px of unshrinkable content in
+        * a 335px line, so the only flexible thing left — the Calculator / Guide
+        * / Standards nav — was squeezed from the 231px it needs to FIFTEEN.
+        * At 390px all three section links were a two-character sliver, which
+        * means that on a phone the three guide pages had no way out except the
+        * wordmark. The switcher was competing with the site's navigation and
+        * winning.
+        *
+        * On its own row both fit at every width, and the calculator already has
+        * a second header row, so this is the shape the header was built for. */}
       <AppHeader
         current="guide"
         labels={guide.nav}
-        right={
-          <nav aria-label={guide.switcherLabel} className="flex flex-wrap items-center gap-2">
-            <span className="hidden text-small text-muted sm:inline">
-              {guide.switcherLabel}
-            </span>
-            {GUIDE_LIST.map((g) => {
-              const on = g.locale === guide.locale;
-              return (
-                <Link
-                  key={g.locale}
-                  href={g.path}
-                  lang={g.htmlLang}
-                  hrefLang={g.htmlLang}
-                  aria-current={on ? "page" : undefined}
-                  className={`shrink-0 rounded-full border-[1.5px] px-3.5 py-1.5 text-small font-medium transition-colors duration-200 ease-out ${
-                    on ? "border-line bg-heading text-page" : "border-line text-heading hover:bg-sunk"
-                  }`}
-                >
-                  {g.label}
-                </Link>
-              );
-            })}
-          </nav>
-        }
-      />
+      >
+        <nav
+          aria-label={guide.switcherLabel}
+          className="flex flex-wrap items-center gap-2"
+        >
+          {/* The label is the first thing to go when the row is tight: three
+            * pills each written in their own script say what they are without
+            * it, and `aria-label` on the nav says it to anyone who cannot see
+            * them. Keeping it below `sm` pushed one pill onto a second line. */}
+          <span className="hidden text-small text-muted sm:inline">{guide.switcherLabel}</span>
+          {GUIDE_LIST.map((g) => {
+            const on = g.locale === guide.locale;
+            return (
+              <Link
+                key={g.locale}
+                href={g.path}
+                lang={g.htmlLang}
+                hrefLang={g.htmlLang}
+                aria-current={on ? "page" : undefined}
+                className={`shrink-0 rounded-full border-[1.5px] px-3.5 py-1.5 text-small font-medium transition-colors duration-200 ease-out ${
+                  on ? "border-line bg-heading text-page" : "border-line text-heading hover:bg-sunk"
+                }`}
+              >
+                {g.label}
+              </Link>
+            );
+          })}
+        </nav>
+      </AppHeader>
 
       {/* The script class does two things: swaps in a face that HAS glyphs for
         * this writing system, and loosens the leading, because Bengali and
@@ -89,7 +106,8 @@ export default function GuidePage({ guide }: { guide: Guide }) {
 
         <div className="bg-sunk">
           <div className="mx-auto w-full max-w-canvas px-5 py-14 md:px-8 md:py-20">
-            <h2 className="max-w-3xl text-h2-mobile font-bold text-heading md:text-h2">
+            <p className="text-eyebrow uppercase text-accent">{guide.standardsEyebrow}</p>
+            <h2 className="mt-3 max-w-3xl text-h2-mobile font-bold text-heading md:text-h2">
               {guide.standardsHeading}
             </h2>
             <p className="mt-4 max-w-2xl">{guide.standardsLede}</p>
@@ -107,7 +125,8 @@ export default function GuidePage({ guide }: { guide: Guide }) {
         </div>
 
         <div className="mx-auto w-full max-w-canvas px-5 py-14 md:px-8 md:py-20">
-          <h2 className="max-w-3xl text-h2-mobile font-bold text-heading md:text-h2">
+          <p className="text-eyebrow uppercase text-accent">{guide.stepsEyebrow}</p>
+          <h2 className="mt-3 max-w-3xl text-h2-mobile font-bold text-heading md:text-h2">
             {guide.stepsHeading}
           </h2>
           <ol className="mt-10 space-y-8">
@@ -149,7 +168,8 @@ export default function GuidePage({ guide }: { guide: Guide }) {
 
         <div className="bg-sunk">
           <div className="mx-auto w-full max-w-canvas px-5 py-14 md:px-8 md:py-20">
-            <h2 className="max-w-3xl text-h2-mobile font-bold text-heading md:text-h2">
+            <p className="text-eyebrow uppercase text-accent">{guide.watchEyebrow}</p>
+            <h2 className="mt-3 max-w-3xl text-h2-mobile font-bold text-heading md:text-h2">
               {guide.watchHeading}
             </h2>
             <ul className="mt-8 grid gap-6 sm:grid-cols-2">

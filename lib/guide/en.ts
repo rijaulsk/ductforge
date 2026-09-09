@@ -17,6 +17,7 @@ export const en: Guide = {
     "Nothing here is stored anywhere but your own device, so you can experiment with a job freely — there is nothing to break and nothing to undo.",
   ],
 
+  standardsEyebrow: "The two standards",
   standardsHeading: "First, the one decision that matters",
   standardsLede:
     "The same duct is a different quantity depending on who is asking. Pick the wrong one and every figure below it is wrong in a way that looks completely reasonable.",
@@ -31,6 +32,7 @@ export const en: Guide = {
     },
   ],
 
+  stepsEyebrow: "Step by step",
   stepsHeading: "The workflow",
   steps: [
     {
@@ -135,6 +137,7 @@ export const en: Guide = {
     },
   ],
 
+  watchEyebrow: "Limits",
   watchHeading: "Worth knowing",
   watch: [
     {
