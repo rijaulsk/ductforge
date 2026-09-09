@@ -60,7 +60,7 @@ function Field({
            * hand first, digit by digit, for ten boxes on every fitting, is a
            * tax on the commonest action in the app. Tap, type, done. */
           onFocus={(e) => e.currentTarget.select()}
-          className="w-full rounded-card border-[1.5px] border-line bg-page px-4 py-2.5 font-medium tabular-nums text-heading placeholder:font-normal placeholder:text-muted"
+          className="w-full rounded-card border-[1.5px] border-line bg-page px-4 py-2.5 font-medium tabular-nums text-heading placeholder:font-normal placeholder:text-faint"
         />
         {unit && <span className="w-8 shrink-0 text-small text-muted">{unit}</span>}
       </div>
@@ -227,7 +227,7 @@ export default function ParamForm({
             placeholder="AHU-1, Level 3, Kitchen…"
             value={draft.zone}
             onChange={(e) => onChange({ ...draft, zone: e.target.value })}
-            className="mt-auto w-full rounded-card border-[1.5px] border-line bg-page px-4 py-2.5 text-heading placeholder:text-muted"
+            className="mt-auto w-full rounded-card border-[1.5px] border-line bg-page px-4 py-2.5 text-heading placeholder:text-faint"
           />
           {/* Whatever zones the takeoff already uses, offered back — so a job
             * does not end up with AHU-1, AHU 1 and ahu-1 as three zones. */}
@@ -251,7 +251,7 @@ export default function ParamForm({
             placeholder="Riser drop, AHU discharge…"
             value={draft.note}
             onChange={(e) => onChange({ ...draft, note: e.target.value })}
-            className="mt-auto w-full rounded-card border-[1.5px] border-line bg-page px-4 py-2.5 text-heading placeholder:text-muted"
+            className="mt-auto w-full rounded-card border-[1.5px] border-line bg-page px-4 py-2.5 text-heading placeholder:text-faint"
           />
         </div>
       </div>

@@ -368,7 +368,7 @@ export default function ProjectSettings({
                 placeholder="₹, AED, GBP…"
                 value={project.rates.label}
                 onChange={(e) => patchRates({ label: e.target.value })}
-                className="mt-2 w-full rounded-card border-[1.5px] border-line bg-page px-4 py-2.5 text-heading placeholder:text-muted"
+                className="mt-2 w-full rounded-card border-[1.5px] border-line bg-page px-4 py-2.5 text-heading placeholder:text-faint"
               />
             </div>
           </div>
