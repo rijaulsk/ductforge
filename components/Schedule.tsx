@@ -225,8 +225,13 @@ export default function Schedule({
               * Without them the fitting's dimension line — "W 600 · H 400 ·
               * L 3000" — claimed the whole row at 390px and pushed the three
               * 36px action buttons into a 2 + 1 wrap, so every line ended in a
-              * ragged L of buttons at a different height from the one above. */}
-            <div className="flex items-start justify-between gap-3">
+              * ragged L of buttons at a different height from the one above.
+              *
+              * Below `xs` the actions drop to their own line instead. Three
+              * 36px buttons are 120px of a 265px row at 320px, which left the
+              * description about 110px and broke "1. Straight duct ×1" across
+              * three lines. Content first, controls under it. */}
+            <div className="flex flex-col items-stretch gap-2 xs:flex-row xs:items-start xs:justify-between xs:gap-3">
               <div className="flex min-w-0 items-start gap-3">
                 <FittingGlyph kind={entry.fitting.kind} className="mt-1 shrink-0 text-accent" />
                 <div className="min-w-0">

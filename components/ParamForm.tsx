@@ -93,13 +93,28 @@ export default function ParamForm({
     <div className="space-y-6">
       <fieldset className="border-0 p-0">
         <legend className="sr-only">{spec.name} dimensions</legend>
-        {/* TWO COLUMNS FROM THE SMALLEST SCREEN UP. A Y-piece has six
-          * dimensions and a square-to-round four; stacked one per row on a
-          * phone that is most of a screen of scrolling before you reach the
-          * button. Paired, it is half that, and duct dimensions come in pairs
-          * anyway — W with H, D₁ with D₂. The gap tightens on narrow screens so
-          * two boxes still fit without the labels wrapping. */}
-        <div className="grid grid-cols-2 gap-x-3 gap-y-4 sm:gap-x-5 sm:gap-y-5">
+        {/* TWO COLUMNS, BUT NOT ON A PHONE — the boxes were eating their own
+          * values there.
+          *
+          * The pairing is right and the reason for it stands: a Y-piece has six
+          * dimensions and a square-to-round four, duct dimensions come in pairs
+          * (W with H, D₁ with D₂), and stacking them all is most of a screen of
+          * scrolling before you reach the button. What was wrong was applying
+          * it at every width.
+          *
+          * Two columns leaves each box about 67px of text room on a 390px
+          * phone and 32px on a 320px one. "3000" needs 48 and was cut to "300".
+          * Imperial is worse, because a unit switch writes the exact conversion
+          * into the box: 118.110236 needs 112px and lost half of itself. For
+          * two columns to hold that you need a 460px viewport, which no phone
+          * has.
+          *
+          * So: one column until `sm`, paired from 640px up. `sm` and not `xs`
+          * because at 480 the pair fits the current values with exactly nothing
+          * to spare — 113px of text room for a 113px value — and the next digit
+          * (a 12 m run is 472.440945 in) would clip again. 640 gives a cell
+          * 202px of text room, which is headroom rather than luck. */}
+        <div className="grid grid-cols-1 gap-x-3 gap-y-4 sm:grid-cols-2 sm:gap-x-5 sm:gap-y-5">
           {spec.fields.map((f) => (
             <Field
               key={f.key}
@@ -119,7 +134,11 @@ export default function ParamForm({
         <legend className="mb-3">
           <Eyebrow>Quantity and allowance</Eyebrow>
         </legend>
-        <div className="grid grid-cols-2 gap-x-3 gap-y-4 sm:gap-x-5">
+        {/* Same `xs` rule as the dimensions. Pieces and Waste hold short
+          * values and would survive two columns, but the waste presets live in
+          * the Waste cell — five pills that need a full row and otherwise wrap
+          * two-and-two-and-one down a half-width column. */}
+        <div className="grid grid-cols-1 gap-x-3 gap-y-4 xs:grid-cols-2 sm:gap-x-5">
           <div>
             <label htmlFor={`${uid}-qty`} className="font-medium text-heading">
               Pieces

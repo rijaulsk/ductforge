@@ -197,17 +197,22 @@ function Figure({ kind }: { kind: FigureKind }) {
           <div className="flex items-start gap-3">
             <Marker n={2} />
             <div className="min-w-0 flex-1 border-y-[1.5px] border-rule py-3">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-start gap-2">
+              {/* Stacks below `xs`, exactly as the real schedule row now does.
+                * The three chips plus the dimension line needed 330px in a
+                * 320px screen and pushed the whole page ten pixels sideways —
+                * and a figure OF the interface has to break the way the
+                * interface breaks, or it stops being a picture of it. */}
+              <div className="flex flex-col gap-2 xs:flex-row xs:items-start xs:justify-between xs:gap-3">
+                <div className="flex min-w-0 items-start gap-2">
                   <FittingGlyph kind="elbow" className="mt-0.5 shrink-0 text-accent" />
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-small font-medium text-heading">Elbow ×4</p>
                     <p className="text-small tabular-nums text-body">
                       W 600 · H 400 · R 300 · θ 90°
                     </p>
                   </div>
                 </div>
-                <div className="flex gap-1.5">
+                <div className="flex shrink-0 flex-wrap gap-1.5">
                   {["Edit", "Copy", "Remove"].map((t) => (
                     <span
                       key={t}

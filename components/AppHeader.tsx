@@ -60,9 +60,31 @@ export default function AppHeader({
             * ~380px in a 350px line, so "Standards" was clipped; the nav scrolls
             * rather than breaking, but a label cut mid-word looks like a fault
             * rather than a affordance. These two reclaim enough to fit at 390. */}
-          <div className="flex h-12 items-center gap-x-1.5 md:gap-x-4">
+          {/* THE NAV TAKES ITS OWN LINE ON A PHONE INSTEAD OF SCROLLING.
+            *
+            * Wordmark 38 + three pills 239 + theme toggle 44 needs about 335px
+            * of unshrinkable content. A 390px phone has 335 and a 320px one has
+            * 265, so from 375 down the nav scrolled and "Standards" was cut to
+            * "S" — a top-level link, hidden behind a gesture nobody makes on a
+            * header. Overflow-scroll is the wrong answer for three links that
+            * are the entire site.
+            *
+            * `flex-wrap` plus `w-full` on the nav puts it on line two below
+            * `xs` and back inline from 480px up. It wraps to the SAME shape on
+            * every route, which is what the old flex-wrap did not do — that one
+            * wrapped to a different number of lines depending on what the page
+            * put in the `right` slot, and the logo moved as you navigated. The
+            * fixed `h-12` still applies from `xs` up, where it is one row. */}
+          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 py-1.5 xs:h-12 xs:flex-nowrap xs:py-0 md:gap-x-4">
             <Wordmark size="sm" compact />
-            <SiteNav current={current} labels={labels} />
+            {/* `order-last w-full` is what forces the wrap: a full-width flex
+              * item cannot share a line, so the wordmark and the controls keep
+              * line one and the nav takes line two. Both revert at `xs`. */}
+            <SiteNav
+              current={current}
+              labels={labels}
+              className="order-last w-full xs:order-none xs:w-auto"
+            />
             <div className="ml-auto flex shrink-0 items-center gap-2">
               {right}
               <ThemeToggle />

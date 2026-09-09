@@ -115,6 +115,24 @@
 
   --radius-card: 14px;
   --container-canvas: 82.5rem;
+
+  /* A BREAKPOINT BELOW `sm`, because every phone is below `sm`.
+   *
+   * Tailwind's smallest default is 640px, so "mobile" and "small tablet" shared
+   * one set of rules and the rules were written for the roomier one. Three
+   * things broke on an actual handset and none of them broke at 640:
+   *
+   *   · the dimension boxes clipped their own values — a length of 3000 mm was
+   *     cut to "300", and in imperial 118.110236 lost half itself;
+   *   · the section nav could not fit Calculator / Guide / Standards beside the
+   *     wordmark and the theme toggle, so "Standards" was cut to "S";
+   *   · the workspace tab bar could not fit four tabs, so "Takeoff" — the
+   *     schedule the whole app exists to produce — was off-screen entirely.
+   *
+   * 30rem = 480px sits above every common handset (320, 360, 375, 390, 414,
+   * 430) and below the smallest tablet, so it is the line between "one column,
+   * everything stacked" and "the layout as designed". */
+  --breakpoint-xs: 30rem;
 }
 
 /* The semantic surface layer. Light is the default; dark re-points the same
