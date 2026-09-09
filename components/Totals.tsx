@@ -19,6 +19,7 @@ import {
   runUnit,
 } from "@/lib/duct/units";
 import { Eyebrow, Note, Stat } from "./ui";
+import RefTable from "./RefTable";
 
 /* The bottom line, and the purchase order under it.
  *
@@ -26,6 +27,11 @@ import { Eyebrow, Note, Stat } from "./ui";
  * looks orderable: 22 ga cannot be cut out of a 24 ga sheet, so "41 sheets" on
  * its own would be a figure with no meaning at a merchant's counter.
  */
+
+/* The two summaries below were `overflow-x-auto` at every width: "Material by
+ * gauge" is five columns and "By zone" up to six, so at 320px the gauge table
+ * hid 62px of itself — a purchase quantity you had to swipe a table to find.
+ * They render through RefTable now, which stacks them instead. */
 
 export default function Totals({
   totals,
@@ -128,106 +134,51 @@ export default function Totals({
       )}
 
       {showZones && (
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-left">
-            <caption className="sr-only">Quantities by zone</caption>
-            <thead>
-              <tr className="border-b-[1.5px] border-line text-small">
-                <th scope="col" className="py-2.5 pr-3 font-medium text-body">
-                  Zone
-                </th>
-                <th scope="col" className="py-2.5 pr-3 text-right font-medium text-body">
-                  Lines
-                </th>
-                <th scope="col" className="py-2.5 pr-3 text-right font-medium text-body">
-                  Pieces
-                </th>
-                <th scope="col" className="py-2.5 pr-3 text-right font-medium text-body">
-                  Gross {au}
-                </th>
-                <th scope="col" className="py-2.5 pr-3 text-right font-medium text-body">
-                  Weight {mu}
-                </th>
-                {showRates && (
-                  <th scope="col" className="py-2.5 text-right font-medium text-body">
-                    Value {project.rates.label}
-                  </th>
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {totals.byZone.map((z) => (
-                <tr key={z.zone || "__none"} className="border-b border-rule">
-                  <th scope="row" className="py-2.5 pr-3 font-medium text-heading">
-                    {z.zone || <span className="font-normal text-muted">Not assigned</span>}
-                  </th>
-                  <td className="py-2.5 pr-3 text-right tabular-nums text-heading">{z.lines}</td>
-                  <td className="py-2.5 pr-3 text-right tabular-nums text-heading">{z.pieces}</td>
-                  <td className="py-2.5 pr-3 text-right tabular-nums text-heading">
-                    {fmtArea(z.grossAreaMinor)}
-                  </td>
-                  <td className="py-2.5 pr-3 text-right tabular-nums text-heading">
-                    {fmtMass(z.massMinor)}
-                  </td>
-                  {showRates && (
-                    <td className="py-2.5 text-right font-medium tabular-nums text-heading">
-                      {fmtValue(z.valueMinor)}
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <RefTable
+          dense
+          rightAlign={[1, 2, 3, 4, 5]}
+          caption="Quantities by zone"
+          cols={[
+            "Zone",
+            "Lines",
+            "Pieces",
+            `Gross ${au}`,
+            `Weight ${mu}`,
+            ...(showRates ? [`Value ${project.rates.label}`] : []),
+          ]}
+          rows={totals.byZone.map((z) => ({
+            key: z.zone || "__none",
+            head: z.zone || <span className="font-normal text-muted">Not assigned</span>,
+            cells: [
+              z.lines,
+              z.pieces,
+              fmtArea(z.grossAreaMinor),
+              fmtMass(z.massMinor),
+              ...(showRates ? [fmtValue(z.valueMinor)] : []),
+            ],
+          }))}
+        />
       )}
 
       {totals.byGauge.length > 0 && (
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-left">
-            <caption className="sr-only">Material by gauge</caption>
-            <thead>
-              <tr className="border-b-[1.5px] border-line text-small">
-                <th scope="col" className="py-2.5 pr-3 font-medium text-body">
-                  Gauge
-                </th>
-                <th scope="col" className="py-2.5 pr-3 text-right font-medium text-body">
-                  Pieces
-                </th>
-                <th scope="col" className="py-2.5 pr-3 text-right font-medium text-body">
-                  Gross {au}
-                </th>
-                <th scope="col" className="py-2.5 pr-3 text-right font-medium text-body">
-                  Weight {mu}
-                </th>
-                <th scope="col" className="py-2.5 text-right font-medium text-body">
-                  Sheets
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {totals.byGauge.map((g) => (
-                <tr key={g.gauge} className="border-b border-rule">
-                  <th scope="row" className="py-2.5 pr-3 font-medium tabular-nums text-heading">
-                    {g.gauge} ga
-                    <span className="ml-2 font-normal text-small text-muted">
-                      {fmt(g.thicknessMm, 2)} mm
-                    </span>
-                  </th>
-                  <td className="py-2.5 pr-3 text-right tabular-nums text-heading">{g.pieces}</td>
-                  <td className="py-2.5 pr-3 text-right tabular-nums text-heading">
-                    {fmtArea(g.grossAreaMinor)}
-                  </td>
-                  <td className="py-2.5 pr-3 text-right tabular-nums text-heading">
-                    {fmtMass(g.massMinor)}
-                  </td>
-                  <td className="py-2.5 text-right font-medium tabular-nums text-heading">
-                    {g.sheets}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <RefTable
+          dense
+          rightAlign={[1, 2, 3, 4]}
+          caption="Material by gauge"
+          cols={["Gauge", "Pieces", `Gross ${au}`, `Weight ${mu}`, "Sheets"]}
+          rows={totals.byGauge.map((g) => ({
+            key: String(g.gauge),
+            head: (
+              <span className="tabular-nums">
+                {g.gauge} ga
+                <span className="ml-2 font-normal text-small text-muted">
+                  {fmt(g.thicknessMm, 2)} mm
+                </span>
+              </span>
+            ),
+            cells: [g.pieces, fmtArea(g.grossAreaMinor), fmtMass(g.massMinor), g.sheets],
+          }))}
+        />
       )}
 
       <Note label="Sheets">
