@@ -89,17 +89,48 @@ export default function Workspace() {
    * effect causes the cascading re-render that `react-hooks/set-state-in-effect`
    * exists to catch, and renders one extra frame of an empty takeoff. */
   const mounted = useHasMounted();
-  if (mounted && !hydrated) {
-    setHydrated(true);
-    setStore(initialState());
-  }
-
-  const project = store.projects.find((p) => p.id === store.activeId) ?? store.projects[0];
 
   const [draft, setDraft] = useState<Draft>(() => newDraft("straight", 12, "metric"));
   const [editingId, setEditingId] = useState<string | null>(null);
   const [view, setView] = useState<ViewKind>("blueprint");
   const [notice, setNotice] = useState<Notice>(null);
+
+  /* The hydration adjustment sits AFTER the state it writes to. It reads
+   * `setDraft`, and a `const` is in the temporal dead zone until its own
+   * declaration runs — reaching it from above throws at the first render. */
+  if (mounted && !hydrated) {
+    setHydrated(true);
+    const loaded = initialState();
+    setStore(loaded);
+    /* AND RE-EXPRESS THE DRAFT IN THE TAKEOFF WE JUST LOADED.
+     *
+     * The draft below is seeded metric, because the first render happens on the
+     * server where there is no saved takeoff to ask. Every other path that
+     * changes takeoff — selectProject, addProject, clearEverything, pickKind —
+     * rebuilds the draft with `project.units`. This one did not, and it is the
+     * path everybody takes: opening the app.
+     *
+     * So a takeoff saved in imperial reopened with the millimetre defaults
+     * sitting under inch labels: the width box read 600 beside "in", which is
+     * a fifteen-metre duct, and the length read 3000 in for a three-metre run.
+     * The geometry underneath was the correct 600 mm — only the boxes lied —
+     * so accepting the form gave a fitting that did not match the numbers the
+     * estimator had just read. On a tool whose whole claim is that you can
+     * check its arithmetic by hand, a box showing the wrong unit is the worst
+     * kind of wrong: quietly, and only for people who work in inches.
+     *
+     * The waste comes across for the same reason: the seed hard-codes 12%, and
+     * a takeoff saved at 20% reopened showing 12. */
+    const open = loaded.projects.find((p) => p.id === loaded.activeId) ?? loaded.projects[0];
+    if (open) {
+      setDraft((d) => ({
+        ...convertDraft(d, "metric", open.units),
+        waste: String(open.waste),
+      }));
+    }
+  }
+
+  const project = store.projects.find((p) => p.id === store.activeId) ?? store.projects[0];
 
   useEffect(() => {
     /* NEVER WRITE BEFORE WE HAVE READ. The first render holds a blank takeoff,
@@ -317,7 +348,22 @@ export default function Workspace() {
           *
           * Below `lg` these four are the whole app: each was previously a
           * screen of scrolling. */}
-        <div className="mb-4 flex gap-1.5 overflow-x-auto lg:hidden" role="tablist">
+        {/* FOUR EQUAL COLUMNS, NOT A SCROLLING ROW.
+          *
+          * These four tabs ARE the app below `lg`, and they were laid out as a
+          * flex row that scrolled. At 320px they needed 325px in 265px, so
+          * "Takeoff" — the schedule the whole tool exists to produce — sat
+          * entirely off the right edge, behind a native scrollbar drawn under
+          * the tabs. A primary navigation control that is invisible until you
+          * swipe a bar you have no reason to think is swipeable is not
+          * navigation.
+          *
+          * A four-column grid always shows four tabs. The type steps down a
+          * notch below `xs` so the longest label ("Drawing") clears its cell
+          * with room; `truncate` is the belt-and-braces that keeps a future
+          * longer label from pushing the page sideways rather than being
+          * clipped inside its own pill. */}
+        <div className="mb-4 grid grid-cols-4 gap-1 xs:gap-1.5 lg:hidden" role="tablist">
           {TABS.map((t) => (
             <button
               key={t.key}
@@ -325,7 +371,7 @@ export default function Workspace() {
               role="tab"
               aria-selected={tab === t.key}
               onClick={() => setTab(t.key)}
-              className={`shrink-0 whitespace-nowrap rounded-full border-[1.5px] px-3.5 py-1.5 text-small font-medium transition-colors duration-200 ease-out ${
+              className={`min-w-0 truncate rounded-full border-[1.5px] px-1 py-1.5 text-[13px] font-medium transition-colors duration-200 ease-out xs:px-3.5 xs:text-small ${
                 tab === t.key
                   ? "border-line bg-heading text-page"
                   : "border-transparent text-body hover:bg-sunk"
@@ -592,8 +638,15 @@ export default function Workspace() {
       <div className="sticky bottom-0 z-30 -mx-5 mt-6 border-t-[1.5px] border-line bg-page/95 px-5 py-3 backdrop-blur md:-mx-8 md:px-8 lg:hidden">
         <div className="flex items-center gap-3">
           <div className="min-w-0 flex-1">
+            {/* The fitting's NAME is what goes when the bar runs out of room,
+              * not the figures. At 320px "Round duct · 4.222 m² · 39…" lost the
+              * weight — the bar kept the label of the thing you are already
+              * looking at and cut one of the two numbers it exists to show. The
+              * name is the h2 at the top of this same tab; the figures are only
+              * here. */}
             <p className="truncate text-small text-muted">
-              {spec.name} · {fmtArea(preview.grossAreaMinor)} {areaUnit(project.units)} ·{" "}
+              <span className="hidden xs:inline">{spec.name} · </span>
+              {fmtArea(preview.grossAreaMinor)} {areaUnit(project.units)} ·{" "}
               {fmtMass(preview.massMinor)} {massUnit(project.units)}
             </p>
           </div>
