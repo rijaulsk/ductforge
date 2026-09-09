@@ -61,13 +61,21 @@ export type Guide = {
   title: string;
   lede: string[];
 
+  /* AN EYEBROW PER SECTION, because the design system asks for one above every
+   * section title and these three did not have one. The hero's `eyebrow` above
+   * was the only one on the page, so the guide's three `h2`s sat bare while
+   * every panel in the calculator carried a label. Typed here rather than
+   * hard-coded in the component so a language cannot quietly go without. */
+  standardsEyebrow: string;
   standardsHeading: string;
   standardsLede: string;
   standards: { name: string; body: string }[];
 
+  stepsEyebrow: string;
   stepsHeading: string;
   steps: GuideStep[];
 
+  watchEyebrow: string;
   watchHeading: string;
   watch: GuideNote[];
 

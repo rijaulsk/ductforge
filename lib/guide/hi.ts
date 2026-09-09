@@ -21,6 +21,7 @@ export const hi: Guide = {
     "आपका काम आपके ही device पर रहता है, कहीं जाता नहीं। तो बेफ़िक्र होकर आज़माइए — यहाँ कुछ बिगड़ने वाला नहीं है।",
   ],
 
+  standardsEyebrow: "दो standard",
   standardsHeading: "सबसे पहले, वो एक फ़ैसला जो सब तय करता है",
   standardsLede:
     "एक ही डक्ट, पूछने वाला कौन है उस पर हिसाब बदल जाता है। ग़लत standard चुना तो नीचे का हर नंबर ग़लत होगा — और देखने में बिल्कुल ठीक लगेगा।",
@@ -35,6 +36,7 @@ export const hi: Guide = {
     },
   ],
 
+  stepsEyebrow: "क़दम-दर-क़दम",
   stepsHeading: "काम का तरीक़ा",
   steps: [
     {
@@ -139,6 +141,7 @@ export const hi: Guide = {
     },
   ],
 
+  watchEyebrow: "सीमाएँ",
   watchHeading: "जान लेना ठीक रहेगा",
   watch: [
     {
