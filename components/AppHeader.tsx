@@ -60,7 +60,7 @@ export default function AppHeader({
             * ~380px in a 350px line, so "Standards" was clipped; the nav scrolls
             * rather than breaking, but a label cut mid-word looks like a fault
             * rather than a affordance. These two reclaim enough to fit at 390. */}
-          <div className="flex h-12 items-center gap-x-2 md:gap-x-4">
+          <div className="flex h-12 items-center gap-x-1.5 md:gap-x-4">
             <Wordmark size="sm" compact />
             <SiteNav current={current} labels={labels} />
             <div className="ml-auto flex shrink-0 items-center gap-2">

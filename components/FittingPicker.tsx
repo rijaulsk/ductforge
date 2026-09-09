@@ -115,11 +115,27 @@ export default function FittingPicker({
 
   return (
     <div ref={wrap} className="relative" onKeyDown={onKeyDown}>
+      {/* IT HAS TO SAY WHICH FITTING IS CHOSEN.
+        *
+        * `aria-labelledby` REPLACES an element's name, it does not add to it —
+        * so pointing it at the hidden "Fitting" span alone meant this control
+        * announced "Fitting, collapsed" and never once said "Straight duct".
+        * The one piece of state the button exists to report was the one thing
+        * it did not report. Naming it from the label AND the value span gives
+        * "Fitting Straight duct", which is what the sighted user reads too.
+        *
+        * `role="combobox"` with `aria-activedescendant` is the other half:
+        * focus stays on this button while the arrow keys move the highlight
+        * inside the list, so without it a screen reader announced nothing at
+        * all while a sighted user watched the selection move. */}
       <button
         type="button"
+        role="combobox"
         aria-haspopup="listbox"
+        aria-controls={`${uid}-list`}
         aria-expanded={open}
-        aria-labelledby={`${uid}-label`}
+        aria-activedescendant={open ? `${uid}-opt-${active}` : undefined}
+        aria-labelledby={`${uid}-label ${uid}-value`}
         onClick={() => {
           setActive(value);
           setOpen((v) => !v);
@@ -130,7 +146,9 @@ export default function FittingPicker({
           <FittingGlyph kind={value} />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate font-medium text-heading">{spec.name}</span>
+          <span id={`${uid}-value`} className="block truncate font-medium text-heading">
+            {spec.name}
+          </span>
           {spec.aka.length > 0 && (
             <span className="block truncate text-small text-muted">{spec.aka.join(" · ")}</span>
           )}
@@ -150,23 +168,35 @@ export default function FittingPicker({
          * height and scrolls instead. */
         <ul
           ref={listRef}
+          id={`${uid}-list`}
           role="listbox"
           aria-labelledby={`${uid}-label`}
           tabIndex={-1}
-          className="absolute inset-x-0 top-full z-50 mt-2 max-h-[min(60svh,26rem)] overflow-y-auto overscroll-contain rounded-card border-[1.5px] border-line bg-card p-1"
+          /* A thin scrollbar in the token colours. Ten fittings do not fit in
+            * `26rem`, so this list always scrolls, and Chrome's default is a
+            * wide grey slab that belongs to no palette here — the one piece of
+            * borrowed chrome in an otherwise bespoke control. */
+          className="absolute inset-x-0 top-full z-50 mt-2 max-h-[min(60svh,26rem)] overflow-y-auto overscroll-contain rounded-card border-[1.5px] border-line bg-card p-1 [scrollbar-color:var(--ds-rule)_transparent] [scrollbar-width:thin]"
         >
+          {/* `role="none"` on the list items: a listbox may contain options and
+            * groups, and nothing else. The `<li>` wrappers carry an implicit
+            * listitem role, which put an invalid layer between the listbox and
+            * its options — some screen readers then report the option count
+            * wrongly or skip the group headings. Stripping the implicit role
+            * keeps the markup semantic and the tree legal. */}
           {GROUPS.map((group) => (
-            <li key={group.label}>
+            <li key={group.label} role="none">
               <p className="px-3 pb-1 pt-3 text-eyebrow uppercase text-muted">{group.label}</p>
-              <ul role="group">
+              <ul role="group" aria-label={group.label}>
                 {group.kinds.map((kind) => {
                   const s = SPECS[kind];
                   const on = kind === value;
                   return (
-                    <li key={kind}>
+                    <li key={kind} role="none">
                       <button
                         type="button"
                         role="option"
+                        id={`${uid}-opt-${kind}`}
                         aria-selected={on}
                         data-kind={kind}
                         onClick={() => commit(kind)}

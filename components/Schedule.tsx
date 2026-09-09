@@ -46,7 +46,7 @@ function Actions({
     "inline-flex h-9 w-9 items-center justify-center rounded-full border border-rule text-body transition duration-200 ease-out hover:bg-sunk hover:text-heading";
 
   return (
-    <div className="flex flex-wrap items-center justify-end gap-1.5">
+    <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
       <button type="button" onClick={onEdit} className={cls} aria-label={`Edit line ${index}`}>
         <Pencil size={16} strokeWidth={1.5} />
       </button>
@@ -221,10 +221,15 @@ export default function Schedule({
       <ul className="divide-y-[1.5px] divide-rule border-y-[1.5px] border-rule lg:hidden">
         {rows.map(({ entry, index, result, name, dims }) => (
           <li key={entry.id} className={`py-4 ${entry.id === editingId ? "bg-sunk" : ""}`}>
+            {/* `min-w-0` on the description and `shrink-0` on the actions.
+              * Without them the fitting's dimension line — "W 600 · H 400 ·
+              * L 3000" — claimed the whole row at 390px and pushed the three
+              * 36px action buttons into a 2 + 1 wrap, so every line ended in a
+              * ragged L of buttons at a different height from the one above. */}
             <div className="flex items-start justify-between gap-3">
-              <div className="flex items-start gap-3">
+              <div className="flex min-w-0 items-start gap-3">
                 <FittingGlyph kind={entry.fitting.kind} className="mt-1 shrink-0 text-accent" />
-                <div>
+                <div className="min-w-0">
                   <p className="font-medium text-heading">
                     <span className="tabular-nums text-muted">{index}. </span>
                     {name} <span className="tabular-nums text-body">×{entry.qty}</span>
@@ -244,15 +249,15 @@ export default function Schedule({
               />
             </div>
             <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-small sm:grid-cols-4">
-              <div className="flex justify-between sm:block">
+              <div className="flex justify-between gap-3 sm:block">
                 <dt className="text-muted">Gauge</dt>
                 <dd className="tabular-nums text-heading">{result.gauge} ga</dd>
               </div>
-              <div className="flex justify-between sm:block">
+              <div className="flex justify-between gap-3 sm:block">
                 <dt className="text-muted">Net {au}</dt>
                 <dd className="tabular-nums text-heading">{fmtArea(result.netAreaMinor)}</dd>
               </div>
-              <div className="flex justify-between sm:block">
+              <div className="flex justify-between gap-3 sm:block">
                 <dt className="text-muted">
                   Gross {au} <span className="tabular-nums">(+{entry.waste}%)</span>
                 </dt>
@@ -260,7 +265,7 @@ export default function Schedule({
                   {fmtArea(result.grossAreaMinor)}
                 </dd>
               </div>
-              <div className="flex justify-between sm:block">
+              <div className="flex justify-between gap-3 sm:block">
                 <dt className="text-muted">Weight {mu}</dt>
                 <dd className="font-medium tabular-nums text-heading">
                   {fmtMass(result.massMinor)}
