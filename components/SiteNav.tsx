@@ -46,9 +46,19 @@ export default function SiteNav({
      * pushed off the right edge and clipped. Letting the nav shrink means it
      * scrolls its own pills — which it was already set up to do — and
      * everything else stays put. */
+    /* `[scrollbar-width:none]` — the overflow is a safety net, not a feature.
+     *
+     * At 390px the three pills came to 267px in 237px of room, so the nav
+     * scrolled: Chrome drew a grey horizontal scrollbar across the header and
+     * cut "Standards" to "Standar". A label sliced mid-word under a system
+     * scrollbar reads as a broken header, not as "there is more this way" —
+     * which is exactly what the comment below already said, while the layout
+     * did it anyway. The pills are tighter below `md` now and all three fit;
+     * the scroll stays for the widths and translations where they do not, but
+     * without the scrollbar drawn through the header. */
     <nav
       aria-label="Sections"
-      className={`flex min-w-0 flex-nowrap gap-1.5 overflow-x-auto ${className ?? ""}`}
+      className={`flex min-w-0 flex-nowrap gap-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:gap-1.5 ${className ?? ""}`}
     >
       {ITEMS.map((item) => {
         const on = item.key === current;
@@ -57,7 +67,7 @@ export default function SiteNav({
             key={item.key}
             href={item.href}
             aria-current={on ? "page" : undefined}
-            className={`shrink-0 whitespace-nowrap rounded-full border-[1.5px] px-3 py-1.5 text-small font-medium transition-colors duration-200 ease-out md:px-3.5 ${
+            className={`shrink-0 whitespace-nowrap rounded-full border-[1.5px] px-2 py-1.5 text-small font-medium transition-colors duration-200 ease-out sm:px-3 md:px-3.5 ${
               on
                 ? "border-line bg-heading text-page"
                 : "border-transparent text-body hover:bg-sunk hover:text-heading"
