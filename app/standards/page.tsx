@@ -14,6 +14,7 @@ import { MATERIALS, MATERIAL_KEYS } from "@/lib/duct/material";
 import { fmt } from "@/lib/duct/units";
 import { WASTE_PRESETS } from "@/lib/duct/waste";
 import AppHeader from "@/components/AppHeader";
+import RefTable from "@/components/RefTable";
 import SiteFooter from "@/components/SiteFooter";
 import { variantClasses } from "@/components/variants";
 
@@ -36,8 +37,8 @@ export const metadata: Metadata = {
   alternates: { canonical: "/standards" },
 };
 
-const th = "border-b-[1.5px] border-line py-3 pr-4 text-left text-small font-medium text-body";
-const td = "border-b border-rule py-3 pr-4 align-top";
+/* The `th` / `td` class constants that used to live here moved into
+ * `components/RefTable.tsx` along with the four tables they dressed. */
 
 function Section({
   eyebrow,
@@ -144,42 +145,32 @@ export default function StandardsPage() {
         title="Every fitting, both standards"
         lede="W and H are the duct's width and height, L its length, R the inside (throat) radius, θ the included angle, O an offset's lateral step and F a collar's flange lip."
       >
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[46rem] border-collapse">
-            <thead>
-              <tr>
-                <th scope="col" className={th}>
-                  Fitting
-                </th>
-                <th scope="col" className={th}>
-                  Commercial billing
-                </th>
-                <th scope="col" className={th}>
-                  Shop fabrication
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {FITTING_KINDS.map((kind) => {
-                const spec = SPECS[kind];
-                return (
-                  <tr key={kind}>
-                    <th scope="row" className={`${td} font-bold text-heading`}>
-                      {spec.name}
-                      <span className="block text-small font-normal text-muted">{spec.blurb}</span>
-                    </th>
-                    <td className={`${td} text-small tabular-nums text-body`}>
-                      {spec.billing.expression}
-                    </td>
-                    <td className={`${td} text-small tabular-nums text-body`}>
-                      {spec.shop.expression}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <RefTable
+          caption="Every fitting, both standards"
+          from="lg"
+          minWidthClass="min-w-[46rem]"
+          cols={["Fitting", "Commercial billing", "Shop fabrication"]}
+          rows={FITTING_KINDS.map((kind) => {
+            const spec = SPECS[kind];
+            return {
+              key: kind,
+              head: (
+                <>
+                  {spec.name}
+                  <span className="block text-small font-normal text-muted">{spec.blurb}</span>
+                </>
+              ),
+              cells: [
+                <span key="b" className="text-small tabular-nums">
+                  {spec.billing.expression}
+                </span>,
+                <span key="s" className="text-small tabular-nums">
+                  {spec.shop.expression}
+                </span>,
+              ],
+            };
+          })}
+        />
 
         <h3 className="mt-10 text-h3 font-bold text-heading">What each one assumes</h3>
         <ul className="mt-4 space-y-3">
@@ -197,50 +188,32 @@ export default function StandardsPage() {
         title="Sheet gauge by largest dimension"
         lede="The common size-only shortcut from the SMACNA duct construction standards. The metric and imperial bands are two published tables rather than conversions of each other — 12 inches is 304.8 mm — so a job is graded on the table matching its own units."
       >
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[44rem] border-collapse">
-            <thead>
-              <tr>
-                <th scope="col" className={th}>
-                  Gauge
-                </th>
-                <th scope="col" className={th}>
-                  Thickness
-                </th>
-                <th scope="col" className={th}>
-                  Largest dimension (metric)
-                </th>
-                <th scope="col" className={th}>
-                  Largest dimension (imperial)
-                </th>
-                <th scope="col" className={`${th} text-right`}>
-                  kg/m²
-                </th>
-                <th scope="col" className={`${th} text-right`}>
-                  lb/ft²
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {GAUGE_BANDS.map((band) => (
-                <tr key={band.gauge}>
-                  <th scope="row" className={`${td} font-bold tabular-nums text-heading`}>
-                    {band.gauge} ga
-                  </th>
-                  <td className={`${td} tabular-nums text-body`}>{fmt(band.thicknessMm, 2)} mm</td>
-                  <td className={`${td} tabular-nums text-body`}>{bandRange(band, "metric")}</td>
-                  <td className={`${td} tabular-nums text-body`}>{bandRange(band, "imperial")}</td>
-                  <td className={`${td} text-right tabular-nums text-body`}>
-                    {fmt(densityDisplay(band.thicknessMm, "metric"), 2)}
-                  </td>
-                  <td className={`${td} text-right tabular-nums text-body`}>
-                    {fmt(densityDisplay(band.thicknessMm, "imperial"), 3)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <RefTable
+          caption="Sheet gauge by largest dimension"
+          from="lg"
+          minWidthClass="min-w-[44rem]"
+          dense
+          rightAlign={[4, 5]}
+          cols={[
+            "Gauge",
+            "Thickness",
+            "Largest dimension (metric)",
+            "Largest dimension (imperial)",
+            "kg/m²",
+            "lb/ft²",
+          ]}
+          rows={GAUGE_BANDS.map((band) => ({
+            key: String(band.gauge),
+            head: <span className="tabular-nums">{band.gauge} ga</span>,
+            cells: [
+              `${fmt(band.thicknessMm, 2)} mm`,
+              bandRange(band, "metric"),
+              bandRange(band, "imperial"),
+              fmt(densityDisplay(band.thicknessMm, "metric"), 2),
+              fmt(densityDisplay(band.thicknessMm, "imperial"), 3),
+            ],
+          }))}
+        />
         <p className="mt-6 max-w-3xl text-body">
           <span className="font-bold text-heading">This is a simplification, and it matters. </span>
           Real gauge selection also depends on the duct&rsquo;s pressure class and on reinforcement
@@ -263,36 +236,26 @@ export default function StandardsPage() {
           A gauge is a <em>thickness</em>, so the band table above survives a change of material
           untouched — only the density moves, and with it the weight.
         </p>
-        <div className="mt-6 overflow-x-auto">
-          <table className="w-full min-w-[36rem] border-collapse">
-            <thead>
-              <tr>
-                <th scope="col" className={th}>
-                  Material
-                </th>
-                <th scope="col" className={`${th} text-right`}>
-                  Density
-                </th>
-                <th scope="col" className={th}>
-                  Note
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {MATERIAL_KEYS.map((key) => (
-                <tr key={key}>
-                  <th scope="row" className={`${td} whitespace-nowrap font-bold text-heading`}>
-                    {MATERIALS[key].name}
-                  </th>
-                  <td className={`${td} text-right tabular-nums text-body`}>
-                    {MATERIALS[key].density} kg/m³
-                  </td>
-                  <td className={`${td} text-small text-body`}>{MATERIALS[key].note}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <RefTable
+          className="mt-6"
+          caption="Material densities"
+          from="md"
+          minWidthClass="min-w-[36rem]"
+          rightAlign={[1]}
+          cols={["Material", "Density", "Note"]}
+          rows={MATERIAL_KEYS.map((key) => ({
+            key,
+            head: <span className="whitespace-nowrap">{MATERIALS[key].name}</span>,
+            cells: [
+              <span key="d" className="tabular-nums">
+                {MATERIALS[key].density} kg/m³
+              </span>,
+              <span key="n" className="text-small">
+                {MATERIALS[key].note}
+              </span>,
+            ],
+          }))}
+        />
       </Section>
 
       <Section
@@ -356,30 +319,17 @@ export default function StandardsPage() {
         title="Scrap, seam and flange"
         lede="The allowance is your decision, not a measurement. These are the bands as the trade quotes them; any line can carry its own figure, and every export states which was used."
       >
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[36rem] border-collapse">
-            <thead>
-              <tr>
-                <th scope="col" className={th}>
-                  Allowance
-                </th>
-                <th scope="col" className={th}>
-                  Where it applies
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {WASTE_PRESETS.map((p) => (
-                <tr key={p.value}>
-                  <th scope="row" className={`${td} whitespace-nowrap font-bold tabular-nums text-heading`}>
-                    {p.label}
-                  </th>
-                  <td className={`${td} text-body`}>{p.detail}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <RefTable
+          caption="Waste allowance presets"
+          from="md"
+          minWidthClass="min-w-[36rem]"
+          cols={["Allowance", "Where it applies"]}
+          rows={WASTE_PRESETS.map((p) => ({
+            key: String(p.value),
+            head: <span className="whitespace-nowrap tabular-nums">{p.label}</span>,
+            cells: [p.detail],
+          }))}
+        />
       </Section>
 
       <Section
