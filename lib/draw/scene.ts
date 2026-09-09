@@ -199,6 +199,31 @@ export type ViewDim =
 export type ViewScene = {
   width: number;
   height: number;
+  /**
+   * The frame to actually SHOW, as an SVG viewBox — cropped vertically to what
+   * the drawing occupies.
+   *
+   * WHY THIS IS NOT JUST `0 0 width height`. The projection is a uniform scale,
+   * because a uniform scale maps a circle to a circle and that is what lets
+   * arcs survive as arcs. A uniform scale into a fixed 1000 × 640 frame must
+   * therefore letterbox anything whose proportions are not 1000:640 — and a
+   * straight duct's blueprint is an elevation beside a section, which is very
+   * wide and very short. It filled the full width and 158 of the 640 units of
+   * height: a quarter of the frame, with an empty band the height of the
+   * drawing again above it and below it. The panel said "100%" and "Fit" over
+   * a picture that plainly did not fit.
+   *
+   * The fix crops the frame rather than distorting the drawing. Coordinates are
+   * untouched — the projection, the stroke widths and the label sizes are all
+   * exactly what they were, and what `check:draw` asserts is unchanged.
+   *
+   * ONLY THE VERTICAL AXIS IS CROPPED, deliberately. Cropping horizontally too
+   * would change the panel's WIDTH per fitting and shove the layout around on
+   * every keystroke; and where height is the limiting axis — the isometric,
+   * which fits to a bounding sphere — this formula returns the full 640 and
+   * changes nothing at all. So a rotating drawing still cannot pulse.
+   */
+  viewBox: string;
   shapes: ViewShape[];
   dims: ViewDim[];
   captions: { x: number; y: number; text: string; anchor: Anchor }[];
@@ -216,6 +241,16 @@ export type ViewScene = {
 
 /** Base room outside the geometry, before the dimension offsets are counted. */
 const PAD = 46;
+
+/**
+ * The shortest frame the vertical crop is allowed to produce.
+ *
+ * Without a floor, the flattest drawings — a long straight run, a plain round
+ * duct — crop to a letterbox about 200 units tall, which renders as a 130px
+ * ribbon on a desktop panel and reads as a broken image rather than a drawing.
+ * The dead band is worth removing; the panel's presence is worth keeping.
+ */
+const MIN_FRAME_H = 300;
 
 /**
  * How far outside the geometry this scene's annotations actually reach.
@@ -286,7 +321,15 @@ export function project(
     };
   });
 
-  return { width, height, shapes, dims, captions, scale: s };
+  /* The vertical crop. `bh * s` is what the geometry occupies once projected,
+   * and `room` is the same allowance the scale was solved against, so this is
+   * the band the drawing and its annotations actually use. Where height is the
+   * limiting axis it comes to exactly `height` and nothing is cropped. */
+  const used = Math.min(height, Math.max(MIN_FRAME_H, bh * s + room * 2));
+  const top = n((height - used) / 2);
+  const viewBox = `0 ${top} ${width} ${n(used)}`;
+
+  return { width, height, viewBox, shapes, dims, captions, scale: s };
 }
 
 function primPath(p: Prim, P: (pt: Pt) => Pt, s: number, n: (v: number) => number): string {

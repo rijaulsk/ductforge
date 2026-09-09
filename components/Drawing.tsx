@@ -68,7 +68,7 @@ export default function Drawing({
 }) {
   return (
     <svg
-      viewBox={`0 0 ${scene.width} ${scene.height}`}
+      viewBox={scene.viewBox}
       className={`h-auto w-full${className ? ` ${className}` : ""}`}
       role="img"
       aria-label={title}

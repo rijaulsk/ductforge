@@ -362,7 +362,13 @@ export default function Workspace() {
               * no room for the glyph or the alias. See FittingPicker. */}
             <div>
               <Eyebrow>Step one</Eyebrow>
-              <p className="mb-3 mt-2 text-h3 font-bold text-heading">Fitting</p>
+              {/* An `h2`, like every other panel title. It was a `<p>` styled to
+                * look like one, so the document outline jumped from the page's
+                * h1 straight to "Straight duct dimensions" and step one was not
+                * in the heading list a screen reader offers to navigate by —
+                * the first step of the app, missing from its table of
+                * contents. */}
+              <h2 className="mb-3 mt-2 text-h3 font-bold text-heading">Fitting</h2>
               <FittingPicker value={draft.kind} onChange={pickKind} />
             </div>
 
@@ -415,9 +421,25 @@ export default function Workspace() {
             </div>
           </Card>
 
+          {/* STICKY ON DESKTOP, and `self-start` is the load-bearing half.
+            *
+            * A grid item stretches to its row by default, so it is already as
+            * tall as the row and `sticky` has nothing to travel through — the
+            * rule is honoured and does nothing. `self-start` shrinks it to its
+            * content, which is what gives it somewhere to stick.
+            *
+            * The reason to want it: the configure column is about three
+            * viewports tall, and the drawing is the feedback for every field in
+            * it. Typing a length at the bottom of the form while the picture of
+            * what you are typing has scrolled off the top is the one thing this
+            * layout could do wrong. It now stays beside the field being edited.
+            * That it also fills the space left when the frame stopped
+            * letterboxing (see scene.ts) is a second benefit, not the reason. */}
           <Card
             as="section"
-            className={`lg:col-span-7 ${tab === "drawing" ? "" : "hidden lg:block"}`}
+            className={`lg:sticky lg:top-6 lg:col-span-7 lg:self-start ${
+              tab === "drawing" ? "" : "hidden lg:block"
+            }`}
           >
             <PanelHeading
               eyebrow="Step three"
