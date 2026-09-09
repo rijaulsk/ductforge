@@ -148,7 +148,7 @@ export default function ProjectBar({
       value={project.name}
       onChange={(e) => onPatch({ name: e.target.value })}
       placeholder="Untitled takeoff"
-      className="min-w-0 flex-1 rounded-card border-[1.5px] border-rule bg-page px-3 py-2 font-medium text-heading placeholder:font-normal placeholder:text-muted focus:border-line"
+      className="min-w-0 flex-1 rounded-card border-[1.5px] border-rule bg-page px-3 py-2 font-medium text-heading placeholder:font-normal placeholder:text-faint focus:border-line"
     />
   );
 
@@ -309,7 +309,7 @@ export default function ProjectBar({
                 value={project.reference}
                 placeholder="Job reference"
                 onChange={(e) => onPatch({ reference: e.target.value })}
-                className="w-full rounded-card border-[1.5px] border-rule bg-page px-3 py-2 text-small text-body placeholder:text-muted focus:border-line"
+                className="w-full rounded-card border-[1.5px] border-rule bg-page px-3 py-2 text-small text-body placeholder:text-faint focus:border-line"
               />
             </div>
             {actions}
@@ -337,7 +337,7 @@ export default function ProjectBar({
               value={project.reference}
               placeholder="Job ref"
               onChange={(e) => onPatch({ reference: e.target.value })}
-              className="w-32 shrink-0 rounded-card border-[1.5px] border-rule bg-page px-3 py-2 text-small text-body placeholder:text-muted focus:border-line"
+              className="w-32 shrink-0 rounded-card border-[1.5px] border-rule bg-page px-3 py-2 text-small text-body placeholder:text-faint focus:border-line"
             />
           </div>
 

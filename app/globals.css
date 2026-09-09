@@ -127,7 +127,32 @@
   --ds-rule: #d8d4cd; /* mist — hairlines inside a card */
   --ds-heading: #221d17; /* ink */
   --ds-body: #5e5a53; /* slate */
-  --ds-muted: #a8a49e; /* stone — captions, placeholders (large sizes only) */
+  /* SECONDARY TEXT IS SLATE, NOT STONE, AND THAT WAS A BUG WORTH 48 ELEMENTS.
+   *
+   * This used to be stone #a8a49e. The design system's own token table says of
+   * stone: "placeholder, captions — FAILS AA AT SMALL SIZES, large sizes only".
+   * Every `text-muted` in this app is 15px or 18px, and there were 48 of them
+   * visible on the calculator at once: the unit suffixes beside every input
+   * (mm, m², kg), the schedule's column headers, the row numbers, the working
+   * line that shows the substituted formula, the gauge thickness, the zoom
+   * percentage, "Largest dimension 600 mm — which selects 24 ga."
+   *
+   * They measured 2.0–2.5:1 against cream, against a 4.5:1 requirement. That is
+   * not a caption tone applied to captions; it is the app's second most common
+   * text colour, carrying units and figures, at a third of the legibility it
+   * needs — for a reader who is often holding a phone on a site in daylight.
+   *
+   * Slate is the design system's body tone and clears AA at every size. The
+   * hierarchy below the heading is now carried by SIZE and WEIGHT rather than
+   * by a tone that cannot be read, which is what the type scale was for.
+   *
+   * Dark mode never had this problem — stone on #10121c measures 7.7:1 — so
+   * the dark block below deliberately keeps it. */
+  --ds-muted: #5e5a53; /* slate */
+  /* Stone survives for its one sanctioned job: the placeholder in an empty
+   * field, which has to be visibly lighter than a value the user typed. The
+   * value is ink and medium-weight, so the two can never be confused. */
+  --ds-faint: #a8a49e; /* stone — placeholders only */
   --ds-accent: #5251da; /* indigo 600 — eyebrows, links, chart series */
   /* The isometric view's three tints. Depth comes from three flat steps of one
    * hue, never from a gradient or a shadow (design system §4). */
@@ -181,7 +206,11 @@
   --ds-rule: #272936;
   --ds-heading: #f7f3eb; /* cream */
   --ds-body: #d8d4cd; /* mist — design system §1 dark-band body text */
+  /* Stone reads 7.7:1 on this page and 6.6:1 on a card, so on dark it stays
+   * what it always was — the light-mode change above is a contrast fix, not a
+   * redesign, and there is nothing here to fix. */
   --ds-muted: #a8a49e; /* stone */
+  --ds-faint: #5e5a53; /* slate — placeholders sit below muted in both themes */
   --ds-accent: #8792fe; /* indigo 400 — the dark-mode link tone */
   --ds-face-top: #423eba; /* indigo 700 */
   --ds-face-side: #332e96; /* indigo 800 */
@@ -205,6 +234,7 @@
   --color-heading: var(--ds-heading);
   --color-body: var(--ds-body);
   --color-muted: var(--ds-muted);
+  --color-faint: var(--ds-faint);
   --color-accent: var(--ds-accent);
   --color-face-top: var(--ds-face-top);
   --color-face-side: var(--ds-face-side);
