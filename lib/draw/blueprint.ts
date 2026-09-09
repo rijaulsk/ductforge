@@ -71,7 +71,24 @@ export function blueprint(f: Fitting, L: Label): Scene {
  */
 function squareToRound(w: number, h: number, d: number, l: number, L: Label): Scene {
   const yPlan = Math.max(h, d) / 2 + Math.max(w, d) / 2 + l * 0.24;
-  const endX = l + Math.max(l * 0.28, d * 0.75);
+  /* THE END VIEW IS PLACED BY ITS LEFT EDGE, NOT BY ITS CENTRE.
+   *
+   * `endX` used to be `l + max(l * 0.28, d * 0.75)` — an offset from the
+   * elevation's right edge to the end view's CENTRE. The end view is then drawn
+   * `w` wide around that centre, so its left edge lands half a width back, and
+   * the clearance is really `max(l * 0.28, d * 0.75) − w / 2`. That is negative
+   * for any square-to-round wider than it is long, and the two orthographic
+   * views were drawn ON TOP OF each other: at W 900 the end view started 150 mm
+   * inside the elevation, at W 1200 it started 300 mm inside. At the shipped
+   * defaults it came to exactly zero, so the elevation and the end view shared
+   * an edge and read as one rectangle divided in two — which is what a visual
+   * review found first.
+   *
+   * Adding the gap and then half the width, the way every other two-view
+   * blueprint in this file already does, makes the clearance the gap itself at
+   * every proportion. */
+  const gap = Math.max(l * 0.18, d * 0.4);
+  const endX = l + gap + w / 2;
 
   return {
     shapes: [
@@ -113,7 +130,13 @@ function squareToRound(w: number, h: number, d: number, l: number, L: Label): Sc
       },
     ],
     captions: [
-      { at: [l / 2, 0], text: "elevation", dy: -46 },
+      /* Anchored to the elevation's HIGHEST edge, not to its centreline. From
+       * the centreline, `dy` had to out-run half the fitting's height in view
+       * pixels to clear the shape — so on a short, wide square-to-round the
+       * word "elevation" was printed inside the elevation, while "end view" and
+       * "plan" sat above theirs. Three captions, three different relationships
+       * to the thing they name. */
+      { at: [l / 2, -Math.max(h, d) / 2], text: "elevation", dy: -30 },
       { at: [l / 2, yPlan - Math.max(w, d) / 2], text: "plan", dy: -30 },
       { at: [endX, -h / 2], text: "end view", dy: -46 },
     ],
