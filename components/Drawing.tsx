@@ -69,7 +69,13 @@ export default function Drawing({
   return (
     <svg
       viewBox={scene.viewBox}
-      className={`h-auto w-full${className ? ` ${className}` : ""}`}
+      /* The caller REPLACES the sizing rather than adding to it. These used to
+        * be concatenated, so a caller asking for `h-full` shipped both `h-auto`
+        * and `h-full` and the winner was decided by stylesheet order rather
+        * than by the caller — which is the same trap `PAD` in variants.ts
+        * exists to avoid. The full-screen view needs to fill a box in both
+        * axes; the inline one wants its natural height. */
+      className={className ?? "h-auto w-full"}
       role="img"
       aria-label={title}
     >

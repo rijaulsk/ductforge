@@ -47,11 +47,29 @@ type Point = { x: number; y: number };
 export default function ZoomPan({
   children,
   label,
+  fill = false,
+  initialScale = MIN,
+  controls,
 }: {
   children: React.ReactNode;
   label: string;
+  /**
+   * Fill the height it is given instead of sizing to the drawing.
+   *
+   * The full-screen view hands this a whole screen, and a drawing that keeps
+   * its natural height in it is a 107px strip floating in 600px of nothing.
+   * It also means every gesture belongs to the drawing even at fit — the
+   * `pan-y` compromise below exists so a swipe can still scroll THE PAGE past
+   * a drawing you are not using, and in a modal there is no page behind to
+   * scroll.
+   */
+  fill?: boolean;
+  /** Where to open. The full-screen view computes a legible magnification. */
+  initialScale?: number;
+  /** Extra controls for the button row — the full-screen trigger. */
+  controls?: React.ReactNode;
 }) {
-  const [scale, setScale] = useState(1);
+  const [scale, setScale] = useState(initialScale);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
 
@@ -91,13 +109,15 @@ export default function ZoomPan({
   };
 
   return (
-    <div>
+    <div className={fill ? "flex h-full min-h-0 flex-col" : undefined}>
       <div
         className={`relative overflow-hidden overscroll-contain rounded-card border-[1.5px] border-rule bg-page ${
-          scale > MIN ? (dragging ? "cursor-grabbing" : "cursor-grab") : ""
-        } ${dragging ? "select-none" : ""}`}
+          fill ? "min-h-0 flex-1" : ""
+        } ${scale > MIN ? (dragging ? "cursor-grabbing" : "cursor-grab") : ""} ${
+          dragging ? "select-none" : ""
+        }`}
         /* The fix. Tailwind's touch utilities compile to touch-action. */
-        style={{ touchAction: scale > MIN ? "none" : "pan-y" }}
+        style={{ touchAction: fill || scale > MIN ? "none" : "pan-y" }}
         onPointerDown={(e) => {
           pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
           if (pointers.current.size === 2) {
@@ -139,7 +159,9 @@ export default function ZoomPan({
         onDoubleClick={() => (scale > MIN ? reset() : zoomTo(2.2))}
       >
         <div
-          className="origin-center p-2 transition-transform duration-200 ease-out"
+          className={`origin-center p-2 transition-transform duration-200 ease-out${
+            fill ? " flex h-full items-center justify-center" : ""
+          }`}
           style={{
             transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
             /* `dragging` means "a gesture is in progress", pinch included —
@@ -152,7 +174,7 @@ export default function ZoomPan({
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-2">
+      <div className={`mt-3 flex flex-wrap items-center gap-2${fill ? " shrink-0" : ""}`}>
         <Button
           size="sm"
           onClick={() => zoomTo(scale - STEP)}
@@ -172,6 +194,7 @@ export default function ZoomPan({
         <Button size="sm" onClick={reset} disabled={scale === MIN && offset.x === 0 && offset.y === 0}>
           <Maximize2 size={16} strokeWidth={1.5} /> Fit
         </Button>
+        {controls}
         <span className="text-small tabular-nums text-muted" aria-live="polite">
           {Math.round(scale * 100)}%
           {scale > MIN && <span className="ml-2">drag to move</span>}

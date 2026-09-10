@@ -45,7 +45,7 @@ Decided 24 August 2026 with the owner. Recorded here because a future session wi
 ### 1. The numbers
 
 `lib/duct/` is framework-free and is the only place arithmetic happens. `npm run check:duct`
-runs 909 assertions over it and **must pass before any commit that touches it**: an independent
+runs 920 assertions over it and **must pass before any commit that touches it**: an independent
 second transcription of all twenty formulas fuzzed against the engine, hand-computed anchors,
 the gauge band edges in both unit systems, the published density table reproduced from
 thickness alone, the rounding rule below, and a guard that every working line claiming `=`
@@ -81,7 +81,7 @@ only. No formula branches on unit system; a duplicated formula is a formula that
 `lib/draw/` builds a scene in millimetres and projects it into a fixed 1000 × 640 viewBox.
 `npm run check:draw` asserts the property that actually fails in practice: a NaN in a
 coordinate makes SVG discard the whole path silently, and the viewer renders an empty box with
-no error anywhere. 4902 assertions across ten fittings × three views × both unit systems, plus
+no error anywhere. 8637 assertions across ten fittings × three views × both unit systems, plus
 twenty-six degenerate geometries — including a cone with no taper, which divides by zero unless
 the degenerate branch catches it.
 
@@ -115,6 +115,13 @@ only from the tokens in `app/globals.css`; flat 1.5 px-bordered cards, 14 px rad
 Satoshi only; 200 ms motion budget and no scroll reveals; **clay appears on exactly one element
 in the entire app** (the "Add to takeoff" button); dark mode is a semantic token swap, so
 components write `bg-card`/`border-line`/`text-heading` and never `bg-paper`/`border-ink`.
+
+The app supports **320px and up**, and carries its own `xs` breakpoint at 480px because
+Tailwind's smallest default (`sm`, 640) is above every phone. Nothing important may hide behind
+a horizontal scroll: wrap it, give it equal columns, or stack it — `components/RefTable.tsx`
+turns any table into heading + label/value pairs below the width where it fits. The drawing has
+a full-screen `<dialog>` (`components/DrawingDialog.tsx`) because its labels are a fixed 16
+viewBox units and render at ~4.5px inside the workspace card on a phone.
 
 **Do not run Playwright or take screenshots unprompted** — the owner reviews visuals himself and
 will say when.
