@@ -70,6 +70,60 @@ utility at build time and the runtime swap does nothing.
 clay and the semantic state colours are still named directly, because they mean the same thing
 in both themes.
 
+## Adapted: the phone
+
+Added 9–10 September 2026, after the first Playwright pass at 320px.
+
+**`--breakpoint-xs: 30rem` (480px) exists because every phone is below `sm`.**
+Tailwind's smallest default is 640, so "phone" and "small tablet" shared one set of rules
+and the rules were written for the roomier one. 480 sits above every common handset
+(320, 360, 375, 390, 414, 430) and below the smallest tablet.
+
+**The minimum supported width is 320px** — an iPhone SE 1st gen, and the industry floor.
+Everything is asserted at that width: no horizontal page overflow, no sideways-scrolling
+sub-container, no input clipping its own value, nothing past the right edge.
+
+**Nothing important hides behind a horizontal scroll.** That was the pattern to remove, not
+a tool to reach for: the section nav, the workspace tab bar and six data tables all used it,
+between them hiding a top-level link, the Takeoff tab and up to 471px of a reference table.
+A horizontal scrollbar nested in a vertically scrolling page is the one affordance a phone
+reader will not go looking for. The replacements are, in order of preference: let it wrap
+(the nav takes its own row), give it equal columns (the tab bar), or stack it (`RefTable`
+turns any table into heading + label/value pairs below its `from` breakpoint).
+
+**Two columns is a `sm` decision, not an `xs` one.** The dimension boxes hold values like
+`118.110236` after a unit switch, and a paired cell has only 113px of text room even at 480.
+
+## The drawing on a phone, and why it is a modal
+
+`Drawing`'s labels are a constant 16 viewBox units, which is what keeps a collar's dimensions
+and a 6 m run's the same size as each other. The cost is that their size on screen is decided
+entirely by how wide the drawing is rendered — 276px inside the workspace card on a 390px
+phone, so a label landed at about 4.5px. The drawing was decorative there.
+
+Opening the inline drawing zoomed was the one fix that could not be used: `ZoomPan` takes
+`touch-action: none` whenever it is zoomed, and at fit it deliberately leaves `pan-y` so a
+vertical swipe still scrolls the page past a drawing you are not using. Opening zoomed would
+have re-trapped page scrolling — the 28 Aug bug.
+
+`DrawingDialog` is a `<dialog showModal()>`, because a modal has no page behind it to scroll:
+there, the drawing can own every gesture honestly and take the screen's height as well as its
+width. Three things it has to keep doing:
+
+- **It portals to `document.body`.** The Viewer sits inside a panel that is `hidden` below
+  `lg` whenever another tab is showing, and `display: none` on an ancestor removes a dialog
+  from the box tree however high `showModal()` paints it. Without the portal it opened at
+  0 × 0 — reproducible in landscape.
+- **It syncs on the `close` event, not `cancel`.** Anything can close a dialog; every path
+  that React does not hear about leaves `open` true against a closed dialog, after which the
+  trigger does nothing, because setting a state that is already true schedules no effect.
+- **The box fits the drawing, not the screen.** A surface stretched to full height renders a
+  1000 × 300 frame as a 98px band in 625px of empty bordered box.
+
+On a screen under 520px tall — a phone held sideways, and the orientation the note in the
+dialog recommends — the eyebrow and the note are hidden and the height budget in
+`DrawingDialog` drops to match. The two numbers have to agree; change one, change the other.
+
 ## Two things a design review would otherwise flag
 
 1. **The isometric view is not a "floating 3D shape".** The design system bans floating 3D

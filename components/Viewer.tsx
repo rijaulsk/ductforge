@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { RotateCcw } from "lucide-react";
+import { Expand, RotateCcw } from "lucide-react";
 import {
   CAMERA,
   type Camera,
@@ -16,6 +16,7 @@ import { SPECS } from "@/lib/duct/formulas";
 import type { Fitting, Mode } from "@/lib/duct/types";
 import type { UnitSystem } from "@/lib/duct/units";
 import Drawing from "./Drawing";
+import DrawingDialog from "./DrawingDialog";
 import ZoomPan from "./ZoomPan";
 
 /* The drawing stage.
@@ -69,10 +70,18 @@ export default function Viewer({
   );
   const name = SPECS[fitting.kind].name;
 
+  const [expanded, setExpanded] = useState(false);
+
   const endTurn = () => {
     turn.current = null;
     setTurning(false);
   };
+
+  const viewLabel =
+    view === "flat" ? "flat pattern" : view === "iso" ? "isometric view" : "dimensioned drawing";
+  const drawingTitle = `${name}, ${viewLabel}${
+    view === "flat" ? ` for the ${mode === "shop" ? "shop" : "billing"} standard` : ""
+  }`;
 
   return (
     <div>
@@ -131,13 +140,19 @@ export default function Viewer({
         onPointerUp={rotatable ? endTurn : undefined}
         onPointerCancel={rotatable ? endTurn : undefined}
       >
-        <ZoomPan label={`the ${name} drawing`}>
-          <Drawing
-            scene={scene}
-            title={`${name}, ${view === "flat" ? "flat pattern" : view === "iso" ? "isometric view" : "dimensioned drawing"}${
-              view === "flat" ? ` for the ${mode === "shop" ? "shop" : "billing"} standard` : ""
-            }`}
-          />
+        {/* The full-screen trigger rides in ZoomPan's control row rather than
+          * beside the view pills: it is a way of LOOKING at this drawing, like
+          * the zoom buttons, not a fourth thing to look at. On a phone it is
+          * the only way to read the dimensions at all — see DrawingDialog. */}
+        <ZoomPan
+          label={`the ${name} drawing`}
+          controls={
+            <Button size="sm" onClick={() => setExpanded(true)}>
+              <Expand size={16} strokeWidth={1.6} /> Full screen
+            </Button>
+          }
+        >
+          <Drawing scene={scene} title={drawingTitle} />
         </ZoomPan>
       </div>
 
@@ -159,6 +174,15 @@ export default function Viewer({
       <p className="mt-3 text-small text-muted">
         {dimensionNote(units)} {HINT[view]}
       </p>
+
+      <DrawingDialog
+        open={expanded}
+        onClose={() => setExpanded(false)}
+        scene={scene}
+        title={drawingTitle}
+        caption={`${name} · ${viewLabel}`}
+        hint={`${dimensionNote(units)} ${HINT[view]}`}
+      />
     </div>
   );
 }
