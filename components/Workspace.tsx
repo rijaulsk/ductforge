@@ -418,7 +418,31 @@ export default function Workspace() {
               <FittingPicker value={draft.kind} onChange={pickKind} />
             </div>
 
-            <div className="mt-7 border-t-[1.5px] border-rule pt-7">
+            {/* ENTER ADDS THE LINE, from any dimension box.
+              *
+              * The commonest action in the app is "type a fitting, add it,
+              * repeat" — forty times on a real job — and the only way to do it
+              * was to reach for a button 1,318px down the page, which is 1.46
+              * viewports on a 900px desktop, and then scroll back up for the
+              * next one. There is no `<form>` anywhere here (the fields are a
+              * document, not a submission), so Enter did nothing at all.
+              *
+              * GUARDED ON THE TARGET BEING AN INPUT, and that guard is doing
+              * real work: FittingPicker's listbox takes Enter to choose a
+              * fitting and calls `preventDefault` but not `stopPropagation`, so
+              * without this the same keystroke would pick a fitting AND add a
+              * line. Its Enter arrives with focus on a button, the chips and
+              * the segmented controls are buttons too, and a button's Enter is
+              * the button's own business. */}
+            <div
+              className="mt-7 border-t-[1.5px] border-rule pt-7"
+              onKeyDown={(e) => {
+                if (e.key !== "Enter") return;
+                if (!(e.target instanceof HTMLInputElement)) return;
+                e.preventDefault();
+                commit();
+              }}
+            >
               {/* BOTH NAMES, because one fitting has several and all of them
                 * are right to somebody. Renaming Reducer to Transition was
                 * correct and made the picker unfindable for everyone who
@@ -450,10 +474,19 @@ export default function Workspace() {
               * on screen and the clay budget still reads one per viewport. */}
             <div className="mt-7 hidden flex-wrap items-center gap-3 border-t-[1.5px] border-rule pt-7 lg:flex">
               {/* The one clay element in this view. Nothing else may claim it. */}
-              <Button variant="primary" onClick={commit}>
+              <Button variant="primary" onClick={commit} aria-keyshortcuts="Enter">
                 <Plus size={18} strokeWidth={2} />
                 {editingId ? "Update this line" : "Add to takeoff"}
               </Button>
+              {/* Said once, quietly, where the button is. A shortcut nobody is
+                * told about is a shortcut nobody uses, and this one is worth
+                * knowing on the fortieth line. */}
+              {!editingId && (
+                <p className="text-small text-muted">
+                  or press <kbd className="font-medium text-heading">Enter</kbd> from any
+                  dimension
+                </p>
+              )}
               {editingId && (
                 <Button
                   onClick={() => {
