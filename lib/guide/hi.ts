@@ -130,13 +130,13 @@ export const hi: Guide = {
       title: "Total देखिए और बाहर निकालिए",
       body: [
         "Totals में net area, waste, gross area और वज़न मिलता है, फिर gauge के हिसाब से माल और हर gauge के लिए शीट का अंदाज़ा। प्रति किलो या प्रति m² अपना rate डाल दीजिए, तो आपके ही हिसाब से क़ीमत निकल आएगी।",
-        "CSV में input और result दोनों जाते हैं, इसलिए एक साल बाद भी फ़ाइल ख़ुद अपनी बात कह देती है। Save से project file बनती है — बाद में खोल सकते हैं, किसी और को दे भी सकते हैं। Print से issue करने लायक़ quantity sheet निकलती है, जिस पर standard, unit, allowance और सारी assumptions छपी रहती हैं।",
+        "App से जो कुछ बाहर जाता है, सब Export में है। PDF वो quantity sheet है जो आप issue करते हैं — जो हिस्सा नहीं चाहिए उसे बंद कर दीजिए: basis के notes, कोई column, credit line — अपनी company, client और notes डालिए, काग़ज़ चुनिए, और Save as PDF से पहले preview में मिला लीजिए। शुरू में उस पर standard, unit, allowance और सारी assumptions छपी रहती हैं। CSV में input और result दोनों जाते हैं, इसलिए एक साल बाद भी फ़ाइल ख़ुद अपनी बात कह देती है। Save से project file बनती है — बाद में खोल सकते हैं, किसी और को दे भी सकते हैं।",
       ],
       figure: "totals",
       callouts: [
         "आख़िरी हिसाब। Gross = net + आपका allowance; वज़न = gross × साथ में दिखी density।",
         "Gauge के हिसाब से, क्योंकि 24 ga शीट से 22 ga नहीं कटता। शीट की गिनती अंदाज़ा है।",
-        "Save काम को फ़ाइल में रखता है, CSV spreadsheet में जाता है, Print issue करने लायक़ sheet देता है।",
+        "Save काम को फ़ाइल में रखता है। Export में PDF sheet — सजाकर, preview देखकर — और CSV।",
       ],
     },
   ],

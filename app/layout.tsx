@@ -47,7 +47,7 @@ export const metadata: Metadata = {
     template: "%s — DuctForge by DebugSwift",
   },
   description:
-    "Calculate rectangular and round duct surface area, GI sheet weight and SMACNA gauge for eleven fittings, to either the commercial billing standard or the true shop flat pattern. Dimensioned drawings, a BOM schedule, and CSV out.",
+    "Calculate rectangular and round duct surface area, GI sheet weight and SMACNA gauge for eleven fittings, to either the commercial billing standard or the true shop flat pattern. Dimensioned drawings, a BOM schedule, CSV out and a PDF sheet you set up yourself.",
   applicationName: "DuctForge",
   openGraph: {
     type: "website",
@@ -93,7 +93,7 @@ const appJsonLd = {
     "SMACNA gauge selection and sheet weight",
     "Dimensioned drawings, flat patterns and isometric views",
     "Insulation, flange and hanger quantities",
-    "CSV export and a printable BOQ sheet",
+    "CSV export and a PDF quantity sheet you choose the contents of, with a live preview",
   ],
   isAccessibleForFree: true,
   browserRequirements: "Requires JavaScript.",

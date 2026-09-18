@@ -134,7 +134,12 @@ type Column = {
 const TH = "border-b border-ink py-[0.4em] pr-[0.6em] text-left font-bold";
 const TD = "border-b border-mist py-[0.4em] pr-[0.6em] align-top";
 const TF = "border-t-[1.5px] border-ink py-[0.55em] pr-[0.6em] font-bold tabular-nums";
-const H2 = "mt-[1.6em] text-[1.2em] font-bold";
+/* `text-ink` ON EVERY HEADING, not inherited from the root. The app's base
+ * layer colours h1–h6 with the THEME heading colour, which is cream in dark
+ * mode — so in the export preview, on white paper, every heading on the sheet
+ * went invisible. Printing hid it (the print palette forces ink); the preview,
+ * which is on screen, did not. */
+const H2 = "mt-[1.6em] text-[1.2em] font-bold text-ink";
 
 export default function BoqSheet({
   project,
@@ -255,7 +260,7 @@ export default function BoqSheet({
               {header.company.trim()}
             </p>
           )}
-          <h1 className="mt-[0.3em] text-[1.9em] font-bold leading-tight">
+          <h1 className="mt-[0.3em] text-[1.9em] font-bold leading-tight text-ink">
             {header.title.trim() || DEFAULT_TITLE}
           </h1>
           {on.jobLine && (

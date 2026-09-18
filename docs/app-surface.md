@@ -34,9 +34,12 @@ Written 24 August 2026, alongside the first build. Amend it in place.
 
 ## The clay budget, spent on purpose
 
-Clay is ≤2% of any viewport and appears on exactly **one** element in this app: the
-**"Add to takeoff"** button. Nothing else may claim it — not the totals, not a chart series,
-not a warning, not the print button. This is stricter than the marketing rule rather than
+Clay is ≤2% of any viewport and appears on exactly **one** element in any view: on the page,
+the **"Add to takeoff"** button; in a modal dialog that covers the page, that dialog's own
+primary action (**Save as PDF**, or the download button, in the export dialog — added 18 Sep
+2026). The modal hides the page's button behind it, so there is still only ever one on screen.
+Nothing else may claim it — not the totals, not a chart series, not a warning, not the
+Export button in the header. This is stricter than the marketing rule rather than
 looser, because a workspace has far more controls competing for attention than a landing page
 does, and the one action that changes the document has to be the one thing that is orange.
 
@@ -123,6 +126,29 @@ width. Three things it has to keep doing:
 On a screen under 520px tall — a phone held sideways, and the orientation the note in the
 dialog recommends — the eyebrow and the note are hidden and the height budget in
 `DrawingDialog` drops to match. The two numbers have to agree; change one, change the other.
+
+## Export: the sheet you set up yourself
+
+Added 18 Sep 2026. Print used to be `window.print()` over one fixed sheet; the owner issues
+it to clients by saving it as a PDF and could not remove a single part. The header's CSV,
+CSV + working and Print became one **Export** button that opens `ExportDialog`.
+
+- **Everything on the sheet is a switch** — fourteen sections, eleven columns — plus the
+  owner's own header text (title, company, client, prepared by, notes) and the page (A4 /
+  Letter, portrait / landscape, compact / normal / large). **Defaults are the old sheet
+  exactly.** Filled header text always prints; empty never does.
+- **The preview is the sheet, not a picture of it.** It renders the same `BoqSheet`, from the
+  same options saved on the Project, as the always-mounted print target — at the true paper
+  width in millimetres, scaled to fit. Page breaks are dashed guides labelled *approximate*,
+  because where a page really breaks is the print dialog's call.
+- **The PDF is the browser's Save as PDF**, and the document is retitled after the job for the
+  length of the print so the file is named like the CSVs are.
+- **`BoqSheet` is ink on paper in both themes** — it is the one component that names `bg-paper`
+  and `text-ink` directly, because it is a picture of a printed page, not UI.
+- **Sizes in the sheet are `em`** of one root size, so a text-size switch scales the whole
+  document with one number.
+- The CSV previews wrap rather than scroll sideways, and are in Satoshi, not the browser's
+  monospace.
 
 ## Two things a design review would otherwise flag
 

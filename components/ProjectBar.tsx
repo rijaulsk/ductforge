@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, FilePlus2, Printer, Settings2, Trash2, Upload } from "lucide-react";
+import { Download, FilePlus2, FileOutput, Settings2, Trash2, Upload } from "lucide-react";
 import { useId, useRef, useState } from "react";
 import type { Mode, Project } from "@/lib/duct/types";
 import type { UnitSystem } from "@/lib/duct/units";
@@ -32,9 +32,7 @@ function Actions({
   onNew,
   onOpen,
   onExportJson,
-  onExportCsv,
-  onExportDetailed,
-  onPrint,
+  onExport,
   onDelete,
   hasEntries,
   canDelete,
@@ -42,9 +40,7 @@ function Actions({
   onNew: () => void;
   onOpen: () => void;
   onExportJson: () => void;
-  onExportCsv: () => void;
-  onExportDetailed: () => void;
-  onPrint: () => void;
+  onExport: () => void;
   onDelete: () => void;
   hasEntries: boolean;
   canDelete: boolean;
@@ -60,35 +56,20 @@ function Actions({
       <Button onClick={onExportJson} size="sm">
         <Download size={16} strokeWidth={1.5} /> Save
       </Button>
+      {/* ONE EXPORT BUTTON, where there were three.
+        *
+        * CSV, CSV + working and Print sat side by side, and Print went straight
+        * to the browser's dialog with a sheet nobody could change. They all
+        * open the export dialog now — the PDF with a live preview and every
+        * part switchable, the two CSVs a tap away beside it. Save stays out
+        * here on its own because it is saving your work, not exporting it. */}
       <Button
-        onClick={onExportCsv}
+        onClick={onExport}
         disabled={!hasEntries}
         size="sm"
-        title={hasEntries ? "The schedule, as a spreadsheet" : "Add a fitting first"}
+        title={hasEntries ? "PDF, CSV and the rest — set up and preview" : "Add a fitting first"}
       >
-        CSV
-      </Button>
-      {/* Two presentation levels of ONE calculation, never two calculations —
-        * the detailed file is the standard one plus the working. */}
-      <Button
-        onClick={onExportDetailed}
-        disabled={!hasEntries}
-        size="sm"
-        title={
-          hasEntries
-            ? "The same schedule with every calculation step written out"
-            : "Add a fitting first"
-        }
-      >
-        CSV + working
-      </Button>
-      <Button
-        onClick={onPrint}
-        disabled={!hasEntries}
-        size="sm"
-        title={hasEntries ? "Print the BOQ sheet" : "Add a fitting first"}
-      >
-        <Printer size={16} strokeWidth={1.5} /> Print
+        <FileOutput size={16} strokeWidth={1.5} /> Export
       </Button>
       <Button
         onClick={onDelete}
@@ -110,11 +91,9 @@ export default function ProjectBar({
   onPatch,
   onNew,
   onDelete,
-  onExportCsv,
-  onExportDetailed,
   onExportJson,
   onImport,
-  onPrint,
+  onExport,
   hasEntries,
 }: {
   project: Project;
@@ -123,11 +102,10 @@ export default function ProjectBar({
   onPatch: (patch: Partial<Project>) => void;
   onNew: () => void;
   onDelete: () => void;
-  onExportCsv: () => void;
-  onExportDetailed: () => void;
   onExportJson: () => void;
   onImport: (file: File) => void;
-  onPrint: () => void;
+  /** Opens the export dialog: PDF with preview, both CSVs, the project file. */
+  onExport: () => void;
   hasEntries: boolean;
 }) {
   const uid = useId();
@@ -211,9 +189,7 @@ export default function ProjectBar({
         fileRef.current?.click();
       }}
       onExportJson={andClose(onExportJson)}
-      onExportCsv={andClose(onExportCsv)}
-      onExportDetailed={andClose(onExportDetailed)}
-      onPrint={andClose(onPrint)}
+      onExport={andClose(onExport)}
       onDelete={andClose(onDelete)}
       hasEntries={hasEntries}
       canDelete={projects.length > 1}

@@ -148,7 +148,9 @@ export default function DrawingDialog({
     if (!el) return;
     if (open && !el.open) el.showModal();
     if (!open && el.open) el.close();
-  }, [open]);
+    /* `mounted` too: before it flips this renders null and `ref.current` is
+     * null — see the same fix, and how it was found, in ExportDialog.tsx. */
+  }, [open, mounted]);
 
   /* LISTEN FOR `close`, NOT `cancel`.
    *
@@ -159,14 +161,20 @@ export default function DrawingDialog({
    * setting a state that is already true schedules no effect. Found by closing
    * it from the console and then being unable to reopen it.
    *
-   * `close` fires on every one of those paths, so the state cannot drift. */
+   * `close` fires on every one of those paths, so the state cannot drift.
+   *
+   * AND IT MUST DEPEND ON `mounted`. This worked only because Viewer passes an
+   * inline arrow, a new `onClose` every render, which kept re-running the
+   * effect until the dialog node existed. Given a stable callback it would
+   * have run once, against a null ref, and never subscribed — which is exactly
+   * what happened to ExportDialog on 18 Sep 2026. */
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     const sync = () => onClose();
     el.addEventListener("close", sync);
     return () => el.removeEventListener("close", sync);
-  }, [onClose]);
+  }, [onClose, mounted]);
 
   /* Estimated once per opening rather than tracked. These only choose where the
    * view OPENS — a starting magnification and a box to put it in — so being a

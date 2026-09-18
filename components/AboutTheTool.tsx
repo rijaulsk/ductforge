@@ -44,7 +44,8 @@ export default function AboutTheTool() {
               actually priced on: <strong className="text-heading">surface area</strong> in m² or
               ft², <strong className="text-heading">galvanised sheet weight</strong> in kg or lb,
               the <strong className="text-heading">SMACNA gauge</strong> that size calls for, and a
-              bill of materials you can export as CSV or print as a quantity sheet.
+              bill of materials you can export as CSV or as a PDF quantity sheet you set up
+              yourself.
             </p>
             <p>
               It runs entirely in your browser. There is no account, nothing is uploaded, and a

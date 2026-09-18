@@ -107,9 +107,13 @@ It does **not** claim the drawings are correct. That is a visual review, and the
 - **Derived quantities default to OFF.** Insulation, flanges and hangers stay at zero until
   someone sets them. A schedule that arrives with insulation counted at a thickness nobody chose
   contains a number no human decided.
-- **Every export is self-describing.** The CSV and the printed sheet carry every input, the
-  standard, the units, the allowance and the assumptions block — from one shared function
-  (`assumptions()` in `lib/export/csv.ts`) so the two can never disagree.
+- **Every export is self-describing BY DEFAULT.** The CSVs always carry every input, the
+  standard, the units, the allowance and the assumptions block. The printed/PDF sheet **starts**
+  that way, and the estimator may switch any part off for an issued copy — the basis notes,
+  the parameter band, the credit line, any column (owner's call, 18 Sep 2026: "I want to
+  remove anything I want"). Both still come from one shared `assumptions()` in
+  `lib/export/csv.ts`, so what does print can never disagree with the CSV. Don't restore the
+  old unconditional rule, and don't make a new part of the sheet un-switchable.
 - **A saved job is worth more than a tidy schema.** `reviveProject` is a total parser: it never
   throws, and a document missing a field opens with that field's default.
 
@@ -117,9 +121,17 @@ It does **not** claim the drawings are correct. That is a visual review, and the
 
 `docs/app-surface.md` is the rule set — read it before any UI change. The short version: colours
 only from the tokens in `app/globals.css`; flat 1.5 px-bordered cards, 14 px radius, no shadows;
-Satoshi only; 200 ms motion budget and no scroll reveals; **clay appears on exactly one element
-in the entire app** (the "Add to takeoff" button); dark mode is a semantic token swap, so
-components write `bg-card`/`border-line`/`text-heading` and never `bg-paper`/`border-ink`.
+Satoshi only; 200 ms motion budget and no scroll reveals; **clay appears on one element per
+view** — "Add to takeoff" on the page, and the primary action of a modal dialog that covers it
+(Save as PDF in the export dialog); dark mode is a semantic token swap, so components write
+`bg-card`/`border-line`/`text-heading` and never `bg-paper`/`border-ink` — **except
+`BoqSheet`**, which is ink on paper in both themes because it is a picture of paper.
+
+**Export** (`components/ExportDialog.tsx`, options in `lib/export/printOptions.ts`): the PDF
+comes from the browser's Save as PDF, not a PDF library, because the preview renders the SAME
+`BoqSheet` from the SAME saved options as the always-mounted print target — a library would be
+a second drawing of the document that could drift. Layout changes go through an updater
+(`updatePrint` in Workspace), never a snapshot: two switches in one tick used to lose one.
 
 The app supports **320px and up**, and carries its own `xs` breakpoint at 480px because
 Tailwind's smallest default (`sm`, 640) is above every phone. Nothing important may hide behind

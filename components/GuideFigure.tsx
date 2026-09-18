@@ -288,9 +288,10 @@ function Figure({ kind }: { kind: FigureKind }) {
             </table>
           </div>
           <Row n={3}>
+            {/* The header has Save and Export now — CSV and Print moved inside
+              * Export — and a figure of the interface shows the interface. */}
             <span className={pillOff}>Save</span>
-            <span className={pillOff}>CSV</span>
-            <span className={pillOff}>Print</span>
+            <span className={pillOff}>Export</span>
           </Row>
         </div>
       );

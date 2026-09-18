@@ -126,13 +126,13 @@ export const en: Guide = {
       title: "Read the totals and get it out",
       body: [
         "Totals give you net area, waste, gross area and weight, then material by gauge with an estimated sheet count for each. Put in your rate per kg or per m² and it prices the job at your own figures.",
-        "CSV exports every input alongside every result, so the file still explains itself in a year. Save writes a project file you can reopen or hand to someone else. Print produces a quantity sheet you can issue, with the standard, the units, the allowance and every assumption printed on it.",
+        "Everything that leaves the app is under Export. The PDF is the quantity sheet you issue: switch off any part you don't want — the basis notes, a column, the credit line — add your own company, client and notes, pick the paper, and check the live preview before Save as PDF. It starts with the standard, the units, the allowance and every assumption printed on it. CSV exports every input alongside every result, so the file still explains itself in a year. Save writes a project file you can reopen or hand to someone else.",
       ],
       figure: "totals",
       callouts: [
         "The bottom line. Gross is net plus your allowance; weight is gross times the density shown.",
         "By gauge, because 22 ga cannot be cut from a 24 ga sheet. Sheet counts are an estimate.",
-        "Save keeps the job as a file, CSV goes to a spreadsheet, Print issues a quantity sheet.",
+        "Save keeps the job as a file. Export gives you the PDF sheet — set up and previewed — and the CSVs.",
       ],
     },
   ],
