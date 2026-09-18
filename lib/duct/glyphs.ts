@@ -40,6 +40,16 @@ const farEnd = (cx: number, cy: number, rx: number, ry: number) =>
 export const GLYPH_PATHS: Record<FittingKind, string> = {
   /* ---- rectangular: two walls, two square ends ---- */
   straight: "M4 8H40M4 20H40M4 8V20M40 8V20",
+
+  /* A FLAT PIECE IS A PLATE SEEN FACE ON, crossed corner to corner.
+   *
+   * The cross is the drafting convention for a flat or blanked panel, and it is
+   * what keeps this apart from the straight duct above: both are rectangles, and
+   * at 44 × 28 a squarer rectangle alone reads as a short duct. The square-to-
+   * round note below warns that a plain closed rectangle reads as "a blanked
+   * end" — here that is exactly the reading wanted. */
+  flat: "M9 4H35V24H9ZM9 4L35 24M35 4L9 24",
+
   transition: "M5 4L39 10M5 24L39 18M5 4V24M39 10V18",
   elbow: "M5 25V15A10 10 0 0 1 15 5H27M13 25V15A2 2 0 0 1 15 13H27M5 25H13M27 5V13",
 

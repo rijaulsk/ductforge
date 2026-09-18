@@ -42,6 +42,8 @@ export function blueprint(f: Fitting, L: Label): Scene {
   switch (f.kind) {
     case "straight":
       return straight(f.w, f.h, f.l, L);
+    case "flat":
+      return flatPiece(f.w, f.h, L);
     case "transition":
       return transition(f.w1, f.h1, f.w2, f.h2, f.l, L);
     case "elbow":
@@ -272,6 +274,32 @@ function straight(w: number, h: number, l: number, L: Label): Scene {
       { at: [l / 2, -h * 0.22 - 14], text: "elevation" },
       { at: [sx + w / 2, -h * 0.22 - 14], text: "section" },
     ],
+  };
+}
+
+/* ---- flat piece ------------------------------------------------------------
+ *
+ * One view is the whole drawing: the plate face on, W across and H up. There
+ * is no length to show and no section to draw beside it, and the file's rule —
+ * nothing on the drawing that is not in the formula — means adding either
+ * would be inventing a dimension. The centre lines are construction, not
+ * measurement, and they are what make it read as a drawn part rather than an
+ * empty box. */
+
+function flatPiece(w: number, h: number, L: Label): Scene {
+  return {
+    shapes: [
+      rect(0, 0, w, h),
+      line([-w * 0.06, h / 2], [w * 1.06, h / 2], "centre"),
+      line([w / 2, -h * 0.06], [w / 2, h * 1.06], "centre"),
+    ],
+    dims: [
+      { t: "len", a: [0, h], b: [w, h], text: L(w), off: 34 },
+      { t: "len", a: [0, 0], b: [0, h], text: L(h), off: 34 },
+    ],
+    /* At the top-left corner, not centred: a centred caption lands exactly on
+     * the vertical centre line, which overshoots the top edge. */
+    captions: [{ at: [0, 0], text: "face", dy: -30, anchor: "start" }],
   };
 }
 

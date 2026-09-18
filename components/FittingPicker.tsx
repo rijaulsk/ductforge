@@ -172,7 +172,7 @@ export default function FittingPicker({
           role="listbox"
           aria-labelledby={`${uid}-label`}
           tabIndex={-1}
-          /* A thin scrollbar in the token colours. Ten fittings do not fit in
+          /* A thin scrollbar in the token colours. Eleven fittings do not fit in
             * `26rem`, so this list always scrolls, and Chrome's default is a
             * wide grey slab that belongs to no palette here — the one piece of
             * borrowed chrome in an otherwise bespoke control. */

@@ -23,6 +23,7 @@ export type Mode = "billing" | "shop";
  */
 export type FittingKind =
   | "straight"
+  | "flat"
   | "transition"
   | "elbow"
   | "offset"
@@ -35,6 +36,19 @@ export type FittingKind =
 
 /** W × H duct, L long. */
 export type Straight = { kind: "straight"; w: number; h: number; l: number };
+
+/**
+ * One flat piece, W × H — an end cap, a blank-off plate, a panel.
+ *
+ * TWO DIMENSIONS AND NOTHING ELSE, which is the whole point of it being its own
+ * fitting. The owner asked for it on 18 Sep 2026 as "one piece, width and height
+ * only", and the question that settled it was which area a 600 × 400 piece
+ * should give: 0.24 m² (a flat sheet, one face) and not 2.4 m² (a hollow duct
+ * section at some standard length). So it has no length, occupies no length of
+ * a run, and is never a flanged end or a hung section — see NOT_A_RUN in
+ * compute.ts.
+ */
+export type Flat = { kind: "flat"; w: number; h: number };
 
 /** Rectangular size change from W1×H1 to W2×H2 over length L. CONCENTRIC — the
  * shop formula's half-offset terms assume the two openings share a centreline. */
@@ -138,6 +152,7 @@ export type SquareToRound = {
 
 export type Fitting =
   | Straight
+  | Flat
   | Transition
   | Elbow
   | Offset

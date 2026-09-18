@@ -1,7 +1,8 @@
 # CLAUDE.md — DuctForge
 
 An HVAC ductwork takeoff and surface-area calculator: duct area, sheet weight, SMACNA gauge and a
-BOM schedule for **ten fittings** — six rectangular, three round, one square-to-round — to either the **commercial
+BOM schedule for **eleven fittings** — seven rectangular (one of them the W × H flat piece),
+three round, one square-to-round — to either the **commercial
 billing** standard or the **true shop flat pattern**, in metric or imperial. Also counts
 insulation, flange ends and hangers, groups by zone, and prices at the estimator's own rates.
 Next.js App Router + TypeScript + Tailwind v4. Built on the DebugSwift design system.
@@ -45,8 +46,8 @@ Decided 24 August 2026 with the owner. Recorded here because a future session wi
 ### 1. The numbers
 
 `lib/duct/` is framework-free and is the only place arithmetic happens. `npm run check:duct`
-runs 920 assertions over it and **must pass before any commit that touches it**: an independent
-second transcription of all twenty formulas fuzzed against the engine, hand-computed anchors,
+runs 974 assertions over it and **must pass before any commit that touches it**: an independent
+second transcription of all twenty-two formulas fuzzed against the engine, hand-computed anchors,
 the gauge band edges in both unit systems, the published density table reproduced from
 thickness alone, the rounding rule below, and a guard that every working line claiming `=`
 multiplies out to the value printed beside it.
@@ -62,6 +63,10 @@ Non-obvious things it pins, which are properties rather than bugs — do not "fi
 - **Round cone: shop > billing wherever there is a taper, equal where there is not.**
 - **A gored bend's blanks total ~1% more than its area.** A gored elbow is a chain of mitred
   cylinders; the formula is a smooth torus. Said out loud in the UI rather than reconciled away.
+- **Flat piece: A = W × H, one face, and it is NOT a run.** The owner chose 600 × 400 → 0.24 m²
+  over the 2.4 m² a hollow duct section would give (18 Sep 2026). `NOT_A_RUN` in compute.ts
+  keeps it out of flange ends, corner pieces and hangers — without it every end cap got two
+  flanged ends and a hanger. Insulation still applies, off the same formula.
 
 **`material` is the one argument to `computeEntry` with no default**, and it must stay that way.
 Defaulting the allowances to off yields zero, which is visibly nothing. Defaulting the material
@@ -81,7 +86,7 @@ only. No formula branches on unit system; a duplicated formula is a formula that
 `lib/draw/` builds a scene in millimetres and projects it into a fixed 1000 × 640 viewBox.
 `npm run check:draw` asserts the property that actually fails in practice: a NaN in a
 coordinate makes SVG discard the whole path silently, and the viewer renders an empty box with
-no error anywhere. 8637 assertions across ten fittings × three views × both unit systems, plus
+no error anywhere. 9000 assertions across eleven fittings × three views × both unit systems, plus
 twenty-six degenerate geometries — including a cone with no taper, which divides by zero unless
 the degenerate branch catches it.
 
