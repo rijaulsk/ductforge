@@ -15,7 +15,7 @@ import { safeFilename, triggerDownload } from "@/lib/export/download";
 import { useHasMounted } from "@/lib/hooks";
 import { blankProject, fromProjectFile, newId, toProjectFile } from "@/lib/project";
 import { clearAll, initialState, saveActiveId, saveProjects } from "@/lib/storage";
-import BoqSheet from "./BoqSheet";
+import BoqSheet, { PrintPageStyle } from "./BoqSheet";
 import ChartsPanel from "./ChartsPanel";
 import FittingPicker from "./FittingPicker";
 import ParamForm from "./ParamForm";
@@ -691,7 +691,15 @@ export default function Workspace() {
       </div>
       </main>
 
-      <BoqSheet project={project} />
+      {/* THE PRINT TARGET. Always mounted and only ever visible on paper, so
+        * the export dialog's "Save as PDF" and a bare Ctrl+P both print the
+        * sheet exactly as it is configured — from the same options the preview
+        * draws. The page rule rides with it because the paper is a per-takeoff
+        * choice that a static stylesheet cannot know. */}
+      <div className="hidden print:block">
+        <PrintPageStyle page={project.print.page} />
+        <BoqSheet project={project} options={project.print} />
+      </div>
     </>
   );
 }

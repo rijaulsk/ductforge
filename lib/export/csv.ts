@@ -393,7 +393,11 @@ export function assumptions(project: Project): string[] {
     project.mode === "billing"
       ? "Areas are measured to the commercial billing standard: nominal mean perimeter x centreline length (BOQ / IS 655 / DW144 practice)."
       : "Areas are the true unfolded sheet blank, including slant hypotenuses and heel arc expansion. They are not a billing quantity.",
-    `Default waste allowance ${project.waste}%${detail ? ` - ${detail}` : ""}. Individual lines may override it; each row states its own.`,
+    /* The preset details are written as sentences and end in a full stop, so
+     * appending ". Individual" to one printed "seam.. Individual" on every
+     * issued sheet. Trimmed here rather than in the presets, which also stand
+     * on their own in the export panel and on /standards. */
+    `Default waste allowance ${project.waste}%${detail ? ` - ${detail.replace(/\.\s*$/, "")}` : ""}. Individual lines may override it; each row states its own.`,
     "Gauge is selected from the largest single duct dimension only. Real SMACNA selection also depends on pressure class and reinforcement spacing - check against the project specification. Any line may override the gauge by hand.",
     `Sheet weight is ${MATERIALS[project.material].name.toLowerCase()} at ${MATERIALS[project.material].density} kg/m3, on the gross area. It excludes any coating, stiffeners, flange steel, gaskets and fixings.`,
     "Sheet counts are a nesting estimate: gross area divided by one 1200x2400 mm (4x8 ft) sheet, rounded up, per gauge. They ignore offcut reuse and blank shape.",
