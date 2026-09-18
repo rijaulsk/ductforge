@@ -200,10 +200,15 @@ export function reviveProject(v: unknown): Project | null {
  * open here unchanged; the optional `print` settings added the same day need no
  * bump of their own, because an older build ignores a field it doesn't know.
  *
+ * 4 since later the same day, for the seven other flat pieces (`flat-circle`
+ * through `flat-oval`). Same reason exactly: schema 3 was already live, and a
+ * schema-3 build would drop every round plate and ring in a file without a
+ * word. At 4 it refuses the file instead.
+ *
  * The reader refuses a file from a NEWER schema than it knows, so this number
  * only goes up when the shape changes in a way an older build could not read.
  */
-export const PROJECT_SCHEMA = 3;
+export const PROJECT_SCHEMA = 4;
 
 export type ProjectFile = {
   schema: number;

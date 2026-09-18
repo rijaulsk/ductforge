@@ -55,13 +55,14 @@ export const hi: Guide = {
     {
       title: "फ़िटिंग चुनिए",
       body: [
-        "छह rectangular और चार round। सीधा रन है तो Straight; साइज़ बदल रहा है तो Transition; मुड़ रहा है तो Elbow; बग़ल में सरक रहा है तो Offset; branch निकल रहा है तो Collar या Y-piece। AHU से spiral में जा रहे हैं तो Square to round।",
+        "छह rectangular, चार round और आठ flat pieces। सीधा रन है तो Straight; साइज़ बदल रहा है तो Transition; मुड़ रहा है तो Elbow; बग़ल में सरक रहा है तो Offset; branch निकल रहा है तो Collar या Y-piece। AHU से spiral में जा रहे हैं तो Square to round। Plate, blank या end cap की कोई लंबाई नहीं होती — उसे Flat pieces में से आकार देखकर चुनिए।",
         "आप जिस zone में काम कर रहे थे वो बना रहता है, तो AHU-1 की बारह fittings के लिए बारह बार zone लिखना नहीं पड़ेगा।",
       ],
       figure: "picker",
       callouts: [
         "Rectangular: straight duct, transition, elbow, offset, collar और Y-piece।",
         "Round और spiral: सादा डक्ट, gored elbow, concentric cone और square-to-round।",
+        "Flat pieces: rectangular plate, round plate, ring, round hole वाली plate, rectangular frame, flat-oval plate, triangle और trapezoid। हर एक सिर्फ़ एक face है — flange या hanger में कभी नहीं गिनी जाती।",
       ],
     },
     {

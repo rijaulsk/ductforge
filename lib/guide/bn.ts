@@ -58,13 +58,14 @@ export const bn: Guide = {
     {
       title: "ফিটিং বাছুন",
       body: [
-        "ছ'টা rectangular, চারটে round। সোজা রান হলে Straight; সাইজ বদলালে Transition; ঘুরলে Elbow; পাশে সরলে Offset; ব্রাঞ্চ বেরোলে Collar বা Y-piece। AHU থেকে spiral-এ নামলে Square to round।",
+        "ছ'টা rectangular, চারটে round, আর আটটা flat piece। সোজা রান হলে Straight; সাইজ বদলালে Transition; ঘুরলে Elbow; পাশে সরলে Offset; ব্রাঞ্চ বেরোলে Collar বা Y-piece। AHU থেকে spiral-এ নামলে Square to round। Plate, blank বা end cap-এর কোনো দৈর্ঘ্য নেই — Flat pieces থেকে আকার দেখে বাছুন।",
         "যে zone-এ কাজ করছিলেন সেটা ধরে রাখে, তাই AHU-1-এর বারোটা ফিটিং করতে বারোবার zone লিখতে হবে না।",
       ],
       figure: "picker",
       callouts: [
         "Rectangular: straight duct, transition, elbow, offset, collar আর Y-piece।",
         "Round আর spiral: সাধারণ ডাক্ট, gored elbow, concentric cone আর square-to-round।",
+        "Flat pieces: rectangular plate, round plate, ring, round hole-ওয়ালা plate, rectangular frame, flat-oval plate, triangle আর trapezoid। প্রত্যেকটা একটাই face — flange বা hanger-এ কখনো গোনা হয় না।",
       ],
     },
     {

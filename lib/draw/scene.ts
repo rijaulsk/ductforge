@@ -30,7 +30,11 @@ export type Role =
   | "face-end";
 
 export type Prim =
-  | { t: "poly"; pts: Pt[]; closed: boolean }
+  /* `holes` are extra closed rings cut out of a closed polygon — a plate's
+   * face with its hole in it. Drawn as further subpaths of the same path and
+   * filled even-odd (see Drawing.tsx), so the hole is empty whichever way
+   * round either ring happens to run once projected. */
+  | { t: "poly"; pts: Pt[]; closed: boolean; holes?: Pt[][] }
   | { t: "arc"; c: Pt; r: number; a0: number; a1: number }
   | { t: "sector"; c: Pt; r0: number; r1: number; a0: number; a1: number };
 
@@ -174,7 +178,14 @@ export function movePt([x, y]: Pt, dx: number, dy: number): Pt {
 export function moveShapes(shapes: Shape[], dx: number, dy: number): Shape[] {
   return shapes.map(({ prim, role }) => {
     if (prim.t === "poly") {
-      return { role, prim: { ...prim, pts: prim.pts.map((p) => movePt(p, dx, dy)) } };
+      return {
+        role,
+        prim: {
+          ...prim,
+          pts: prim.pts.map((p) => movePt(p, dx, dy)),
+          holes: prim.holes?.map((ring) => ring.map((p) => movePt(p, dx, dy))),
+        },
+      };
     }
     return { role, prim: { ...prim, c: movePt(prim.c, dx, dy) } };
   });
@@ -334,9 +345,13 @@ export function project(
 
 function primPath(p: Prim, P: (pt: Pt) => Pt, s: number, n: (v: number) => number): string {
   if (p.t === "poly") {
-    const pts = p.pts.map(P);
-    const d = pts.map(([x, y], i) => `${i ? "L" : "M"}${n(x)} ${n(y)}`).join(" ");
-    return p.closed ? `${d} Z` : d;
+    const ring = (pts: Pt[]) =>
+      pts.map(P).map(([x, y], i) => `${i ? "L" : "M"}${n(x)} ${n(y)}`).join(" ");
+    const d = ring(p.pts);
+    if (!p.closed) return d;
+    return [`${d} Z`, ...(p.holes ?? []).filter((h) => h.length > 2).map((h) => `${ring(h)} Z`)].join(
+      " ",
+    );
   }
   if (p.t === "arc") {
     const r = p.r * s;

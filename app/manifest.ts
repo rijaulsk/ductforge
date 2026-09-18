@@ -22,7 +22,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "DuctForge — HVAC duct takeoff by DebugSwift",
     short_name: "DuctForge",
     description:
-      "Duct surface area, GI sheet weight, SMACNA gauge and a BOM schedule for eleven fittings — billing standard or shop flat pattern, metric or imperial. Works offline. Built by DebugSwift.",
+      "Duct surface area, GI sheet weight, SMACNA gauge and a BOM schedule for ten fittings and eight flat pieces — billing standard or shop flat pattern, metric or imperial. Works offline. Built by DebugSwift.",
     start_url: "/",
     display: "standalone",
     orientation: "any",

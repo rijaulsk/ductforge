@@ -2,7 +2,7 @@
 
 import { Check, ChevronDown } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
-import { RECTANGULAR_KINDS, ROUND_KINDS, SPECS } from "@/lib/duct/formulas";
+import { FLAT_KINDS, RECTANGULAR_KINDS, ROUND_KINDS, SPECS } from "@/lib/duct/formulas";
 import type { FittingKind } from "@/lib/duct/types";
 import FittingGlyph from "./FittingGlyph";
 
@@ -28,6 +28,9 @@ import FittingGlyph from "./FittingGlyph";
 const GROUPS: { label: string; kinds: readonly FittingKind[] }[] = [
   { label: "Rectangular", kinds: RECTANGULAR_KINDS },
   { label: "Round and spiral", kinds: ROUND_KINDS },
+  /* Its own group, not a tail on "Rectangular": a round plate is not a
+   * rectangular fitting, and none of these is a length of duct at all. */
+  { label: "Flat pieces", kinds: FLAT_KINDS },
 ];
 
 const ORDER: FittingKind[] = GROUPS.flatMap((g) => [...g.kinds]);
@@ -172,7 +175,7 @@ export default function FittingPicker({
           role="listbox"
           aria-labelledby={`${uid}-label`}
           tabIndex={-1}
-          /* A thin scrollbar in the token colours. Eleven fittings do not fit in
+          /* A thin scrollbar in the token colours. Eighteen fittings do not fit in
             * `26rem`, so this list always scrolls, and Chrome's default is a
             * wide grey slab that belongs to no palette here — the one piece of
             * borrowed chrome in an otherwise bespoke control. */

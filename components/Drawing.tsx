@@ -88,6 +88,10 @@ export default function Drawing({
           className={`${STROKE[s.role]} ${FILL[s.role]}`}
           strokeWidth={WIDTH[s.role]}
           strokeDasharray={DASH[s.role]}
+          /* Even-odd so a plate's hole, drawn as a second ring of the same
+           * path, stays empty whichever way the projection wound it. Every
+           * other shape is a single simple ring, where the two rules agree. */
+          fillRule="evenodd"
           strokeLinejoin="round"
           strokeLinecap="round"
         />

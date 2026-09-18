@@ -233,6 +233,20 @@ const DEGENERATE = [
   ["square to round, flat plate", { kind: "square-to-round", w: 500, h: 500, d: 500, l: 0 }],
   ["square to round, zero diameter", { kind: "square-to-round", w: 600, h: 400, d: 0, l: 400 }],
   ["square to round, round bigger", { kind: "square-to-round", w: 300, h: 300, d: 900, l: 400 }],
+  /* The flat pieces' impossible inputs, which plates.ts limits — each must
+   * draw the limited plate, not an inside-out one. */
+  ["round plate, zero diameter", { kind: "flat-circle", d: 0 }],
+  ["ring, no hole", { kind: "flat-ring", d1: 600, d2: 0 }],
+  ["ring, hole as wide as the ring", { kind: "flat-ring", d1: 400, d2: 400 }],
+  ["ring, hole wider than the ring", { kind: "flat-ring", d1: 400, d2: 900 }],
+  ["holed plate, hole wider than the plate", { kind: "flat-holed", w: 600, h: 400, d: 900 }],
+  ["holed plate, no hole", { kind: "flat-holed", w: 600, h: 400, d: 0 }],
+  ["frame, opening bigger than the frame", { kind: "flat-frame", w: 500, h: 400, w2: 900, h2: 700 }],
+  ["frame, no opening", { kind: "flat-frame", w: 500, h: 400, w2: 0, h2: 0 }],
+  ["triangle, zero height", { kind: "flat-triangle", w: 600, h: 0 }],
+  ["trapezoid, zero top (a triangle)", { kind: "flat-trapezoid", w1: 0, w2: 600, h: 400 }],
+  ["trapezoid, equal edges (a rectangle)", { kind: "flat-trapezoid", w1: 600, w2: 600, h: 400 }],
+  ["oval, W = H (a circle)", { kind: "flat-oval", w: 500, h: 500 }],
 ];
 for (const [label, fitting] of DEGENERATE) {
   for (const view of VIEWS) {
@@ -260,6 +274,12 @@ const AWKWARD = [
   ["steep cone", { kind: "round-reducer", d1: 900, d2: 150, l: 200 }],
   ["AHU square to round", { kind: "square-to-round", w: 1200, h: 700, d: 500, l: 500 }],
   ["shallow square to round", { kind: "square-to-round", w: 500, h: 500, d: 450, l: 150 }],
+  ["flat oval on end", { kind: "flat-oval", w: 400, h: 900 }],
+  ["frame with a narrow border", { kind: "flat-frame", w: 1000, h: 600, w2: 900, h2: 500 }],
+  ["small hole in a big plate", { kind: "flat-holed", w: 1200, h: 1200, d: 150 }],
+  ["thin ring", { kind: "flat-ring", d1: 800, d2: 700 }],
+  ["trapezoid wider at the top", { kind: "flat-trapezoid", w1: 900, w2: 300, h: 400 }],
+  ["tall triangle", { kind: "flat-triangle", w: 300, h: 1200 }],
 ];
 for (const [label, fitting] of AWKWARD) {
   for (const view of VIEWS) {
@@ -478,6 +498,41 @@ console.log("\n6. the picker glyphs draw the right object");
     .filter((m) => Number(m[1]) !== Number(m[3]) && Number(m[2]) !== Number(m[4]));
   check(diagonals.length === 2, `flat: two diagonals cross the face (${diagonals.length})`);
   check(flatGlyph !== GLYPH_PATHS.straight, "flat piece and straight duct are different marks");
+
+  /* The other flat pieces are closed outlines, and a piece with a hole draws
+   * the hole as a SECOND closed outline — two starts, the way it is cut. A
+   * ring drawn as one circle would be a round plate; that is the confusion
+   * this pins. */
+  const starts = (d) => (d.match(/M/g) ?? []).length;
+  for (const kind of FITTING_KINDS.filter((k) => k.startsWith("flat-"))) {
+    const d = GLYPH_PATHS[kind];
+    check(/Z/.test(d) || /A/.test(d), `${kind}: its outline is closed`);
+  }
+  for (const kind of ["flat-ring", "flat-holed", "flat-frame"]) {
+    check(starts(GLYPH_PATHS[kind]) >= 2, `${kind}: the hole is its own outline (${starts(GLYPH_PATHS[kind])} starts)`);
+  }
+  check(starts(GLYPH_PATHS["flat-circle"]) === 1, "flat-circle: a plain disc, no hole");
+  const distinct = new Set(FITTING_KINDS.map((k) => GLYPH_PATHS[k]));
+  check(distinct.size === FITTING_KINDS.length, `every fitting has its own mark (${distinct.size} of ${FITTING_KINDS.length})`);
+}
+
+console.log("\n7. a plate's hole is drawn the size the area was computed with");
+{
+  /* The limit lives in lib/duct/plates.ts and the formula and the drawing both
+   * read it. If either ever grew its own copy, a 900 mm hole typed into a
+   * 600 × 400 plate would bill a 400 hole and draw a 900 one — or the reverse. */
+  const holed = buildView({ kind: "flat-holed", w: 600, h: 400, d: 900 }, "blueprint", "metric");
+  const texts = holed.dims.map((d) => d.text).join(" | ");
+  check(texts.includes("⌀ 400") && !texts.includes("900"), `limited hole is labelled 400, not 900 (${texts})`);
+  const ring = buildView({ kind: "flat-ring", d1: 400, d2: 900 }, "flat", "metric");
+  const ringTexts = ring.dims.map((d) => d.text).join(" | ");
+  check(!ringTexts.includes("900"), `a ring never shows a hole wider than itself (${ringTexts})`);
+  /* The isometric face carries its hole as a second ring in the same path. */
+  const iso = buildView(SPECS["flat-ring"].defaults, "iso", "metric");
+  check(
+    iso.shapes.some((s) => (s.d.match(/M/g) ?? []).length === 2 && s.role === "face-end"),
+    "the ring's isometric face has its hole cut through it",
+  );
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

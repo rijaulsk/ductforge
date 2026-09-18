@@ -9,7 +9,7 @@ import {
   bandRange,
   densityDisplay,
 } from "@/lib/duct/gauge";
-import { FITTING_KINDS, SPECS } from "@/lib/duct/formulas";
+import { FITTING_KINDS, FLAT_NOTE, SPECS, isFlat } from "@/lib/duct/formulas";
 import { MATERIALS, MATERIAL_KEYS } from "@/lib/duct/material";
 import { fmt } from "@/lib/duct/units";
 import { WASTE_PRESETS } from "@/lib/duct/waste";
@@ -143,7 +143,7 @@ export default function StandardsPage() {
         band="card"
         eyebrow="Formulas"
         title="Every fitting, both standards"
-        lede="W and H are the duct's width and height, L its length, R the inside (throat) radius, θ the included angle, O an offset's lateral step and F a collar's flange lip."
+        lede="W and H are the duct's width and height, L its length, R the inside (throat) radius, θ the included angle, O an offset's lateral step and F a collar's flange lip. On the flat pieces, D and d are an outside and a hole diameter, w and h a frame's opening, and B and T a base and a top edge."
       >
         <RefTable
           caption="Every fitting, both standards"
@@ -174,12 +174,28 @@ export default function StandardsPage() {
 
         <h3 className="mt-10 text-h3 font-bold text-heading">What each one assumes</h3>
         <ul className="mt-4 space-y-3">
-          {FITTING_KINDS.filter((k) => SPECS[k].note).map((kind) => (
+          {FITTING_KINDS.filter((k) => !isFlat(k) && SPECS[k].note).map((kind) => (
             <li key={kind} className="max-w-3xl">
               <span className="font-bold text-heading">{SPECS[kind].name}: </span>
               <span className="text-body">{SPECS[kind].note}</span>
             </li>
           ))}
+          {/* The eight flat pieces share one sentence. Printed once, then only
+            * what a shape adds to it — eight copies of the same line would bury
+            * the three that say something of their own. */}
+          <li className="max-w-3xl">
+            <span className="font-bold text-heading">Flat pieces: </span>
+            <span className="text-body">{FLAT_NOTE}</span>
+          </li>
+          {FITTING_KINDS.filter(isFlat).map((kind) => {
+            const extra = (SPECS[kind].note ?? "").replace(FLAT_NOTE, "").trim();
+            return extra ? (
+              <li key={kind} className="max-w-3xl">
+                <span className="font-bold text-heading">{SPECS[kind].name}: </span>
+                <span className="text-body">{extra}</span>
+              </li>
+            ) : null;
+          })}
         </ul>
       </Section>
 
