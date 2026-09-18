@@ -682,8 +682,20 @@ export default function ExportDialog({
                 />
               </div>
               {/* One row exactly as tall as the space left: each pane then owns
-                * its own scrolling and neither can push the dialog taller. */}
-              <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] lg:grid-cols-12">
+                * its own scrolling and neither can push the dialog taller.
+                *
+                * AND ONE COLUMN EXACTLY AS WIDE, for the same reason sideways.
+                * Below `lg` there was no column template, so the grid made an
+                * implicit `auto` column — and an auto column grows to its
+                * content's min-content width. Zoomed to actual size on a phone
+                * that content is the paper, 2,128px: the whole pane grew to
+                * match, the viewport stopped scrolling because it was already
+                * as wide as the paper, the zoom buttons slid 1,700px off
+                * screen, and the fit recomputed against the new width and
+                * called it 268%. `minmax(0, 1fr)` pins the column to the
+                * dialog; `lg:grid-cols-12` is already minmax(0, 1fr) each,
+                * which is why desktop never showed it. */}
+              <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] grid-rows-[minmax(0,1fr)] lg:grid-cols-12">
                 <div
                   className={`min-h-0 overflow-y-auto px-4 py-5 md:px-6 lg:col-span-4 lg:block lg:border-r-[1.5px] lg:border-rule ${
                     pane === "settings" ? "" : "hidden"
@@ -694,7 +706,7 @@ export default function ExportDialog({
                 {/* No overflow here: the preview owns its own scroll viewport,
                   * which is what lets it zoom and still reach page two. */}
                 <div
-                  className={`min-h-0 flex-col bg-sunk px-4 py-5 md:px-6 lg:col-span-8 lg:flex ${
+                  className={`min-h-0 min-w-0 flex-col bg-sunk px-4 py-5 md:px-6 lg:col-span-8 lg:flex ${
                     pane === "preview" ? "flex" : "hidden"
                   }`}
                 >
