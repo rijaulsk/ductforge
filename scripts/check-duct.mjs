@@ -138,6 +138,23 @@ const ORACLE = {
     shop: (f) =>
       ((Math.PI * (f.d1 + f.d2)) / 2) * hyp(f.l, (f.d1 - f.d2) / 2),
   },
+  /* The flat pieces, written out again from the geometry — a plate is its own
+   * area, and both standards are that one number. The limits are transcribed
+   * here too rather than imported, so a clamp that drifts is a failure. */
+  ...Object.fromEntries(
+    Object.entries({
+      "flat-circle": (f) => (Math.PI / 4) * f.d ** 2,
+      "flat-ring": (f) => (Math.PI / 4) * (f.d1 ** 2 - Math.min(f.d1, f.d2) ** 2),
+      "flat-holed": (f) => f.w * f.h - (Math.PI / 4) * Math.min(f.d, f.w, f.h) ** 2,
+      "flat-frame": (f) => f.w * f.h - Math.min(f.w, f.w2) * Math.min(f.h, f.h2),
+      "flat-triangle": (f) => 0.5 * f.w * f.h,
+      "flat-trapezoid": (f) => 0.5 * (f.w1 + f.w2) * f.h,
+      "flat-oval": (f) => {
+        const s = Math.min(f.w, f.h);
+        return (Math.max(f.w, f.h) - s) * s + (Math.PI * s * s) / 4;
+      },
+    }).map(([kind, a]) => [kind, { billing: a, shop: a }]),
+  ),
   "square-to-round": {
     billing: (f) => ((2 * (f.w + f.h) + Math.PI * f.d) / 2) * f.l,
     shop: (f) => {
@@ -172,6 +189,22 @@ function randomFitting(kind) {
     case "straight":
       return { kind, w: dim(100, 2500), h: dim(100, 2500), l: dim(300, 6000) };
     case "flat":
+      return { kind, w: dim(100, 2500), h: dim(100, 2500) };
+    /* Ranges that deliberately overlap, so holes bigger than their plates and
+     * openings bigger than their frames turn up — the clamp is under test too. */
+    case "flat-circle":
+      return { kind, d: dim(50, 2000) };
+    case "flat-ring":
+      return { kind, d1: dim(100, 2000), d2: dim(0, 1800) };
+    case "flat-holed":
+      return { kind, w: dim(100, 2000), h: dim(100, 2000), d: dim(0, 1800) };
+    case "flat-frame":
+      return { kind, w: dim(100, 2000), h: dim(100, 2000), w2: dim(0, 1900), h2: dim(0, 1900) };
+    case "flat-triangle":
+      return { kind, w: dim(50, 2500), h: dim(50, 2500) };
+    case "flat-trapezoid":
+      return { kind, w1: dim(0, 2000), w2: dim(50, 2500), h: dim(50, 2000) };
+    case "flat-oval":
       return { kind, w: dim(100, 2500), h: dim(100, 2500) };
     case "transition":
       return {
@@ -234,6 +267,13 @@ const KINDS = [
   "round-elbow",
   "round-reducer",
   "square-to-round",
+  "flat-circle",
+  "flat-ring",
+  "flat-holed",
+  "flat-frame",
+  "flat-triangle",
+  "flat-trapezoid",
+  "flat-oval",
 ];
 for (const kind of KINDS) {
   let worst = 0;
@@ -271,8 +311,48 @@ const A = {
   "round-elbow": { kind: "round-elbow", d: 400, r: 600, theta: 90, gores: 4 },
   "round-reducer": { kind: "round-reducer", d1: 500, d2: 300, l: 400 },
   "square-to-round": { kind: "square-to-round", w: 600, h: 400, d: 400, l: 450 },
+  "flat-circle": { kind: "flat-circle", d: 400 },
+  "flat-ring": { kind: "flat-ring", d1: 600, d2: 400 },
+  "flat-holed": { kind: "flat-holed", w: 600, h: 600, d: 400 },
+  "flat-frame": { kind: "flat-frame", w: 700, h: 500, w2: 600, h2: 400 },
+  "flat-triangle": { kind: "flat-triangle", w: 600, h: 400 },
+  "flat-trapezoid": { kind: "flat-trapezoid", w1: 400, w2: 800, h: 500 },
+  "flat-oval": { kind: "flat-oval", w: 800, h: 400 },
 };
 const area = (kind, mode) => SPECS[kind][mode].compute(A[kind]);
+
+/* The other flat pieces, by hand. Each is one number for both standards. */
+for (const [kind, want, how] of [
+  ["flat-circle", 40_000 * Math.PI, "π × 400² ÷ 4 = 40,000π"],
+  ["flat-ring", 50_000 * Math.PI, "π(600² − 400²) ÷ 4 = 50,000π"],
+  ["flat-holed", 360_000 - 40_000 * Math.PI, "600 × 600 − 40,000π"],
+  ["flat-frame", 110_000, "700 × 500 − 600 × 400 = 110,000"],
+  ["flat-triangle", 120_000, "600 × 400 ÷ 2 = 120,000"],
+  ["flat-trapezoid", 300_000, "(400 + 800) ÷ 2 × 500 = 300,000"],
+  ["flat-oval", 160_000 + 40_000 * Math.PI, "(800 − 400) × 400 + 40,000π"],
+]) {
+  near(area(kind, "billing"), want, 1e-6, `${kind} ${how}`);
+  eq(area(kind, "shop"), area(kind, "billing"), `${kind}: shop and billing are one number`);
+}
+
+/* THE LIMITS. Each impossible input comes out at the nearest possible plate —
+ * never a negative area, never a hole wider than what it is cut in. */
+const plate = (f) => SPECS[f.kind].billing.compute(f);
+eq(plate({ kind: "flat-ring", d1: 400, d2: 900 }), 0, "a ring whose hole is wider than it is: nothing left, not less than nothing");
+eq(plate({ kind: "flat-frame", w: 500, h: 400, w2: 900, h2: 300 }), 500 * 400 - 500 * 300, "a frame opening wider than the frame is limited to the frame's width");
+near(
+  plate({ kind: "flat-holed", w: 600, h: 400, d: 500 }),
+  240_000 - 40_000 * Math.PI,
+  1e-6,
+  "a 500 hole in a 600 × 400 plate is limited to 400 — the short side",
+);
+near(
+  plate({ kind: "flat-oval", w: 400, h: 800 }),
+  area("flat-oval", "billing"),
+  1e-9,
+  "an oval typed on end is the same plate turned round",
+);
+near(plate({ kind: "flat-oval", w: 500, h: 500 }), (Math.PI / 4) * 250_000, 1e-6, "an oval with W = H is a circle");
 
 near(area("straight", "billing"), 6_000_000, 1e-9, "straight billing 2(600+400)×3000");
 near(area("straight", "shop"), 6_000_000, 1e-9, "straight shop");
@@ -740,7 +820,7 @@ section("12d. flanges and hangers");
   eq(off.supports, 0, "no spacing set, no hangers counted");
 
   /* A FLAT PIECE IS NOT A LENGTH OF DUCT, with every ancillary switched on.
-   * Without NOT_A_RUN the "two ends per piece" rule gave each end cap two
+   * Without the not-a-run rule the "two ends per piece" rule gave each end cap two
    * flanged ends and eight corner pieces, and "one hanger per piece" hung
    * every one of them from the ceiling. Eight caps, all ancillaries on: */
   const everything = { insulationMm: 25, standardLengthMm: 1200, supportSpacingMm: 2400 };
@@ -754,6 +834,32 @@ section("12d. flanges and hangers");
   eq(units.fmtArea(caps.netAreaMinor), "1.920", "8 flat pieces 600×400 = 1.920 m²");
   /* …and the insulation still comes off the one formula: 650 × 450 each. */
   eq(units.fmtArea(caps.insulationAreaMinor), "2.340", "insulated at 25 mm: 8 × 650×450 = 2.340 m²");
+
+  /* …and so is every other flat piece, decided by group rather than by a list
+   * a new shape could be left off. */
+  for (const kind of KINDS.filter((k) => k.startsWith("flat-"))) {
+    const r = computeEntry(line(A[kind], 3, 0), "billing", "metric", "gi", everything);
+    check(
+      r.flangeEnds === 0 && r.corners === 0 && r.supports === 0 && r.pieces === 1,
+      `${kind}: no flanges, corners or hangers, one piece (${r.flangeEnds}/${r.corners}/${r.supports}/${r.pieces})`,
+    );
+    check(r.netAreaMinor > 0, `${kind}: the sheet itself is still counted`);
+    check(r.insulationAreaMinor > r.netAreaMinor, `${kind}: lagging a plate covers more than the plate`);
+  }
+
+  /* A limited input says so in the working — a clamp is never silent. */
+  const limited = computeEntry(
+    line({ kind: "flat-holed", w: 600, h: 400, d: 500 }, 1, 0),
+    "billing",
+    "metric",
+    "gi",
+  );
+  check(
+    limited.steps.some((s) => /limited/.test(s.label) && /500/.test(s.working) && /400/.test(s.working)),
+    "a 500 hole in a 400-high plate prints that it was limited, and to what",
+  );
+  const unlimited = computeEntry(line(A["flat-holed"], 1, 0), "billing", "metric", "gi");
+  check(!unlimited.steps.some((s) => /limited/.test(s.label)), "…and a hole that fits says nothing of the kind");
 }
 
 section("12e. rates");
@@ -1258,6 +1364,9 @@ section("12o. a takeoff saved before a rename still opens");
   /* A schema-3 build must still open this schema-1 file — the bump on 18 Sep
    * 2026 was for a NEW kind, and it only makes OLDER builds refuse NEWER files. */
   check(project.PROJECT_SCHEMA >= 3, "schema is at least 3 once the flat piece exists");
+  /* …and 4 once the other flat pieces exist, because schema 3 was already live
+   * and a schema-3 build would silently drop a round plate or a ring. */
+  check(project.PROJECT_SCHEMA >= 4, "schema is at least 4 once the other flat pieces exist");
 }
 
 /* ---- 12p. the print layout ---------------------------------------------- */

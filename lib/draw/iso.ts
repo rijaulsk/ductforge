@@ -1,3 +1,4 @@
+import { frameOpening, ovalParts, plateHole, ringHole } from "../duct/plates";
 import type { Fitting } from "../duct/types";
 import {
   type Bounds,
@@ -104,7 +105,15 @@ let lens = projector(CAMERA.home);
 /** Model → screen, through whatever camera `isometric` was last given. */
 const iso = (p: P3): Pt => lens.project(p);
 
-type Face = { pts: P3[]; role: Role };
+type Face = {
+  pts: P3[];
+  role: Role;
+  /** Rings cut out of the face — a plate's hole. See `slab`. */
+  holes?: P3[][];
+  /** Outward normal, where the face knows it. A face that has one and points
+   * away from the camera is not drawn — see `paint`. */
+  n?: P3;
+};
 
 /**
  * Painter's algorithm, from wherever the camera is.
@@ -121,6 +130,16 @@ function paint(faces: Face[]): Shape[] {
    * `project` an extent that does not move when the camera does. */
   lastFaces = faces;
   return faces
+    /* BACK FACES ARE DROPPED where a face knows its normal — only the slab's
+     * do. A depth sort alone paints a far face first and trusts the near one
+     * to cover it, which a plate with a hole defeats: the hole is exactly
+     * where nothing covers anything. Dropping what faces away leaves only
+     * surfaces that can be seen, and for a convex slab those never overlap,
+     * so the order stops mattering. Edge-on faces (a dot of zero) are kept:
+     * they draw as a line, and a degenerate plate must still draw something.
+     * `lastFaces` above keeps every face, so the fit cannot change with the
+     * camera. */
+    .filter((f) => !f.n || f.n[0] * view[0] + f.n[1] * view[1] + f.n[2] * view[2] > -1e-9)
     .map((f) => ({
       f,
       depth:
@@ -128,7 +147,19 @@ function paint(faces: Face[]): Shape[] {
         f.pts.length,
     }))
     .sort((a, b) => a.depth - b.depth)
-    .map(({ f }) => poly(f.pts.map(project), f.role));
+    .map(({ f }) =>
+      f.holes
+        ? {
+            role: f.role,
+            prim: {
+              t: "poly" as const,
+              pts: f.pts.map(project),
+              closed: true,
+              holes: f.holes.map((ring) => ring.map(project)),
+            },
+          }
+        : poly(f.pts.map(project), f.role),
+    );
 }
 
 let lastFaces: Face[] = [];
@@ -191,6 +222,84 @@ function box(
     quad([x0, y0, z0], [x0, y1, z0], [x0, y1, z1], [x0, y0, z1], "face-end"),
   ];
 }
+
+/* ---- flat pieces as slabs -------------------------------------------------
+ *
+ * A flat piece stands up like the end cap it usually is: its outline in the
+ * y–z plane (across and up) and a thickness along x that is FOR THE DRAWING
+ * ONLY — see the `flat` case below for why it has one at all.
+ *
+ * Outlines are given in (across, up) and every one here is CONVEX, which is
+ * what lets `paint` resolve it by dropping back faces instead of by depth. */
+
+type P2 = [number, number];
+
+/** A circle as a polygon, for a face that has to be filled. The 2D views keep
+ * true arcs; a filled face with a hole in it needs rings of points. */
+const ringPts = (cy: number, cz: number, r: number, n = 48): P2[] =>
+  Array.from({ length: n }, (_, i): P2 => [
+    cy + r * Math.cos((2 * Math.PI * i) / n),
+    cz + r * Math.sin((2 * Math.PI * i) / n),
+  ]);
+
+const rectPts = (y0: number, z0: number, w: number, h: number): P2[] => [
+  [y0, z0],
+  [y0 + w, z0],
+  [y0 + w, z0 + h],
+  [y0, z0 + h],
+];
+
+const centroid = (ring: P2[]): P2 => [
+  ring.reduce((s, p) => s + p[0], 0) / ring.length,
+  ring.reduce((s, p) => s + p[1], 0) / ring.length,
+];
+
+/**
+ * The faces of a plate of thickness `t` cut to `outer`, with `holes` through it.
+ *
+ * Front and back carry the holes; every edge of every ring becomes a wall. A
+ * wall's normal points away from the material — out of the plate on the outer
+ * ring, into the hole on a hole's ring — decided against the ring's centroid,
+ * which is safe because every ring here is convex.
+ */
+function slab(outer: P2[], holes: P2[][], t: number): Face[] {
+  const at = (x: number, [y, z]: P2): P3 => [x, y, z];
+  const cut = holes.filter((h) => h.length > 2);
+  const faces: Face[] = [
+    { pts: outer.map((p) => at(t, p)), holes: cut.map((h) => h.map((p) => at(t, p))), role: "face-end", n: [1, 0, 0] },
+    { pts: outer.map((p) => at(0, p)), holes: cut.map((h) => h.map((p) => at(0, p))), role: "face-end", n: [-1, 0, 0] },
+  ];
+  const walls = (ring: P2[], outward: boolean) => {
+    const [cy, cz] = centroid(ring);
+    ring.forEach((p, i) => {
+      const q = ring[(i + 1) % ring.length];
+      const dy = q[0] - p[0];
+      const dz = q[1] - p[1];
+      const len = Math.hypot(dy, dz) || 1;
+      let ny = dz / len;
+      let nz = -dy / len;
+      const away = (p[0] + q[0]) / 2 - cy;
+      const up = (p[1] + q[1]) / 2 - cz;
+      /* Out of the material: away from the centre on the outline, towards it
+       * on a hole. */
+      if ((ny * away + nz * up > 0) !== outward) {
+        ny = -ny;
+        nz = -nz;
+      }
+      faces.push({
+        pts: [at(0, p), at(t, p), at(t, q), at(0, q)],
+        role: Math.abs(nz) > 0.72 ? "face-top" : "face-side",
+        n: [0, ny, nz],
+      });
+    });
+  };
+  walls(outer, true);
+  for (const h of cut) walls(h, false);
+  return faces;
+}
+
+/** The drawing-only thickness of a plate — see the `flat` case. */
+const plateThickness = (size: number) => Math.max(size, 1) * 0.03;
 
 /** A swept rectangular section: the shared body of the elbow and the Y-piece. */
 function sweep(
@@ -318,6 +427,148 @@ function build(f: Fitting, L: Label): Scene {
         dims: [
           tag([t, 0, 0], [t, w, 0], `W ${L(w)}`, 16, 16),
           tag([t, w, 0], [t, w, h], `H ${L(h)}`, 20, 4),
+        ],
+      };
+    }
+
+    /* The other flat pieces: the same standing plate and the same drawing-only
+     * thickness, cut to their own outline by `slab`. Sizes are tagged where
+     * the eye already is — along the bottom edge, up the right one — and a
+     * hole's diameter is written in the hole, which is the one place on the
+     * drawing nothing else can be. */
+    case "flat-circle": {
+      const r = f.d / 2;
+      const t = plateThickness(f.d);
+      return {
+        shapes: paint(slab(ringPts(r, r, r), [], t)),
+        dims: [tag([t, 0, 0], [t, f.d, 0], `⌀ ${L(f.d)}`, 16, 18)],
+      };
+    }
+
+    case "flat-ring": {
+      const r = f.d1 / 2;
+      const hole = ringHole(f);
+      const t = plateThickness(f.d1);
+      return {
+        shapes: paint(slab(ringPts(r, r, r), hole > 0 ? [ringPts(r, r, hole / 2)] : [], t)),
+        dims: [
+          tag([t, 0, 0], [t, f.d1, 0], `⌀ ${L(f.d1)}`, 16, 18),
+          ...(hole > 0 ? [tag([t, r, r], [t, r, r], `⌀ ${L(hole)}`, 0, 5)] : []),
+        ],
+      };
+    }
+
+    case "flat-holed": {
+      const { w, h } = f;
+      const hole = plateHole(f);
+      const t = plateThickness(Math.max(w, h));
+      return {
+        shapes: paint(
+          slab(rectPts(0, 0, w, h), hole > 0 ? [ringPts(w / 2, h / 2, hole / 2)] : [], t),
+        ),
+        dims: [
+          tag([t, 0, 0], [t, w, 0], `W ${L(w)}`, 16, 16),
+          tag([t, w, 0], [t, w, h], `H ${L(h)}`, 20, 4),
+          ...(hole > 0 ? [tag([t, w / 2, h / 2], [t, w / 2, h / 2], `⌀ ${L(hole)}`, 0, 5)] : []),
+        ],
+      };
+    }
+
+    case "flat-frame": {
+      const { w, h } = f;
+      const o = frameOpening(f);
+      const t = plateThickness(Math.max(w, h));
+      const open = o.w > 0 && o.h > 0;
+      return {
+        shapes: paint(
+          slab(
+            rectPts(0, 0, w, h),
+            open ? [rectPts((w - o.w) / 2, (h - o.h) / 2, o.w, o.h)] : [],
+            t,
+          ),
+        ),
+        dims: [
+          tag([t, 0, 0], [t, w, 0], `W ${L(w)}`, 16, 16),
+          tag([t, w, 0], [t, w, h], `H ${L(h)}`, 20, 4),
+          ...(open
+            ? [tag([t, w / 2, h / 2], [t, w / 2, h / 2], `${L(o.w)} × ${L(o.h)}`, 0, 5)]
+            : []),
+        ],
+      };
+    }
+
+    case "flat-oval": {
+      const { short, straight } = ovalParts(f);
+      const r = short / 2;
+      const across = f.w >= f.h;
+      const w = across ? straight + short : short;
+      const h = across ? short : straight + short;
+      /* Two half rings joined: the straight sides are the chords between them. */
+      const half = (cy: number, cz: number, from: number): P2[] =>
+        Array.from({ length: 25 }, (_, i): P2 => {
+          const a = ((from + (180 * i) / 24) * Math.PI) / 180;
+          return [cy + r * Math.cos(a), cz + r * Math.sin(a)];
+        });
+      const outline = across
+        ? [...half(r + straight, r, -90), ...half(r, r, 90)]
+        : [...half(r, r + straight, 0), ...half(r, r, 180)];
+      const t = plateThickness(Math.max(w, h));
+      return {
+        shapes: paint(slab(outline, [], t)),
+        dims: [
+          tag([t, 0, 0], [t, w, 0], `W ${L(f.w)}`, 16, 16),
+          tag([t, w, 0], [t, w, h], `H ${L(f.h)}`, 20, 4),
+        ],
+      };
+    }
+
+    case "flat-triangle": {
+      const { w, h } = f;
+      const t = plateThickness(Math.max(w, h));
+      return {
+        shapes: paint(
+          slab(
+            [
+              [0, 0],
+              [w, 0],
+              [w / 2, h],
+            ],
+            [],
+            t,
+          ),
+        ),
+        dims: [
+          tag([t, 0, 0], [t, w, 0], `B ${L(w)}`, 16, 16),
+          tag([t, w / 2, h], [t, w / 2, h], `H ${L(h)}`, 0, -14),
+        ],
+      };
+    }
+
+    case "flat-trapezoid": {
+      const top = f.w1;
+      const bottom = f.w2;
+      const h = f.h;
+      const w = Math.max(top, bottom);
+      const tx = (w - top) / 2;
+      const bx = (w - bottom) / 2;
+      const t = plateThickness(Math.max(w, h));
+      return {
+        shapes: paint(
+          slab(
+            [
+              [bx, 0],
+              [bx + bottom, 0],
+              [tx + top, h],
+              [tx, h],
+            ],
+            [],
+            t,
+          ),
+        ),
+        dims: [
+          tag([t, bx, 0], [t, bx + bottom, 0], `B ${L(bottom)}`, 16, 16),
+          tag([t, tx, h], [t, tx + top, h], `T ${L(top)}`, 0, -14),
+          tag([t, bx + bottom, 0], [t, tx + top, h], `H ${L(h)}`, 22, 4),
         ],
       };
     }

@@ -33,7 +33,14 @@ export type FittingKind =
   | "round-straight"
   | "round-elbow"
   | "round-reducer"
-  | "square-to-round";
+  | "square-to-round"
+  | "flat-circle"
+  | "flat-ring"
+  | "flat-holed"
+  | "flat-frame"
+  | "flat-triangle"
+  | "flat-trapezoid"
+  | "flat-oval";
 
 /** W × H duct, L long. */
 export type Straight = { kind: "straight"; w: number; h: number; l: number };
@@ -46,10 +53,56 @@ export type Straight = { kind: "straight"; w: number; h: number; l: number };
  * only", and the question that settled it was which area a 600 × 400 piece
  * should give: 0.24 m² (a flat sheet, one face) and not 2.4 m² (a hollow duct
  * section at some standard length). So it has no length, occupies no length of
- * a run, and is never a flanged end or a hung section — see NOT_A_RUN in
- * compute.ts.
+ * a run, and is never a flanged end or a hung section — see `isFlat` in
+ * formulas.ts and its use in compute.ts.
  */
 export type Flat = { kind: "flat"; w: number; h: number };
+
+/* ---- the other flat pieces (18 Sep 2026) ----------------------------------
+ *
+ * Asked for the same day as the rectangle: "what if it's a different shape".
+ * Every one is ONE FACE of sheet, measured as its own area, and none of them is
+ * a run — same rules as `Flat`. Keys reuse the existing FieldKeys; the symbol
+ * each shows is set per fitting in formulas.ts.
+ *
+ * Where an input could describe something impossible — a hole wider than its
+ * plate, an opening bigger than its frame — the formulas and the drawings use
+ * the same clamped value and the working line prints that value, so what is
+ * computed, what is drawn and what is shown are always the same number.
+ */
+
+/** A round end cap or blank: diameter D. */
+export type FlatCircle = { kind: "flat-circle"; d: number };
+
+/** A round flange or a round plate with a hole: outer D (d1), inner d (d2). */
+export type FlatRing = { kind: "flat-ring"; d1: number; d2: number };
+
+/** A rectangular plate with a round hole (a spigot plate): W × H, hole d. */
+export type FlatHoled = { kind: "flat-holed"; w: number; h: number; d: number };
+
+/** A rectangular frame or flange: outer W × H, opening w (w2) × h (h2). */
+export type FlatFrame = { kind: "flat-frame"; w: number; h: number; w2: number; h2: number };
+
+/** A triangle: base B (w) and height H (h). Any triangle with that base and
+ * height has that area; the drawing shows it isosceles. */
+export type FlatTriangle = { kind: "flat-triangle"; w: number; h: number };
+
+/** A trapezoid: top T (w1), bottom B (w2), height H (h). Drawn isosceles. */
+export type FlatTrapezoid = { kind: "flat-trapezoid"; w1: number; w2: number; h: number };
+
+/** A flat-oval end cap: the long side W and the short side H, the short side
+ * being the diameter of the two round ends. */
+export type FlatOval = { kind: "flat-oval"; w: number; h: number };
+
+export type FlatFitting =
+  | Flat
+  | FlatCircle
+  | FlatRing
+  | FlatHoled
+  | FlatFrame
+  | FlatTriangle
+  | FlatTrapezoid
+  | FlatOval;
 
 /** Rectangular size change from W1×H1 to W2×H2 over length L. CONCENTRIC — the
  * shop formula's half-offset terms assume the two openings share a centreline. */
@@ -153,7 +206,7 @@ export type SquareToRound = {
 
 export type Fitting =
   | Straight
-  | Flat
+  | FlatFitting
   | Transition
   | Elbow
   | Offset

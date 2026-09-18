@@ -15,6 +15,7 @@ import {
   sector,
 } from "./scene";
 import type { Label } from "./blueprint";
+import { plateFace } from "./plates";
 
 /* The flat pattern — what actually gets cut.
  *
@@ -132,11 +133,21 @@ export function flat(f: Fitting, L: Label, gap?: number): FlatScene {
       ]);
     }
 
-    /* The blank IS the piece: one rectangle, cut all round, no folds. That is
-     * the honest development of a flat plate, and it is why its shop area and
-     * its billing area are the same number. */
+    /* The blank IS the piece: one outline, cut all round — holes included —
+     * and no folds. That is the honest development of a flat plate, and it is
+     * why its shop area and its billing area are the same number. The outline
+     * is the blueprint's own, from plates.ts. */
     case "flat":
-      return layout(gap, [blank(f.w, f.h, "blank ×1", L)]);
+    case "flat-circle":
+    case "flat-ring":
+    case "flat-holed":
+    case "flat-frame":
+    case "flat-triangle":
+    case "flat-trapezoid":
+    case "flat-oval": {
+      const face = plateFace(f, L, 30);
+      return layout(gap, [{ caption: "blank ×1", shapes: face.shapes, dims: face.dims }]);
+    }
 
     case "transition": {
       const slantTop = Math.hypot(f.l, (f.h1 - f.h2) / 2);

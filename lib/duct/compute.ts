@@ -1,5 +1,5 @@
 import { bandFor, densityDisplay, selectGauge, sheetCount } from "./gauge";
-import { isRound, specFor, stepCtx } from "./formulas";
+import { isFlat, isRound, specFor, stepCtx } from "./formulas";
 import type {
   Ancillaries,
   Entry,
@@ -127,17 +127,16 @@ export type EntryResult = {
 
 const STRAIGHT_RUNS: readonly FittingKind[] = ["straight", "round-straight"];
 
-/**
- * Pieces that are not a length of duct at all: no ends to flange, no corners,
- * nothing to hang.
+/* Pieces that are not a length of duct at all — every flat piece — have no ends
+ * to flange, no corners and nothing to hang.
  *
- * A flat piece is an end cap or a plate. Without this list the flange rule —
- * "two ends per piece" — would count two flanged ends on every cap, and the
- * hanger rule — "one per piece plus spacing" — would hang every one of them
- * from the ceiling. Excluded by kind here rather than by trusting its zero
- * centreline, because the flange count does not read the centreline at all.
- */
-const NOT_A_RUN: readonly FittingKind[] = ["flat"];
+ * A flat piece is an end cap or a plate. Without this rule the flange count —
+ * "two ends per piece" — would give two flanged ends to every cap, and the
+ * hanger count — "one per piece plus spacing" — would hang every one of them
+ * from the ceiling. Decided by the fitting's group (`isFlat`) rather than by
+ * trusting its zero centreline, because the flange count does not read the
+ * centreline at all. It used to be a list of kinds; with eight flat pieces a
+ * list is one more place for the ninth to be forgotten. */
 
 const NO_ANCILLARIES: Ancillaries = {
   insulationMm: 0,
@@ -216,7 +215,7 @@ export function computeEntry(
       ? Math.max(1, Math.ceil(centrelineMm / ancillaries.standardLengthMm - 1e-9))
       : 1;
 
-  const isRun = !NOT_A_RUN.includes(entry.fitting.kind);
+  const isRun = !isFlat(entry.fitting.kind);
   const flangeEnds = isRun && ancillaries.standardLengthMm > 0 ? 2 * pieces * entry.qty : 0;
   const flangeRunMinor = toRunMinor(
     runFromMm(flangeEnds * spec.perimeter(entry.fitting), us),

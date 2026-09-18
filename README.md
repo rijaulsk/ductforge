@@ -3,9 +3,10 @@
 HVAC ductwork takeoff and surface-area calculator. Enter a fitting's dimensions, get its
 surface area, GI sheet weight, SMACNA gauge and a BOM schedule you can export.
 
-Eleven fittings — straight duct, flat piece, transition, elbow, offset, collar and Y-piece in rectangular, plus
-round duct, a gored round elbow, a concentric cone and a square-to-round — measured to either of
-two standards:
+Ten fittings — straight duct, transition, elbow, offset, collar and Y-piece in rectangular, plus
+round duct, a gored round elbow, a concentric cone and a square-to-round — and eight flat pieces
+(rectangle, circle, ring, plate with a round hole, rectangular frame, flat oval, triangle,
+trapezoid), measured to either of two standards:
 
 - **Commercial billing** — nominal mean perimeter × centreline length. The quantity a client,
   consultant or quantity surveyor accepts on an invoice.

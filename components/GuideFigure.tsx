@@ -1,5 +1,5 @@
 import { buildView } from "@/lib/draw";
-import { RECTANGULAR_KINDS, ROUND_KINDS, SPECS } from "@/lib/duct/formulas";
+import { FLAT_KINDS, RECTANGULAR_KINDS, ROUND_KINDS, SPECS } from "@/lib/duct/formulas";
 import type { FigureKind } from "@/lib/guide/types";
 import Drawing from "./Drawing";
 import FittingGlyph from "./FittingGlyph";
@@ -99,6 +99,23 @@ function Figure({ kind }: { kind: FigureKind }) {
               <p className="mb-2 text-small text-muted">Round and spiral</p>
               <div className="grid grid-cols-3 gap-2">
                 {ROUND_KINDS.map((k) => (
+                  <span
+                    key={k}
+                    className="flex flex-col items-center gap-1 rounded-card border-[1.5px] border-rule px-2 py-2 text-center text-[11px] font-medium text-heading"
+                  >
+                    <FittingGlyph kind={k} />
+                    {SPECS[k].name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <Marker n={3} />
+            <div className="min-w-0">
+              <p className="mb-2 text-small text-muted">Flat pieces</p>
+              <div className="grid grid-cols-3 gap-2">
+                {FLAT_KINDS.map((k) => (
                   <span
                     key={k}
                     className="flex flex-col items-center gap-1 rounded-card border-[1.5px] border-rule px-2 py-2 text-center text-[11px] font-medium text-heading"

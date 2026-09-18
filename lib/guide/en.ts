@@ -51,13 +51,14 @@ export const en: Guide = {
     {
       title: "Pick the fitting",
       body: [
-        "Six rectangular fittings and four round ones. If your run is plain duct, use Straight; if it changes size, Transition; if it turns, Elbow; if it steps sideways, Offset; if it branches, Collar or Y-piece. Coming off an air-handling unit into spiral, use Square to round.",
+        "Six rectangular fittings, four round ones and eight flat pieces. If your run is plain duct, use Straight; if it changes size, Transition; if it turns, Elbow; if it steps sideways, Offset; if it branches, Collar or Y-piece. Coming off an air-handling unit into spiral, use Square to round. A plate, a blank or an end cap has no length at all — pick it from Flat pieces by its shape.",
         "The picker keeps whichever zone you were working in, so you can move through a dozen fittings in AHU-1 without retyping it.",
       ],
       figure: "picker",
       callouts: [
         "Rectangular: straight duct, transition, elbow, offset, collar and Y-piece.",
         "Round and spiral: plain duct, a gored elbow, a concentric cone, and a square-to-round transition.",
+        "Flat pieces: a rectangular plate, a round plate, a ring, a plate with a round hole, a rectangular frame, a flat-oval plate, a triangle and a trapezoid. Each is one face, never counted for flanges or hangers.",
       ],
     },
     {

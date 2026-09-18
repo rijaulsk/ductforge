@@ -112,4 +112,20 @@ export const GLYPH_PATHS: Record<FittingKind, string> = {
     "M12 4L31 6.5M12 24L31 21.5",
     ellipse(31, 14, 3.5, 7.5),
   ].join(""),
+
+  /* ---- flat pieces: the outline, face on, and nothing else ----
+   *
+   * Every one is a CLOSED shape and none has walls or an open end, which is
+   * what keeps the group apart from the ducts above at a glance: the round
+   * plate is a circle, where round duct is a cylinder seen side on. A hole is
+   * a second closed outline inside the first, exactly as it is cut. Only the
+   * rectangle carries the plate's diagonal cross — it needs it, being the one
+   * flat piece that could otherwise pass for a short length of duct. */
+  "flat-circle": ellipse(22, 14, 11, 11),
+  "flat-ring": [ellipse(22, 14, 11, 11), ellipse(22, 14, 5, 5)].join(""),
+  "flat-holed": ["M9 4H35V24H9Z", ellipse(22, 14, 6, 6)].join(""),
+  "flat-frame": "M7 4H37V24H7ZM13 9H31V19H13Z",
+  "flat-oval": "M14 6H30A8 8 0 0 1 30 22H14A8 8 0 0 1 14 6Z",
+  "flat-triangle": "M8 24H36L22 4Z",
+  "flat-trapezoid": "M6 24H38L30 4H14Z",
 };

@@ -6,6 +6,13 @@ import type {
   Fitting,
   FittingKind,
   Flat,
+  FlatCircle,
+  FlatFrame,
+  FlatHoled,
+  FlatOval,
+  FlatRing,
+  FlatTrapezoid,
+  FlatTriangle,
   Transition,
   RoundElbow,
   RoundReducer,
@@ -24,6 +31,7 @@ import {
   squareLengthFromMm2,
   workingDecimals,
 } from "./units";
+import { frameOpening, ovalParts, plateHole, ringHole } from "./plates";
 
 /* THE FORMULA REGISTRY — the single source of truth for the arithmetic.
  *
@@ -130,8 +138,9 @@ const step = (
 
 type Spec<T extends Fitting> = {
   kind: T["kind"];
-  /** Which picker group it belongs to. */
-  group: "rectangular" | "round";
+  /** Which picker group it belongs to. "flat" is also what makes a piece
+   * not-a-run in compute.ts — see `isFlat`. */
+  group: "rectangular" | "round" | "flat";
   /** The trade name, checked against a manufacturer catalogue. */
   name: string;
   /**
@@ -298,6 +307,11 @@ const straight: Spec<Straight> = {
  * lands in the same place and `check:duct` pins it the same way.
  */
 
+/** What every flat piece says beside its result — one sentence, one place.
+ * Exported so /standards can print it once rather than eight times. */
+export const FLAT_NOTE =
+  "A flat piece is one face with nothing to unfold, so both standards give the same area. It is not a length of duct, so it is never counted for flanges, corner pieces or hangers.";
+
 function flatSteps(f: Flat, c: StepCtx): CalcStep[] {
   return [
     areaStep(
@@ -311,11 +325,19 @@ function flatSteps(f: Flat, c: StepCtx): CalcStep[] {
   ];
 }
 
+/* NAMED "RECTANGULAR PLATE" SINCE IT STOPPED BEING THE ONLY FLAT PIECE.
+ *
+ * It shipped as "Flat piece", and that was the right name while there was one.
+ * With a circle, a ring and the rest beside it, "Flat piece" is the name of the
+ * group, and a schedule row that said only "Flat piece" would no longer say
+ * which. The old name stays first in `aka`, so the picker still finds it by the
+ * word the owner used, and a saved takeoff is untouched: the kind is still
+ * `flat`, and nothing stores a name. */
 const flat: Spec<Flat> = {
   kind: "flat",
-  group: "rectangular",
-  name: "Flat piece",
-  aka: ["End cap", "Blank-off plate", "Plate"],
+  group: "flat",
+  name: "Rectangular plate",
+  aka: ["Flat piece", "Rectangle", "End cap", "Blank-off plate"],
   blurb: "One flat piece, width by height — no length.",
   fields: [
     { key: "w", symbol: "W", label: "Width" },
@@ -351,7 +373,351 @@ const flat: Spec<Flat> = {
     },
     steps: (f, c) => flatSteps(f, c),
   },
-  note: "A flat piece is one face with nothing to unfold, so both standards give the same area. It is not a length of duct, so it is never counted for flanges, corner pieces or hangers.",
+  note: FLAT_NOTE,
+};
+
+/* ---- the other flat pieces --------------------------------------------------
+ *
+ * Asked for on 18 Sep 2026, the same day as the rectangle: "what if it's a
+ * different shape". Every one follows the rectangle's rules exactly — one face,
+ * its own area, both standards the same number, never a run — so each is a
+ * single formula used for both, and each note says so in the same words.
+ *
+ * Anything that can be limited (a hole bigger than its plate) is limited in
+ * plates.ts and nowhere else; the working line then says the limit was applied,
+ * so a clamp is never silent. See `limitStep`.
+ */
+
+/** Both standards, one formula: a flat piece has nothing to unfold. */
+const both = <T extends Fitting>(f: Formula<T>): { billing: Formula<T>; shop: Formula<T> } => ({
+  billing: f,
+  shop: f,
+});
+
+/** Area of a circle of diameter d, as the working prints it. */
+const disc = (d: number) => (Math.PI * d * d) / 4;
+
+/**
+ * A line saying an input was limited, present only when it was.
+ *
+ * Without it a 500 mm hole typed into a 400 mm plate would print a working
+ * line with 400 in it and no word of why, and the estimator would rightly
+ * distrust every other line on the screen.
+ */
+const limitStep = (
+  what: string,
+  typed: number,
+  used: number,
+  limit: string,
+  c: StepCtx,
+): CalcStep[] =>
+  typed > used
+    ? [
+        step(
+          `${what}, limited to ${limit}`,
+          `${c.L(typed)} typed, ${c.L(used)} used`,
+          c.lv(used),
+          c.lenUnit,
+          c.exactL(used),
+        ),
+      ]
+    : [];
+
+const circleStep = (label: string, d: number, c: StepCtx): CalcStep =>
+  step(label, `π × ${c.L(d)}² ÷ 4`, c.sv(disc(d)), c.sqUnit);
+
+const rectStep = (label: string, w: number, h: number, c: StepCtx): CalcStep =>
+  step(
+    label,
+    `${c.L(w)} × ${c.L(h)}`,
+    c.sv(w * h),
+    c.sqUnit,
+    exactLengths(c, w, h) && exactAreas(c, w * h),
+  );
+
+const lessStep = (whole: number, cut: number, c: StepCtx): CalcStep =>
+  areaStep(
+    `${c.S(whole)} − ${c.S(cut)}`,
+    whole - cut,
+    c,
+    exactAreas(c, whole, cut, whole - cut),
+  );
+
+const roundPlate: Spec<FlatCircle> = {
+  kind: "flat-circle",
+  group: "flat",
+  name: "Round plate",
+  aka: ["Circle", "Round end cap", "Round blank"],
+  blurb: "A flat disc — one diameter.",
+  fields: [{ key: "d", symbol: "D", label: "Diameter" }],
+  defaults: { kind: "flat-circle", d: 400 },
+  maxDim: (f) => f.d,
+  centreline: () => 0,
+  perimeter: (f) => Math.PI * f.d,
+  inflate: (f, d) => ({ ...f, d: f.d + d }),
+  ...both<FlatCircle>({
+    expression: "A = πD²/4",
+    compute: (f) => disc(f.d),
+    substitute: (f, us) => `π × ${mk(us).L(f.d)}² ÷ 4`,
+    steps: (f, c) => [areaStep(`π × ${c.L(f.d)}² ÷ 4`, disc(f.d), c)],
+  }),
+  note: FLAT_NOTE,
+};
+
+const ringPlate: Spec<FlatRing> = {
+  kind: "flat-ring",
+  group: "flat",
+  name: "Ring",
+  aka: ["Annulus", "Round flange", "Round plate with a hole"],
+  blurb: "A flat disc with a round hole in the middle.",
+  fields: [
+    { key: "d1", symbol: "D", label: "Outside diameter" },
+    { key: "d2", symbol: "d", label: "Hole diameter", hint: "Centred" },
+  ],
+  defaults: { kind: "flat-ring", d1: 600, d2: 400 },
+  maxDim: (f) => f.d1,
+  centreline: () => 0,
+  perimeter: (f) => Math.PI * f.d1,
+  /* Lagging grows the outside and closes the hole — it wraps into it. */
+  inflate: (f, d) => ({ ...f, d1: f.d1 + d, d2: Math.max(0, f.d2 - d) }),
+  ...both<FlatRing>({
+    expression: "A = π(D² − d²)/4",
+    compute: (f) => disc(f.d1) - disc(ringHole(f)),
+    substitute: (f, us) => {
+      const { L } = mk(us);
+      return `π × (${L(f.d1)}² − ${L(ringHole(f))}²) ÷ 4`;
+    },
+    steps: (f, c) => {
+      const hole = ringHole(f);
+      return [
+        ...limitStep("Hole", f.d2, hole, "the outside diameter", c),
+        circleStep("Outside circle", f.d1, c),
+        circleStep("Hole", hole, c),
+        lessStep(disc(f.d1), disc(hole), c),
+      ];
+    },
+  }),
+  note: FLAT_NOTE,
+};
+
+const holedPlate: Spec<FlatHoled> = {
+  kind: "flat-holed",
+  group: "flat",
+  name: "Plate with round hole",
+  aka: ["Rectangle with a hole", "Spigot plate", "Blank with a round opening"],
+  blurb: "A rectangular plate with a round hole in the middle.",
+  fields: [
+    { key: "w", symbol: "W", label: "Width" },
+    { key: "h", symbol: "H", label: "Height" },
+    { key: "d", symbol: "d", label: "Hole diameter", hint: "Centred on the plate" },
+  ],
+  defaults: { kind: "flat-holed", w: 600, h: 600, d: 400 },
+  maxDim: (f) => Math.max(f.w, f.h),
+  centreline: () => 0,
+  perimeter: (f) => 2 * (f.w + f.h),
+  inflate: (f, d) => ({ ...f, w: f.w + d, h: f.h + d, d: Math.max(0, f.d - d) }),
+  ...both<FlatHoled>({
+    expression: "A = W × H − πd²/4",
+    compute: (f) => f.w * f.h - disc(plateHole(f)),
+    substitute: (f, us) => {
+      const { L } = mk(us);
+      return `${L(f.w)} × ${L(f.h)} − π × ${L(plateHole(f))}² ÷ 4`;
+    },
+    steps: (f, c) => {
+      const hole = plateHole(f);
+      return [
+        ...limitStep("Hole", f.d, hole, "the plate's short side", c),
+        rectStep("Plate", f.w, f.h, c),
+        circleStep("Hole", hole, c),
+        lessStep(f.w * f.h, disc(hole), c),
+      ];
+    },
+  }),
+  note: FLAT_NOTE,
+};
+
+const framePlate: Spec<FlatFrame> = {
+  kind: "flat-frame",
+  group: "flat",
+  name: "Rectangular frame",
+  aka: ["Rectangle with a rectangular hole", "Picture frame", "Frame flange"],
+  blurb: "A rectangular plate with a rectangular opening in the middle.",
+  fields: [
+    { key: "w", symbol: "W", label: "Outside width" },
+    { key: "h", symbol: "H", label: "Outside height" },
+    { key: "w2", symbol: "w", label: "Opening width", hint: "Centred" },
+    { key: "h2", symbol: "h", label: "Opening height", hint: "Centred" },
+  ],
+  defaults: { kind: "flat-frame", w: 700, h: 500, w2: 600, h2: 400 },
+  maxDim: (f) => Math.max(f.w, f.h),
+  centreline: () => 0,
+  perimeter: (f) => 2 * (f.w + f.h),
+  inflate: (f, d) => ({
+    ...f,
+    w: f.w + d,
+    h: f.h + d,
+    w2: Math.max(0, f.w2 - d),
+    h2: Math.max(0, f.h2 - d),
+  }),
+  ...both<FlatFrame>({
+    expression: "A = W × H − w × h",
+    compute: (f) => {
+      const o = frameOpening(f);
+      return f.w * f.h - o.w * o.h;
+    },
+    substitute: (f, us) => {
+      const { L } = mk(us);
+      const o = frameOpening(f);
+      return `${L(f.w)} × ${L(f.h)} − ${L(o.w)} × ${L(o.h)}`;
+    },
+    steps: (f, c) => {
+      const o = frameOpening(f);
+      return [
+        ...limitStep("Opening width", f.w2, o.w, "the outside width", c),
+        ...limitStep("Opening height", f.h2, o.h, "the outside height", c),
+        rectStep("Outside", f.w, f.h, c),
+        rectStep("Opening", o.w, o.h, c),
+        lessStep(f.w * f.h, o.w * o.h, c),
+      ];
+    },
+  }),
+  note: FLAT_NOTE,
+};
+
+/* A TRIANGLE IS ITS BASE AND ITS HEIGHT, and nothing else is asked for.
+ *
+ * Any triangle on a given base with a given height has the same area — slide
+ * the apex sideways and the area does not move — so asking where the apex sits
+ * would be asking for a number the answer does not depend on. The drawing puts
+ * it in the middle and the note says that it is only the drawing. */
+const trianglePlate: Spec<FlatTriangle> = {
+  kind: "flat-triangle",
+  group: "flat",
+  name: "Triangular plate",
+  aka: ["Triangle", "Gusset"],
+  blurb: "A flat triangle — base and height.",
+  fields: [
+    { key: "w", symbol: "B", label: "Base" },
+    { key: "h", symbol: "H", label: "Height", hint: "Square to the base" },
+  ],
+  defaults: { kind: "flat-triangle", w: 600, h: 400 },
+  maxDim: (f) => Math.max(f.w, f.h),
+  centreline: () => 0,
+  /* The isosceles triangle the drawing shows. Only read for flange material,
+   * which a flat piece never gets. */
+  perimeter: (f) => f.w + 2 * Math.hypot(f.w / 2, f.h),
+  inflate: (f, d) => ({ ...f, w: f.w + d, h: f.h + d }),
+  ...both<FlatTriangle>({
+    expression: "A = B × H / 2",
+    compute: (f) => (f.w * f.h) / 2,
+    substitute: (f, us) => {
+      const { L } = mk(us);
+      return `${L(f.w)} × ${L(f.h)} ÷ 2`;
+    },
+    steps: (f, c) => [
+      areaStep(
+        `${c.L(f.w)} × ${c.L(f.h)} ÷ 2`,
+        (f.w * f.h) / 2,
+        c,
+        exactLengths(c, f.w, f.h) && exactAreas(c, (f.w * f.h) / 2),
+      ),
+    ],
+  }),
+  note: `${FLAT_NOTE} Any triangle with this base and height has this area, wherever its apex sits — the drawing puts the apex in the middle, and that is only the drawing.`,
+};
+
+const trapezoidPlate: Spec<FlatTrapezoid> = {
+  kind: "flat-trapezoid",
+  group: "flat",
+  name: "Trapezoid plate",
+  aka: ["Trapezoid", "Trapezium", "Tapered plate"],
+  blurb: "Two parallel edges and the height between them.",
+  fields: [
+    { key: "w1", symbol: "T", label: "Top width" },
+    { key: "w2", symbol: "B", label: "Bottom width" },
+    { key: "h", symbol: "H", label: "Height", hint: "Square to both edges" },
+  ],
+  defaults: { kind: "flat-trapezoid", w1: 400, w2: 800, h: 500 },
+  maxDim: (f) => Math.max(f.w1, f.w2, f.h),
+  centreline: () => 0,
+  perimeter: (f) => f.w1 + f.w2 + 2 * Math.hypot((f.w2 - f.w1) / 2, f.h),
+  inflate: (f, d) => ({ ...f, w1: f.w1 + d, w2: f.w2 + d, h: f.h + d }),
+  ...both<FlatTrapezoid>({
+    expression: "A = (T + B)/2 × H",
+    compute: (f) => ((f.w1 + f.w2) / 2) * f.h,
+    substitute: (f, us) => {
+      const { L } = mk(us);
+      return `(${L(f.w1)} + ${L(f.w2)}) ÷ 2 × ${L(f.h)}`;
+    },
+    steps: (f, c) => {
+      const mean = (f.w1 + f.w2) / 2;
+      return [
+        step(
+          "Mean width",
+          `(${c.L(f.w1)} + ${c.L(f.w2)}) ÷ 2`,
+          c.lv(mean),
+          c.lenUnit,
+          exactLengths(c, f.w1, f.w2, mean),
+        ),
+        areaStep(
+          `${c.L(mean)} × ${c.L(f.h)}`,
+          mean * f.h,
+          c,
+          exactLengths(c, mean, f.h) && exactAreas(c, mean * f.h),
+        ),
+      ];
+    },
+  }),
+  note: `${FLAT_NOTE} As with a triangle, the area depends only on the two parallel edges and the height between them, so the drawing centres the top edge over the bottom one.`,
+};
+
+const ovalPlate: Spec<FlatOval> = {
+  kind: "flat-oval",
+  group: "flat",
+  name: "Flat-oval plate",
+  aka: ["Oval end cap", "Obround", "Stadium"],
+  blurb: "Two half circles joined by straight sides — a flat-oval duct's end.",
+  fields: [
+    { key: "w", symbol: "W", label: "Width", hint: "Overall, end to end" },
+    { key: "h", symbol: "H", label: "Height", hint: "Across the flats — each round end's diameter" },
+  ],
+  defaults: { kind: "flat-oval", w: 800, h: 400 },
+  maxDim: (f) => Math.max(f.w, f.h),
+  centreline: () => 0,
+  perimeter: (f) => {
+    const o = ovalParts(f);
+    return 2 * o.straight + Math.PI * o.short;
+  },
+  inflate: (f, d) => ({ ...f, w: f.w + d, h: f.h + d }),
+  ...both<FlatOval>({
+    expression: "A = (W − H) × H + πH²/4",
+    compute: (f) => {
+      const o = ovalParts(f);
+      return o.straight * o.short + disc(o.short);
+    },
+    substitute: (f, us) => {
+      const { L } = mk(us);
+      const o = ovalParts(f);
+      return `(${L(o.long)} − ${L(o.short)}) × ${L(o.short)} + π × ${L(o.short)}² ÷ 4`;
+    },
+    steps: (f, c) => {
+      const o = ovalParts(f);
+      const middle = o.straight * o.short;
+      const ends = disc(o.short);
+      return [
+        step(
+          "Straight middle",
+          `(${c.L(o.long)} − ${c.L(o.short)}) × ${c.L(o.short)}`,
+          c.sv(middle),
+          c.sqUnit,
+          exactLengths(c, o.long, o.short) && exactAreas(c, middle),
+        ),
+        circleStep("Two half-circle ends", o.short, c),
+        areaStep(`${c.S(middle)} + ${c.S(ends)}`, middle + ends, c),
+      ];
+    },
+  }),
+  note: `${FLAT_NOTE} The shorter of W and H is taken as the diameter of the round ends, so an oval typed on end is the same plate turned round.`,
 };
 
 /* ---- transition --------------------------------------------------------
@@ -1168,13 +1534,22 @@ export const SPECS: Record<FittingKind, AnySpec> = {
   "round-elbow": roundElbow as unknown as AnySpec,
   "round-reducer": roundReducer as unknown as AnySpec,
   "square-to-round": squareToRound as unknown as AnySpec,
+  "flat-circle": roundPlate as unknown as AnySpec,
+  "flat-ring": ringPlate as unknown as AnySpec,
+  "flat-holed": holedPlate as unknown as AnySpec,
+  "flat-frame": framePlate as unknown as AnySpec,
+  "flat-triangle": trianglePlate as unknown as AnySpec,
+  "flat-trapezoid": trapezoidPlate as unknown as AnySpec,
+  "flat-oval": ovalPlate as unknown as AnySpec,
 };
 
+/* The picker's order. The flat pieces have their own group since 18 Sep 2026
+ * (owner's call: "create a section for flat pieces apart from the current
+ * two"), so the rectangle moved out from beside the straight duct and leads
+ * that group instead — the commonest plate first, then the round ones, then
+ * the ones with holes, then the odd shapes. */
 export const FITTING_KINDS: readonly FittingKind[] = [
   "straight",
-  /* Right after the straight duct, not at the end of the group: this is the
-   * order the picker shows, and the owner reaches for it next to plain duct. */
-  "flat",
   "transition",
   "elbow",
   "offset",
@@ -1184,12 +1559,26 @@ export const FITTING_KINDS: readonly FittingKind[] = [
   "round-elbow",
   "round-reducer",
   "square-to-round",
+  "flat",
+  "flat-circle",
+  "flat-ring",
+  "flat-holed",
+  "flat-frame",
+  "flat-oval",
+  "flat-triangle",
+  "flat-trapezoid",
 ];
 
 export const RECTANGULAR_KINDS = FITTING_KINDS.filter(
   (k) => SPECS[k].group === "rectangular",
 );
 export const ROUND_KINDS = FITTING_KINDS.filter((k) => SPECS[k].group === "round");
+export const FLAT_KINDS = FITTING_KINDS.filter((k) => SPECS[k].group === "flat");
+
+/** A flat piece: one face, never a run — no flanges, corners or hangers. */
+export function isFlat(kind: FittingKind): boolean {
+  return SPECS[kind].group === "flat";
+}
 
 export function specFor(kind: FittingKind): AnySpec {
   return SPECS[kind];
