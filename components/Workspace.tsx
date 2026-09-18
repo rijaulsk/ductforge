@@ -2,20 +2,21 @@
 
 import { Plus, RotateCcw } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { ViewKind } from "@/lib/draw";
 import { computeFor, computeTotals } from "@/lib/duct/compute";
 import { SPECS } from "@/lib/duct/formulas";
 import { areaUnit, fmtArea, fmtMass, massUnit } from "@/lib/duct/units";
 import { toQty, toWaste } from "@/lib/duct/parse";
 import type { Entry, FittingKind, Project } from "@/lib/duct/types";
+import type { PrintOptions } from "@/lib/export/printOptions";
 import { type Draft, convertDraft, draftFromEntry, fittingFromDraft, newDraft } from "@/lib/draft";
-import { toCsv, toDetailedCsv } from "@/lib/export/csv";
 import { safeFilename, triggerDownload } from "@/lib/export/download";
 import { useHasMounted } from "@/lib/hooks";
 import { blankProject, fromProjectFile, newId, toProjectFile } from "@/lib/project";
 import { clearAll, initialState, saveActiveId, saveProjects } from "@/lib/storage";
 import BoqSheet, { PrintPageStyle } from "./BoqSheet";
+import ExportDialog from "./ExportDialog";
 import ChartsPanel from "./ChartsPanel";
 import FittingPicker from "./FittingPicker";
 import ParamForm from "./ParamForm";
@@ -94,6 +95,9 @@ export default function Workspace() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [view, setView] = useState<ViewKind>("blueprint");
   const [notice, setNotice] = useState<Notice>(null);
+  const [exportOpen, setExportOpen] = useState(false);
+  /* Stable, because the dialog subscribes to its own `close` event with it. */
+  const closeExport = useCallback(() => setExportOpen(false), []);
 
   /* The hydration adjustment sits AFTER the state it writes to. It reads
    * `setDraft`, and a `const` is in the temporal dead zone until its own
@@ -159,6 +163,22 @@ export default function Workspace() {
   };
 
   const patchEntries = (entries: Entry[]) => patchProject({ entries });
+
+  /* THE PRINT LAYOUT IS UPDATED FROM THE LATEST STATE, not from a snapshot.
+   *
+   * The export panel's switches each build the next layout from the options
+   * they were rendered with. Two changes landing before a re-render — paper
+   * size and text size picked in quick succession — both started from the same
+   * snapshot, and the second silently undid the first: Letter + Compact came
+   * out as A4 + Compact. Handing an updater through `setStore` means every
+   * change applies to whatever the layout is by then. */
+  const updatePrint = (fn: (print: PrintOptions) => PrintOptions) =>
+    setStore((s) => ({
+      ...s,
+      projects: s.projects.map((p) =>
+        p.id === project.id ? { ...p, print: fn(p.print), updatedAt: Date.now() } : p,
+      ),
+    }));
 
   const selectProject = (id: string) => {
     const next = store.projects.find((p) => p.id === id);
@@ -266,20 +286,11 @@ export default function Workspace() {
     if (editingId === id) setEditingId(null);
   };
 
-  /* ---- exports ------------------------------------------------------------ */
-
-  const exportCsv = () =>
-    triggerDownload(
-      new Blob([toCsv(project)], { type: "text/csv;charset=utf-8" }),
-      safeFilename(project.name, "csv"),
-    );
-
-  /* Same calculation, more of it shown — see lib/export/csv.ts. */
-  const exportDetailed = () =>
-    triggerDownload(
-      new Blob([toDetailedCsv(project)], { type: "text/csv;charset=utf-8" }),
-      safeFilename(project.name, "csv", "working"),
-    );
+  /* ---- exports ------------------------------------------------------------ *
+   *
+   * The CSVs moved into ExportDialog, which shows what each will write before
+   * it writes it. Save stays here: it is the header's own button, and it is
+   * saving the work rather than exporting it. */
 
   const exportJson = () =>
     triggerDownload(
@@ -309,12 +320,17 @@ export default function Workspace() {
         onPatch={patchProject}
         onNew={() => addProject(blankProject(`Takeoff ${store.projects.length + 1}`))}
         onDelete={deleteProject}
-        onExportCsv={exportCsv}
-        onExportDetailed={exportDetailed}
         onExportJson={exportJson}
         onImport={(f) => void importFile(f)}
-        onPrint={() => window.print()}
+        onExport={() => setExportOpen(true)}
         hasEntries={project.entries.length > 0}
+      />
+
+      <ExportDialog
+        open={exportOpen}
+        onClose={closeExport}
+        project={project}
+        onPrintChange={updatePrint}
       />
 
       {/* The workspace has no visible page title — the project bar's wordmark
