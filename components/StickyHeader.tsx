@@ -69,9 +69,35 @@ export default function StickyHeader({
   }, []);
 
   const away = hidden && !held;
+  const ref = useRef<HTMLDivElement>(null);
+
+  /* PUBLISH HOW MUCH OF THE SCREEN THE HEADER IS TAKING, as `--sticky-header`
+   * on the root: its height while it is showing, 0 while it is scrolled away.
+   *
+   * Anything else that sticks — the calculator's drawing panel — has to sit
+   * below the header when it is there and at the top when it is not. A fixed
+   * `top` can only be right for one of those, and the drawing's was wrong for
+   * the other: the returning header covered its heading and view buttons.
+   * Observed rather than hard-coded, because the header's height depends on
+   * the page (the calculator's is two rows) and on the width it wraps at. */
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const root = document.documentElement;
+    const publish = () =>
+      root.style.setProperty("--sticky-header", away ? "0px" : `${el.offsetHeight}px`);
+    publish();
+    const ro = new ResizeObserver(publish);
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      root.style.removeProperty("--sticky-header");
+    };
+  }, [away]);
 
   return (
     <div
+      ref={ref}
       className={`sticky top-0 z-40 transition-transform duration-200 ease-out ${className}`}
       style={{ transform: away ? "translateY(-100%)" : "translateY(0)" }}
     >

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Download, FileText, RotateCcw, X } from "lucide-react";
+import { Download, FileText, Minus, Plus, RotateCcw, X } from "lucide-react";
 import { computeTotals, hasZones } from "@/lib/duct/compute";
 import type { Project } from "@/lib/duct/types";
 import { toCsv, toDetailedCsv } from "@/lib/export/csv";
@@ -94,14 +94,89 @@ function printAs(title: string): void {
  * have. The guides answer the question that matters — "is this one page or
  * three?" — without claiming more.
  *
- * A ResizeObserver is right here, unlike in DrawingDialog: nothing in this
- * panel is being zoomed by the user, so there is no gesture for it to fight.
+ * ZOOMABLE, AND BY SCROLLING RATHER THAN DRAGGING. The drawing viewer pans by
+ * transform and deliberately refuses to pan at fit, which is right for one
+ * picture and wrong for a document: at fit you must still be able to reach
+ * page two. So here zoom only changes how big the paper is drawn, and a plain
+ * scroll viewport does the travelling — both axes, with the platform's own
+ * inertia, scrollbars and keyboard. A pinch on a touchscreen and Ctrl/⌘ +
+ * wheel on a desktop zoom the SHEET instead of the whole page, and the point
+ * under the fingers or the middle of the view stays put as the scale changes.
+ *
+ * `scrollbar-gutter: stable` on the viewport is load-bearing: the fit scale is
+ * computed from the viewport's width, and a scrollbar appearing as the sheet
+ * zooms would narrow it, change the fit, and oscillate.
  */
+const ZOOM_MIN = 0.5;
+const ZOOM_MAX = 4;
+const ZOOM_STEP = 1.25;
+const clampZoom = (z: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
+
 function SheetPreview({ project, options }: { project: Project; options: PrintOptions }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const [avail, setAvail] = useState(0);
   const [content, setContent] = useState(0);
+  /** 1 = the page fits the panel's width. Relative, so a resize keeps it. */
+  const [zoom, setZoom] = useState(1);
+  /* Where in the sheet to keep still while the scale changes — a fraction of
+   * the scrollable width and height, restored after the re-render. */
+  const anchor = useRef<{ fx: number; fy: number; vx: number; vy: number } | null>(null);
+  const pinch = useRef<{ dist: number; zoom: number } | null>(null);
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+
+  /** Change the zoom, holding the point at (vx, vy) in the viewport still. */
+  const zoomTo = (next: number, vx?: number, vy?: number) => {
+    const el = wrapRef.current;
+    const z = clampZoom(next);
+    if (!el || z === zoom) return;
+    const px = vx ?? el.clientWidth / 2;
+    const py = vy ?? el.clientHeight / 2;
+    anchor.current = {
+      fx: (el.scrollLeft + px) / Math.max(1, el.scrollWidth),
+      fy: (el.scrollTop + py) / Math.max(1, el.scrollHeight),
+      vx: px,
+      vy: py,
+    };
+    setZoom(z);
+  };
+
+  /* After the new size is laid out, scroll so the anchored point is back under
+   * the fingers or the centre. */
+  useEffect(() => {
+    const el = wrapRef.current;
+    const a = anchor.current;
+    if (!el || !a) return;
+    el.scrollLeft = a.fx * el.scrollWidth - a.vx;
+    el.scrollTop = a.fy * el.scrollHeight - a.vy;
+    anchor.current = null;
+  }, [zoom]);
+
+  /* The latest `zoomTo` and `zoom`, for the wheel listener, which is attached
+   * once. Refreshed after each render rather than written during one — React
+   * does not allow a ref to be assigned while rendering. */
+  const latest = useRef({ zoomTo, zoom });
+  useEffect(() => {
+    latest.current = { zoomTo, zoom };
+  });
+
+  /* Ctrl/⌘ + wheel zooms the sheet. It needs a NON-passive listener to be
+   * allowed to cancel the browser's own page zoom, which React's onWheel
+   * cannot be — hence addEventListener. Ctrl + wheel is also what a trackpad
+   * pinch arrives as on a desktop. */
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      const r = el.getBoundingClientRect();
+      const { zoomTo: go, zoom: z } = latest.current;
+      go(z * Math.exp(-e.deltaY * 0.0025), e.clientX - r.left, e.clientY - r.top);
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
 
   /* THE SHEET IS MEASURED, NOT THE PAPER. The first version measured the paper
    * strip, whose `min-height` is one page — 1122.52 px for A4 — and whose
@@ -128,20 +203,104 @@ function SheetPreview({ project, options }: { project: Project; options: PrintOp
   const pageH = h * PX_PER_MM;
   const margin = MARGIN_MM * PX_PER_MM;
   const printable = pageH - 2 * margin;
-  /* Never enlarged past life size — a 13-inch preview of an A4 page is not
-   * more truthful, just bigger. */
-  const scale = avail > 0 ? Math.min(1, (avail - 32) / pageW) : 0;
+  /* The fit: the page across the panel's width, never enlarged past life size
+   * — a 13-inch A4 is not more truthful, just bigger. Zoom multiplies it. */
+  const fit = avail > 0 ? Math.min(1, (avail - 32) / pageW) : 0;
+  const scale = fit * zoom;
   const pages = Math.max(1, Math.ceil(content / printable - 1e-6));
   const paperH = Math.max(pageH, content + 2 * margin);
+  /** Zoom at which the sheet prints at its true size on this screen. */
+  const actual = fit > 0 ? 1 / fit : 1;
+
+  /* Pinch on a touchscreen: two pointers, scale by the change in their spread.
+   * `touch-action: pan-x pan-y` on the viewport keeps one-finger scrolling
+   * native while stopping the browser zooming the whole page instead. */
+  const spread = () => {
+    const [a, b] = [...pointers.current.values()];
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  };
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (e.pointerType !== "touch") return;
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.current.size === 2) pinch.current = { dist: spread(), zoom };
+  };
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!pointers.current.has(e.pointerId)) return;
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const p = pinch.current;
+    if (p && pointers.current.size === 2 && p.dist > 0) {
+      const el = wrapRef.current;
+      const [a, b] = [...pointers.current.values()];
+      const r = el?.getBoundingClientRect();
+      zoomTo(
+        (p.zoom * spread()) / p.dist,
+        r ? (a.x + b.x) / 2 - r.left : undefined,
+        r ? (a.y + b.y) / 2 - r.top : undefined,
+      );
+    }
+  };
+  const onPointerEnd = (e: React.PointerEvent) => {
+    pointers.current.delete(e.pointerId);
+    if (pointers.current.size < 2) pinch.current = null;
+  };
 
   return (
-    <div ref={wrapRef} className="w-full">
-      {/* Named from the chosen size, never inferred from the width — rotated,
-        * A4 is 297 mm wide, and a width test called it Letter. */}
-      <p className="mb-3 text-small text-muted" aria-live="polite">
-        {options.page.size === "a4" ? "A4" : "Letter"} {options.page.orientation} · about{" "}
-        {pages} {pages === 1 ? "page" : "pages"}
-      </p>
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-2">
+        {/* Named from the chosen size, never inferred from the width — rotated,
+          * A4 is 297 mm wide, and a width test called it Letter. */}
+        <p className="text-small text-muted" aria-live="polite">
+          {options.page.size === "a4" ? "A4" : "Letter"} {options.page.orientation} · about{" "}
+          {pages} {pages === 1 ? "page" : "pages"}
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            onClick={() => zoomTo(zoom / ZOOM_STEP)}
+            disabled={zoom <= ZOOM_MIN}
+            aria-label="Zoom out of the preview"
+          >
+            <Minus size={16} strokeWidth={1.8} />
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => zoomTo(zoom * ZOOM_STEP)}
+            disabled={zoom >= ZOOM_MAX}
+            aria-label="Zoom in on the preview"
+          >
+            <Plus size={16} strokeWidth={1.8} />
+          </Button>
+          {/* "Fit", not "Fit width": on a wide screen the fit is capped at life
+            * size and the page does not fill the width, so the longer label
+            * described something the button does not do there. */}
+          <Button size="sm" onClick={() => zoomTo(1)} disabled={zoom === 1}>
+            Fit
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => zoomTo(actual)}
+            disabled={Math.abs(zoom - actual) < 0.01}
+            title="The size the sheet will print at"
+          >
+            Actual size
+          </Button>
+          <span className="w-12 text-right text-small tabular-nums text-muted" aria-live="polite">
+            {Math.round(scale * 100)}%
+          </span>
+        </div>
+      </div>
+
+      <div
+        ref={wrapRef}
+        tabIndex={0}
+        aria-label="Sheet preview — Ctrl and scroll, or pinch, to zoom"
+        className="min-h-0 flex-1 overflow-auto rounded-card [scrollbar-gutter:stable]"
+        style={{ touchAction: "pan-x pan-y" }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerEnd}
+        onPointerCancel={onPointerEnd}
+      >
       <div
         className="mx-auto overflow-hidden rounded-card border-[1.5px] border-rule"
         style={{
@@ -176,6 +335,7 @@ function SheetPreview({ project, options }: { project: Project; options: PrintOp
             </div>
           ))}
         </div>
+      </div>
       </div>
     </div>
   );
@@ -521,7 +681,9 @@ export default function ExportDialog({
                   ]}
                 />
               </div>
-              <div className="grid min-h-0 flex-1 lg:grid-cols-12">
+              {/* One row exactly as tall as the space left: each pane then owns
+                * its own scrolling and neither can push the dialog taller. */}
+              <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] lg:grid-cols-12">
                 <div
                   className={`min-h-0 overflow-y-auto px-4 py-5 md:px-6 lg:col-span-4 lg:block lg:border-r-[1.5px] lg:border-rule ${
                     pane === "settings" ? "" : "hidden"
@@ -529,9 +691,11 @@ export default function ExportDialog({
                 >
                   <PdfSettings options={options} zonesExist={zonesExist} onChange={onPrintChange} />
                 </div>
+                {/* No overflow here: the preview owns its own scroll viewport,
+                  * which is what lets it zoom and still reach page two. */}
                 <div
-                  className={`min-h-0 overflow-y-auto bg-sunk px-4 py-5 md:px-6 lg:col-span-8 lg:block ${
-                    pane === "preview" ? "" : "hidden"
+                  className={`min-h-0 flex-col bg-sunk px-4 py-5 md:px-6 lg:col-span-8 lg:flex ${
+                    pane === "preview" ? "flex" : "hidden"
                   }`}
                 >
                   <SheetPreview project={project} options={options} />
