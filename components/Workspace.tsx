@@ -516,25 +516,36 @@ export default function Workspace() {
             </div>
           </Card>
 
-          {/* STICKY ON DESKTOP, and `self-start` is the load-bearing half.
-            *
-            * A grid item stretches to its row by default, so it is already as
-            * tall as the row and `sticky` has nothing to travel through — the
-            * rule is honoured and does nothing. `self-start` shrinks it to its
-            * content, which is what gives it somewhere to stick.
+          {/* STICKY ON DESKTOP — inside a column of its own, below the header.
             *
             * The reason to want it: the configure column is about three
             * viewports tall, and the drawing is the feedback for every field in
             * it. Typing a length at the bottom of the form while the picture of
             * what you are typing has scrolled off the top is the one thing this
-            * layout could do wrong. It now stays beside the field being edited.
-            * That it also fills the space left when the frame stopped
-            * letterboxing (see scene.ts) is a second benefit, not the reason. */}
+            * layout could do wrong.
+            *
+            * THE FIRST VERSION HAD TWO FAULTS, both measured at 1440 × 900:
+            *
+            * 1. It ran over the result card. A sticky element is confined to
+            *    its containing block, and the card's was the whole GRID — which
+            *    also holds the full-width result strip below. So it kept
+            *    sticking after the form ended and covered "This fitting" by up
+            *    to 485px. It now sits in a wrapper that is one grid cell: the
+            *    wrapper stretches to the height of the form's row (the default
+            *    for a grid item), the card sticks inside it, and it stops where
+            *    the row stops.
+            *
+            * 2. The header covered it. It stuck at a fixed 24px from the top,
+            *    which is right while the header is scrolled away and wrong the
+            *    moment it slides back: the returning header sat over the top
+            *    143px — the heading and the view buttons. StickyHeader now
+            *    publishes its visible height as `--sticky-header` (0 while it is
+            *    away), and the card sits that far down plus the gap, moving on
+            *    the header's own 200ms so the two travel together. */}
+          <div className={`lg:col-span-7 ${tab === "drawing" ? "" : "hidden lg:block"}`}>
           <Card
             as="section"
-            className={`lg:sticky lg:top-6 lg:col-span-7 lg:self-start ${
-              tab === "drawing" ? "" : "hidden lg:block"
-            }`}
+            className="lg:sticky lg:top-[calc(var(--sticky-header,0px)_+_1.5rem)] lg:transition-[top] lg:duration-200 lg:ease-out"
           >
             <PanelHeading
               eyebrow="Step three"
@@ -553,6 +564,7 @@ export default function Workspace() {
               onView={setView}
             />
           </Card>
+          </div>
 
           {/* The one deliberate grid break: the result strip runs the full
             * twelve columns under a 5/7 split, so the figure the two panels
