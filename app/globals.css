@@ -370,7 +370,8 @@
     display: none;
   }
 
-  @page {
-    margin: 14mm;
-  }
+  /* No `@page` rule here any more. The paper size, orientation and margin are
+   * a per-takeoff choice now, emitted beside the print target by
+   * `PrintPageStyle` in BoqSheet.tsx — a second rule here would be a second
+   * opinion about the same page. */
 }

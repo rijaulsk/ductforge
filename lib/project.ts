@@ -14,6 +14,7 @@ import type {
 } from "./duct/types";
 import type { UnitSystem } from "./duct/units";
 import { DEFAULT_WASTE } from "./duct/waste";
+import { defaultPrintOptions, revivePrintOptions } from "./export/printOptions";
 import { APP_BYLINE, SITE_URL } from "./site";
 
 /* Project documents: creation, and the one validator every stored or imported
@@ -60,6 +61,7 @@ export function blankProject(name = "Untitled takeoff"): Project {
     ancillaries: { ...NO_ANCILLARIES },
     rates: { ...NO_RATES },
     entries: [],
+    print: defaultPrintOptions(),
     updatedAt: Date.now(),
   };
 }
@@ -176,6 +178,9 @@ export function reviveProject(v: unknown): Project | null {
     ancillaries: reviveAncillaries(v.ancillaries),
     rates: reviveRates(v.rates),
     entries,
+    /* Absent on every job saved before 18 Sep 2026 — they open with the
+     * defaults, which are the sheet they always printed. */
+    print: revivePrintOptions(v.print),
     updatedAt: num(v.updatedAt, Date.now()),
   };
 }

@@ -1,3 +1,4 @@
+import type { PrintOptions } from "../export/printOptions";
 import type { UnitSystem } from "./units";
 
 /* The fittings, as data.
@@ -246,5 +247,8 @@ export type Project = {
   ancillaries: Ancillaries;
   rates: Rates;
   entries: Entry[];
+  /** What the printed sheet shows and how it is laid out. Saved with the job so
+   * a reprint comes out the same — see lib/export/printOptions.ts. */
+  print: PrintOptions;
   updatedAt: number;
 };

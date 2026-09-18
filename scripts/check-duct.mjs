@@ -1254,6 +1254,83 @@ section("12o. a takeoff saved before a rename still opens");
     !bogus.ok || bogus.project.entries.length === 1,
     "an unknown kind is still dropped, not aliased to something",
   );
+
+  /* A schema-3 build must still open this schema-1 file — the bump on 18 Sep
+   * 2026 was for a NEW kind, and it only makes OLDER builds refuse NEWER files. */
+  check(project.PROJECT_SCHEMA >= 3, "schema is at least 3 once the flat piece exists");
+}
+
+/* ---- 12p. the print layout ---------------------------------------------- */
+
+section("12p. the saved print layout");
+{
+  const print = await import("../lib/export/printOptions.ts");
+  const d = print.DEFAULT_PRINT_OPTIONS;
+
+  /* THE DEFAULTS ARE THE SHEET IT ALWAYS PRINTED. Every section and column on,
+   * A4 portrait, normal text — so nobody's printout changed on the day the
+   * switches arrived. */
+  check(Object.values(d.sections).every(Boolean), "every section is on by default");
+  check(Object.values(d.columns).every(Boolean), "every column is on by default");
+  eq(d.page.size, "a4", "A4 by default");
+  eq(d.page.orientation, "portrait", "portrait by default");
+  eq(d.page.text, "normal", "normal text by default");
+  eq(d.header.title, "Duct takeoff schedule", "the old title by default");
+
+  /* A job saved before print options existed opens with the defaults. */
+  const before = project.reviveProject({ name: "Saved in August", entries: [] });
+  check(before !== null, "a project with no print field still opens");
+  eq(
+    JSON.stringify(before?.print),
+    JSON.stringify(d),
+    "…and it prints exactly the old sheet",
+  );
+
+  /* A partial document keeps every switch it has, and only those. */
+  const partial = print.revivePrintOptions({
+    sections: { basis: false, credit: false },
+    columns: { waste: false },
+    page: { orientation: "landscape" },
+  });
+  eq(partial.sections.basis, false, "a switched-off basis block stays off");
+  eq(partial.sections.credit, false, "a switched-off credit line stays off");
+  eq(partial.sections.schedule, true, "…while an absent switch keeps its default");
+  eq(partial.columns.waste, false, "a hidden column stays hidden");
+  eq(partial.columns.gross, true, "…and the others stay shown");
+  eq(partial.page.orientation, "landscape", "the orientation survives");
+  eq(partial.page.size, "a4", "…and the missing size falls back");
+
+  /* Garbage in does not reach the sheet. */
+  const junk = print.revivePrintOptions({
+    sections: { basis: "no", letterhead: 0 },
+    page: { size: "tabloid", text: 99 },
+    header: { title: "   ", notes: 42, company: "x".repeat(500) },
+  });
+  eq(junk.sections.basis, true, "a non-boolean switch falls back, it is not coerced");
+  eq(junk.page.size, "a4", "an unknown paper size falls back");
+  eq(junk.page.text, "normal", "an unknown text size falls back");
+  eq(junk.header.title, "Duct takeoff schedule", "a blank title prints the default, not nothing");
+  eq(junk.header.notes, "", "non-text notes are dropped");
+  eq(junk.header.company.length, 80, "header text is capped at a line's worth");
+  eq(JSON.stringify(print.revivePrintOptions(null)), JSON.stringify(d), "null revives to defaults");
+
+  /* Landscape swaps the paper; the preview and the printer both read this. */
+  const land = print.pageMm({ size: "a4", orientation: "landscape", text: "normal" });
+  eq(`${land.w}×${land.h}`, "297×210", "A4 landscape is 297 × 210 mm");
+  const letter = print.pageMm({ size: "letter", orientation: "portrait", text: "normal" });
+  eq(`${letter.w}×${letter.h}`, "215.9×279.4", "Letter portrait is 215.9 × 279.4 mm");
+
+  /* And the layout travels inside the project file. */
+  const withLayout = { ...project.blankProject("Travels"), print: partial };
+  const reopened = project.fromProjectFile(project.toProjectFile(withLayout));
+  check(reopened.ok, "a project with a layout round-trips through its file");
+  if (reopened.ok) {
+    eq(
+      JSON.stringify(reopened.project.print),
+      JSON.stringify(partial),
+      "…with every switch intact",
+    );
+  }
 }
 
 /* ---- 13. input parsing -------------------------------------------------- */
