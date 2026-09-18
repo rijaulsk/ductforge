@@ -187,10 +187,18 @@ export function reviveProject(v: unknown): Project | null {
  * `transition`. A version 1 file still opens: `KIND_ALIASES` translates the old
  * names on the way in, which is the whole reason that map exists.
  *
+ * 3 since 18 Sep 2026, for the `flat` fitting. This is exactly the case the
+ * rule below exists for: a schema-2 build meeting `kind: "flat"` finds it in
+ * neither SPECS nor KIND_ALIASES, `reviveFitting` returns null, and the line is
+ * filtered out — the flat pieces in a takeoff DELETED without a word. At 3 that
+ * older build refuses the file and says why instead. Schema 1 and 2 files still
+ * open here unchanged; the optional `print` settings added the same day need no
+ * bump of their own, because an older build ignores a field it doesn't know.
+ *
  * The reader refuses a file from a NEWER schema than it knows, so this number
  * only goes up when the shape changes in a way an older build could not read.
  */
-export const PROJECT_SCHEMA = 2;
+export const PROJECT_SCHEMA = 3;
 
 export type ProjectFile = {
   schema: number;

@@ -5,6 +5,7 @@ import type {
   FieldSpec,
   Fitting,
   FittingKind,
+  Flat,
   Transition,
   RoundElbow,
   RoundReducer,
@@ -284,6 +285,73 @@ const straight: Spec<Straight> = {
     steps: (f, c) => straightSteps(f, c),
   },
   note: "A straight duct has no slant and no arc, so both standards give exactly the same area.",
+};
+
+/* ---- flat piece -----------------------------------------------------------
+ *
+ * W × H and nothing else — see `Flat` in types.ts for why it is its own
+ * fitting and why its area is one face rather than a duct section.
+ *
+ * A flat plate develops exactly: there is nothing to unfold, so the sheet you
+ * cut IS the area you bill, and the two standards cannot differ. That is not
+ * Pappus, as it is for the swept fittings — it is simpler than that — but it
+ * lands in the same place and `check:duct` pins it the same way.
+ */
+
+function flatSteps(f: Flat, c: StepCtx): CalcStep[] {
+  return [
+    areaStep(
+      `${c.L(f.w)} × ${c.L(f.h)}`,
+      f.w * f.h,
+      c,
+      /* Two lengths shown in full and a product printable in full is a
+       * multiplication anyone can redo — `=` only when all three hold. */
+      exactLengths(c, f.w, f.h) && exactAreas(c, f.w * f.h),
+    ),
+  ];
+}
+
+const flat: Spec<Flat> = {
+  kind: "flat",
+  group: "rectangular",
+  name: "Flat piece",
+  aka: ["End cap", "Blank-off plate", "Plate"],
+  blurb: "One flat piece, width by height — no length.",
+  fields: [
+    { key: "w", symbol: "W", label: "Width" },
+    { key: "h", symbol: "H", label: "Height" },
+  ],
+  defaults: { kind: "flat", w: 600, h: 400 },
+  maxDim: (f) => Math.max(f.w, f.h),
+  /* It occupies no length of a run. Zero is not a placeholder: it is what makes
+   * the hanger count and the piece count come out right for a plate — and
+   * compute.ts additionally refuses to count it as a flanged or hung section
+   * at all, rather than lean on this zero to do it. */
+  centreline: () => 0,
+  /* The edge of the plate. Only ever read for flange material, which a flat
+   * piece is excluded from — kept truthful rather than zeroed so that nothing
+   * downstream mistakes a plate for a piece with no edge. */
+  perimeter: (f) => 2 * (f.w + f.h),
+  inflate: (f, d) => ({ ...f, w: f.w + d, h: f.h + d }),
+  billing: {
+    expression: "A = W × H",
+    compute: (f) => f.w * f.h,
+    substitute: (f, us) => {
+      const { L } = mk(us);
+      return `${L(f.w)} × ${L(f.h)}`;
+    },
+    steps: (f, c) => flatSteps(f, c),
+  },
+  shop: {
+    expression: "A = W × H",
+    compute: (f) => f.w * f.h,
+    substitute: (f, us) => {
+      const { L } = mk(us);
+      return `${L(f.w)} × ${L(f.h)}`;
+    },
+    steps: (f, c) => flatSteps(f, c),
+  },
+  note: "A flat piece is one face with nothing to unfold, so both standards give the same area. It is not a length of duct, so it is never counted for flanges, corner pieces or hangers.",
 };
 
 /* ---- transition --------------------------------------------------------
@@ -1090,6 +1158,7 @@ type AnySpec = Spec<Fitting>;
 
 export const SPECS: Record<FittingKind, AnySpec> = {
   straight: straight as unknown as AnySpec,
+  flat: flat as unknown as AnySpec,
   transition: transition as unknown as AnySpec,
   elbow: elbow as unknown as AnySpec,
   offset: offset as unknown as AnySpec,
@@ -1103,6 +1172,9 @@ export const SPECS: Record<FittingKind, AnySpec> = {
 
 export const FITTING_KINDS: readonly FittingKind[] = [
   "straight",
+  /* Right after the straight duct, not at the end of the group: this is the
+   * order the picker shows, and the owner reaches for it next to plain duct. */
+  "flat",
   "transition",
   "elbow",
   "offset",

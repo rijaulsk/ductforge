@@ -3,7 +3,7 @@
 HVAC ductwork takeoff and surface-area calculator. Enter a fitting's dimensions, get its
 surface area, GI sheet weight, SMACNA gauge and a BOM schedule you can export.
 
-Ten fittings — straight duct, transition, elbow, offset, collar and Y-piece in rectangular, plus
+Eleven fittings — straight duct, flat piece, transition, elbow, offset, collar and Y-piece in rectangular, plus
 round duct, a gored round elbow, a concentric cone and a square-to-round — measured to either of
 two standards:
 

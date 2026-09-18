@@ -301,6 +301,27 @@ function build(f: Fitting, L: Label): Scene {
       };
     }
 
+    /* A FLAT PIECE STANDS UP LIKE THE END CAP IT USUALLY IS: W across, H up,
+     * and a thickness along the duct axis that is FOR THE DRAWING ONLY.
+     *
+     * The real sheet is 0.5–1.6 mm, which at any scale this view draws is a
+     * hairline — the plate would turn edge-on into nothing as it rotated, and
+     * a drawing that vanishes at some angles reads as a broken one. So it is
+     * given 3% of its larger side, enough to see the edge and no more. Nothing
+     * reads this number: the area is W × H from formulas.ts, and no dimension
+     * is tagged on the thickness, precisely so it cannot be mistaken for one. */
+    case "flat": {
+      const { w, h } = f;
+      const t = Math.max(w, h) * 0.03;
+      return {
+        shapes: paint(box(0, t, 0, w, 0, h)),
+        dims: [
+          tag([t, 0, 0], [t, w, 0], `W ${L(w)}`, 16, 16),
+          tag([t, w, 0], [t, w, h], `H ${L(h)}`, 20, 4),
+        ],
+      };
+    }
+
     case "transition": {
       const { w1, h1, w2, h2, l } = f;
       const a = (y: number, z: number): P3 => [0, y * (w1 / 2), z * (h1 / 2)];

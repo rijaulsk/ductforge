@@ -132,6 +132,12 @@ export function flat(f: Fitting, L: Label, gap?: number): FlatScene {
       ]);
     }
 
+    /* The blank IS the piece: one rectangle, cut all round, no folds. That is
+     * the honest development of a flat plate, and it is why its shop area and
+     * its billing area are the same number. */
+    case "flat":
+      return layout(gap, [blank(f.w, f.h, "blank ×1", L)]);
+
     case "transition": {
       const slantTop = Math.hypot(f.l, (f.h1 - f.h2) / 2);
       const slantSide = Math.hypot(f.l, (f.w1 - f.w2) / 2);

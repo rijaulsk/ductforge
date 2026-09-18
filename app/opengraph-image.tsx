@@ -112,7 +112,7 @@ export default async function OpengraphImage() {
                 Duct surface area, sheet weight and gauge.
               </div>
               <div style={{ display: "flex", fontSize: 26, lineHeight: 1.4, color: SLATE }}>
-                Ten fittings, measured to the billing standard or the true shop flat pattern.
+                Eleven fittings, measured to the billing standard or the true shop flat pattern.
                 Metric or imperial.
               </div>
             </div>

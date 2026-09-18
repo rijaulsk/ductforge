@@ -127,6 +127,18 @@ export type EntryResult = {
 
 const STRAIGHT_RUNS: readonly FittingKind[] = ["straight", "round-straight"];
 
+/**
+ * Pieces that are not a length of duct at all: no ends to flange, no corners,
+ * nothing to hang.
+ *
+ * A flat piece is an end cap or a plate. Without this list the flange rule —
+ * "two ends per piece" — would count two flanged ends on every cap, and the
+ * hanger rule — "one per piece plus spacing" — would hang every one of them
+ * from the ceiling. Excluded by kind here rather than by trusting its zero
+ * centreline, because the flange count does not read the centreline at all.
+ */
+const NOT_A_RUN: readonly FittingKind[] = ["flat"];
+
 const NO_ANCILLARIES: Ancillaries = {
   insulationMm: 0,
   standardLengthMm: 0,
@@ -204,7 +216,8 @@ export function computeEntry(
       ? Math.max(1, Math.ceil(centrelineMm / ancillaries.standardLengthMm - 1e-9))
       : 1;
 
-  const flangeEnds = ancillaries.standardLengthMm > 0 ? 2 * pieces * entry.qty : 0;
+  const isRun = !NOT_A_RUN.includes(entry.fitting.kind);
+  const flangeEnds = isRun && ancillaries.standardLengthMm > 0 ? 2 * pieces * entry.qty : 0;
   const flangeRunMinor = toRunMinor(
     runFromMm(flangeEnds * spec.perimeter(entry.fitting), us),
   );
@@ -212,7 +225,7 @@ export function computeEntry(
   const corners = isRound(entry.fitting.kind) ? 0 : flangeEnds * 4;
 
   const supports =
-    ancillaries.supportSpacingMm > 0
+    isRun && ancillaries.supportSpacingMm > 0
       ? entry.qty *
         Math.max(1, Math.ceil(centrelineMm / ancillaries.supportSpacingMm - 1e-9))
       : 0;

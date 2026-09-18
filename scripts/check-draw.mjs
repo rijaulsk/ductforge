@@ -8,7 +8,7 @@
  *
  * So this asserts the properties a drawing must have to exist at all — every
  * coordinate finite, every view non-empty, the geometry inside its own viewBox,
- * every dimension labelled — across all ten fittings, all three views, both
+ * every dimension labelled — across all eleven fittings, all three views, both
  * unit systems, and a set of degenerate inputs (zero angle, zero offset, equal
  * ends) that have no business crashing the viewer.
  *
@@ -466,6 +466,18 @@ console.log("\n6. the picker glyphs draw the right object");
     GLYPH_PATHS["square-to-round"] !== GLYPH_PATHS["round-reducer"],
     "square-to-round and round reducer are different marks",
   );
+
+  /* The flat piece is a closed rectangle CROSSED corner to corner — the
+   * drafting mark for a plate. Both halves matter: the closed outline is what
+   * makes it a plate rather than a duct (the straight glyph is open walls plus
+   * separate end strokes), and the two diagonals are what keep a squarish
+   * rectangle from reading as a short duct at picker size. */
+  const flatGlyph = GLYPH_PATHS.flat;
+  check(/Z/.test(flatGlyph), "flat: the plate outline is a closed shape");
+  const diagonals = [...flatGlyph.matchAll(/M\s*(-?[\d.]+)\s+(-?[\d.]+)L\s*(-?[\d.]+)\s+(-?[\d.]+)/g)]
+    .filter((m) => Number(m[1]) !== Number(m[3]) && Number(m[2]) !== Number(m[4]));
+  check(diagonals.length === 2, `flat: two diagonals cross the face (${diagonals.length})`);
+  check(flatGlyph !== GLYPH_PATHS.straight, "flat piece and straight duct are different marks");
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

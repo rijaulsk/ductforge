@@ -84,6 +84,12 @@ const ORACLE = {
     billing: (f) => 2 * (f.w + f.h) * f.l,
     shop: (f) => 2 * (f.w + f.h) * f.l,
   },
+  /* One face. A flat plate has nothing to unfold, so the cut blank and the
+   * billed area are the same rectangle. */
+  flat: {
+    billing: (f) => f.w * f.h,
+    shop: (f) => f.w * f.h,
+  },
   transition: {
     billing: (f) => (f.w1 + f.h1 + f.w2 + f.h2) * f.l,
     shop: (f) =>
@@ -165,6 +171,8 @@ function randomFitting(kind) {
   switch (kind) {
     case "straight":
       return { kind, w: dim(100, 2500), h: dim(100, 2500), l: dim(300, 6000) };
+    case "flat":
+      return { kind, w: dim(100, 2500), h: dim(100, 2500) };
     case "transition":
       return {
         kind,
@@ -213,9 +221,10 @@ function randomFitting(kind) {
   }
 }
 
-section("1. engine vs independent transcription (360 random geometries)");
+section("1. engine vs independent transcription (396 random geometries)");
 const KINDS = [
   "straight",
+  "flat",
   "transition",
   "elbow",
   "offset",
@@ -252,6 +261,7 @@ for (const kind of KINDS) {
 section("2. hand-computed anchors (mm²)");
 const A = {
   straight: { kind: "straight", w: 600, h: 400, l: 3000 },
+  flat: { kind: "flat", w: 600, h: 400 },
   transition: { kind: "transition", w1: 800, h1: 400, w2: 500, h2: 300, l: 600 },
   elbow: { kind: "elbow", w: 600, h: 400, r: 300, theta: 90 },
   offset: { kind: "offset", w: 600, h: 400, l: 900, o: 300 },
@@ -266,6 +276,10 @@ const area = (kind, mode) => SPECS[kind][mode].compute(A[kind]);
 
 near(area("straight", "billing"), 6_000_000, 1e-9, "straight billing 2(600+400)×3000");
 near(area("straight", "shop"), 6_000_000, 1e-9, "straight shop");
+/* The owner's own worked example, 18 Sep 2026: "600 × 400 → 0.24 m² per
+ * piece", chosen over the 2.4 m² a hollow duct section would give. */
+near(area("flat", "billing"), 240_000, 1e-9, "flat piece billing 600×400 = 0.24 m²");
+near(area("flat", "shop"), 240_000, 1e-9, "flat piece shop — same rectangle");
 near(area("transition", "billing"), 1_200_000, 1e-9, "transition billing (800+400+500+300)×600");
 near(area("transition", "shop"), 1_215_629.739, 0.01, "transition shop 1300×√362500 + 700×√382500");
 near(area("elbow", "billing"), 600_000 * Math.PI, 1e-6, "elbow billing 2000×(π/2)×600");
@@ -724,6 +738,22 @@ section("12d. flanges and hangers");
   const off = computeEntry(long, "billing", "metric", "gi");
   eq(off.flangeEnds, 0, "no standard length set, no flanges counted");
   eq(off.supports, 0, "no spacing set, no hangers counted");
+
+  /* A FLAT PIECE IS NOT A LENGTH OF DUCT, with every ancillary switched on.
+   * Without NOT_A_RUN the "two ends per piece" rule gave each end cap two
+   * flanged ends and eight corner pieces, and "one hanger per piece" hung
+   * every one of them from the ceiling. Eight caps, all ancillaries on: */
+  const everything = { insulationMm: 25, standardLengthMm: 1200, supportSpacingMm: 2400 };
+  const caps = computeEntry(line(A.flat, 8, 0), "billing", "metric", "gi", everything);
+  eq(caps.flangeEnds, 0, "flat piece: no flange ends");
+  eq(caps.corners, 0, "flat piece: no corner pieces");
+  eq(units.fmtRun(caps.flangeRunMinor), "0.00", "flat piece: no flange run");
+  eq(caps.supports, 0, "flat piece: no hangers");
+  eq(caps.pieces, 1, "flat piece: one piece per line item, never split");
+  /* 8 × 600 × 400 = 1.92 m² — the sheet itself is counted like any fitting. */
+  eq(units.fmtArea(caps.netAreaMinor), "1.920", "8 flat pieces 600×400 = 1.920 m²");
+  /* …and the insulation still comes off the one formula: 650 × 450 each. */
+  eq(units.fmtArea(caps.insulationAreaMinor), "2.340", "insulated at 25 mm: 8 × 650×450 = 2.340 m²");
 }
 
 section("12e. rates");
