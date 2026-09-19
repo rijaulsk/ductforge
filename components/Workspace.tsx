@@ -801,10 +801,18 @@ export default function Workspace() {
         * sheet exactly as it is configured — from the same options the preview
         * draws. The page rule rides with it because the paper is a per-takeoff
         * choice that a static stylesheet cannot know. */}
-      <div className="hidden print:block">
-        <PrintPageStyle page={project.print.page} />
-        <PagedSheet project={project} options={project.print} layout={sheetLayout} />
-      </div>
+      {/* ONLY AFTER HYDRATION. The page is prerendered at build time, and the
+        * sheet prints today's date — so the server's HTML carried the BUILD
+        * day, the browser rendered the visitor's day, and React threw a
+        * hydration mismatch (#418) on every visit made on a later day than the
+        * last deploy. The target is never on screen, so rendering it on the
+        * client alone costs nothing. */}
+      {hydrated && (
+        <div className="hidden print:block">
+          <PrintPageStyle page={project.print.page} />
+          <PagedSheet project={project} options={project.print} layout={sheetLayout} />
+        </div>
+      )}
 
       {/* The one measurement of the sheet, off screen, that both the preview
         * and the print target above draw their pages from — see PagedSheet.tsx
