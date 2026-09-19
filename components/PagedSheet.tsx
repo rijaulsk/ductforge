@@ -77,7 +77,15 @@ export function SheetMeasurer({
 
     const pack: PackItem[] = items.map((item) => {
       const box = root.querySelector(`[data-item="${CSS.escape(item.key)}"]`);
-      if (item.kind === "block") return { kind: "block", key: item.key, height: height(box), keepWithNext: item.keepWithNext };
+      if (item.kind === "block") {
+        return {
+          kind: "block",
+          key: item.key,
+          height: height(box),
+          keepWithNext: item.keepWithNext,
+          keepWithPrevious: item.keepWithPrevious,
+        };
+      }
 
       const wrap = box?.querySelector("[data-part=table]");
       const tbody = wrap?.querySelector("tbody");

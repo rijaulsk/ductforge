@@ -30,31 +30,35 @@ import FittingGlyph from "./FittingGlyph";
  * label saying so — a native confirm() would work too, but it is a different
  * visual language and it steals focus from a table you are working down.
  */
-function Actions({
+export function Actions({
   index,
   onEdit,
   onDuplicate,
   onRemove,
+  noun = "line",
 }: {
   index: number;
   onEdit: () => void;
   onDuplicate: () => void;
   onRemove: () => void;
+  /** What one row is called in the labels — "line", "item". */
+  noun?: string;
 }) {
   const [armed, setArmed] = useState(false);
+  /* 40 px, the smallest target a thumb reliably hits (was 36). */
   const cls =
-    "inline-flex h-9 w-9 items-center justify-center rounded-full border border-rule text-body transition duration-200 ease-out hover:bg-sunk hover:text-heading";
+    "inline-flex h-10 w-10 items-center justify-center rounded-full border border-rule text-body transition duration-200 ease-out hover:bg-sunk hover:text-heading";
 
   return (
     <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
-      <button type="button" onClick={onEdit} className={cls} aria-label={`Edit line ${index}`}>
+      <button type="button" onClick={onEdit} className={cls} aria-label={`Edit ${noun} ${index}`}>
         <Pencil size={16} strokeWidth={1.5} />
       </button>
       <button
         type="button"
         onClick={onDuplicate}
         className={cls}
-        aria-label={`Duplicate line ${index}`}
+        aria-label={`Duplicate ${noun} ${index}`}
       >
         <Copy size={16} strokeWidth={1.5} />
       </button>
@@ -63,16 +67,16 @@ function Actions({
           <button
             type="button"
             onClick={onRemove}
-            className="inline-flex h-9 items-center gap-1.5 rounded-full border-[1.5px] border-danger-500 px-3 text-small font-medium text-heading transition duration-200 ease-out hover:bg-sunk"
+            className="inline-flex h-10 items-center gap-1.5 rounded-full border-[1.5px] border-danger-500 px-3 text-small font-medium text-heading transition duration-200 ease-out hover:bg-sunk"
           >
             <Trash2 size={15} strokeWidth={1.6} />
-            Delete line {index}?
+            Delete {noun} {index}?
           </button>
           <button
             type="button"
             onClick={() => setArmed(false)}
             className={cls}
-            aria-label={`Keep line ${index}`}
+            aria-label={`Keep ${noun} ${index}`}
           >
             <X size={16} strokeWidth={1.5} />
           </button>
@@ -82,7 +86,7 @@ function Actions({
           type="button"
           onClick={() => setArmed(true)}
           className={cls}
-          aria-label={`Remove line ${index}`}
+          aria-label={`Remove ${noun} ${index}`}
         >
           <Trash2 size={16} strokeWidth={1.5} />
         </button>

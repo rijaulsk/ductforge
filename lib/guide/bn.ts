@@ -131,6 +131,13 @@ export const bn: Guide = {
       ],
     },
     {
+      title: "Damper, terminal আর বাকি সব",
+      body: [
+        "VCD, fire damper, grille, diffuser, access door, flexible duct — আর আপনার নিজের কিছু, যেমন labour বা transport — এগুলো যাবে Extras-এ, আলাদা একটা লিস্টে। টাইপ আর আইটেম বাছুন, সাইজ, quantity আর unit দিন, দাম ধরাতে চাইলে rate দিন।",
+        "Extras গোনা হয়, হিসেব করা হয় না। PDF-এ এগুলো নিজের টেবিলে ছাপা হয়, টাইপ অনুযায়ী ভাগ করে, আর দুটো CSV-তেই আলাদা ব্লকে থাকে — কিন্তু duct-এর area বা weight-এ কখনো যোগ হয় না, আর শিটে সেটা লেখাও থাকে।",
+      ],
+    },
+    {
       title: "টোটাল দেখুন, তারপর বার করে নিন",
       body: [
         "Totals-এ net area, waste, gross area আর ওজন — তারপর gauge ধরে ধরে মাল, আর প্রতিটা gauge-এ কটা শিট লাগতে পারে তার আন্দাজ। কেজি বা m² প্রতি আপনার রেট বসিয়ে দিলে আপনার নিজের হিসেবেই দাম বেরিয়ে আসবে।",

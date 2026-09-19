@@ -19,6 +19,7 @@ import {
   runUnit,
 } from "../duct/units";
 import { wasteDetail } from "../duct/waste";
+import { EXTRA_CATEGORIES, computeExtras } from "../extras";
 import { APP_BYLINE, APP_CREDIT, SITE_URL } from "../site";
 
 /* CSV for spreadsheets and ERP quoting.
@@ -287,6 +288,55 @@ function standardLines(project: Project, subtitle: string): string[] {
         g.sheets,
       ]),
     );
+  }
+
+  /* The extras: counted, sized and priced, never added to the sheet metal —
+   * and the section says so, because a spreadsheet cell far from the heading
+   * is exactly where that would be forgotten. */
+  if (project.extras.length > 0) {
+    const ex = computeExtras(project.extras);
+    lines.push("");
+    lines.push(section("Dampers, terminals and accessories"));
+    lines.push(pair("Note", "Counted items. Not included in the sheet-metal area or weight above."));
+    lines.push(
+      row([
+        "#",
+        "Category",
+        "Zone",
+        "Item",
+        "Shape",
+        `W (${len})`,
+        `H (${len})`,
+        `D (${len})`,
+        "Qty",
+        "Unit",
+        `Rate (${project.rates.label || "rate"})`,
+        `Value (${project.rates.label || "rate"})`,
+        "Note",
+      ]),
+    );
+    for (const r of ex.rows) {
+      const x = r.extra;
+      lines.push(
+        row([
+          r.index,
+          EXTRA_CATEGORIES.find((c) => c.key === x.category)?.label ?? x.category,
+          x.zone,
+          x.item,
+          x.shape === "rect" ? "rectangular" : x.shape === "round" ? "round" : "",
+          x.shape === "rect" ? exportLength(x.w, us) : "",
+          x.shape === "rect" ? exportLength(x.h, us) : "",
+          x.shape === "round" ? exportLength(x.d, us) : "",
+          x.qty,
+          x.unit,
+          x.rate || "",
+          r.valueMinor ? fromValueMinor(r.valueMinor) : "",
+          x.note,
+        ]),
+      );
+    }
+    lines.push(pair("Items", ex.rows.length));
+    if (ex.priced) lines.push(pair("Value", fromValueMinor(ex.valueMinor), project.rates.label));
   }
 
   /* Numbered, and the number is in its own column, so a reader can point at

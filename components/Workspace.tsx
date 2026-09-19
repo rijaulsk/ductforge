@@ -18,6 +18,7 @@ import { clearAll, initialState, saveActiveId, saveProjects } from "@/lib/storag
 import { PrintPageStyle } from "./BoqSheet";
 import { PagedSheet, type SheetLayout, SheetMeasurer } from "./PagedSheet";
 import ExportDialog from "./ExportDialog";
+import ExtrasPanel from "./ExtrasPanel";
 import ChartsPanel from "./ChartsPanel";
 import FittingPicker from "./FittingPicker";
 import ParamForm from "./ParamForm";
@@ -51,13 +52,15 @@ type Notice = { tone: "info" | "error"; text: string } | null;
  * result and the schedule were four full-width blocks stacked down a six
  * thousand pixel page. They are one screen and a tap now.
  */
-type Tab = "fitting" | "drawing" | "result" | "takeoff";
+type Tab = "fitting" | "drawing" | "result" | "takeoff" | "extras";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "fitting", label: "Fitting" },
   { key: "drawing", label: "Drawing" },
   { key: "result", label: "Result" },
   { key: "takeoff", label: "Takeoff" },
+  /* Dampers, terminals, accessories — their own list, 19 Sep 2026. */
+  { key: "extras", label: "Extras" },
 ];
 
 export default function Workspace() {
@@ -384,7 +387,7 @@ export default function Workspace() {
           * with room; `truncate` is the belt-and-braces that keeps a future
           * longer label from pushing the page sideways rather than being
           * clipped inside its own pill. */}
-        <div className="mb-4 grid grid-cols-4 gap-1 xs:gap-1.5 lg:hidden" role="tablist">
+        <div className="mb-4 grid grid-cols-5 gap-1 xs:gap-1.5 lg:hidden" role="tablist">
           {TABS.map((t) => (
             <button
               key={t.key}
@@ -403,7 +406,7 @@ export default function Workspace() {
           ))}
         </div>
 
-        <div className={`${tab === "takeoff" ? "hidden" : ""} lg:block`}>
+        <div className={`${tab === "takeoff" || tab === "extras" ? "hidden" : ""} lg:block`}>
 
           {/* THE SHELL IS MOBILE-ONLY, and that is a correction.
             *
@@ -656,6 +659,32 @@ export default function Workspace() {
           </>
         )}
 
+        </div>
+
+        {/* ---- EXTRAS: dampers, terminals, accessories, custom lines -----
+          *
+          * Its own tab below `lg`, its own section under the takeoff above it.
+          * A separate list, printed as a separate table — never added to the
+          * sheet metal. */}
+        <section className={`${tab === "extras" ? "" : "hidden"} lg:mt-14 lg:block`}>
+          <PanelHeading
+            eyebrow="Extras"
+            title={
+              project.extras.length === 0
+                ? "Dampers, terminals and accessories"
+                : `Dampers, terminals and accessories — ${project.extras.length} ${
+                    project.extras.length === 1 ? "item" : "items"
+                  }`
+            }
+          />
+          <ExtrasPanel
+            key={`${project.id}-${project.units}`}
+            project={project}
+            onChange={(extras) => patchProject({ extras })}
+          />
+        </section>
+
+        <div className={`${tab === "takeoff" ? "" : "hidden"} lg:block`}>
         <section className="mt-12 border-t-[1.5px] border-rule pt-8 lg:mt-16">
           <div className="grid gap-4 lg:grid-cols-12">
             <div className="space-y-2 lg:col-span-8">
@@ -701,7 +730,14 @@ export default function Workspace() {
         * pins for the length of its containing block, so out here it would
         * hover over the explainer and the footer for the whole page. Ending
         * with `main` means it is present for exactly as long as the tool is. */}
-      <div className="sticky bottom-0 z-30 -mx-5 mt-6 border-t-[1.5px] border-line bg-page/95 px-5 py-3 backdrop-blur md:-mx-8 md:px-8 lg:hidden">
+      {/* Not on the Extras tab: that tab has its own Add, and a bar offering to
+        * add a FITTING there — with the fitting's live area beside it — would
+        * be two Adds for two different lists on one screen. */}
+      <div
+        className={`sticky bottom-0 z-30 -mx-5 mt-6 border-t-[1.5px] border-line bg-page/95 px-5 py-3 backdrop-blur md:-mx-8 md:px-8 lg:hidden ${
+          tab === "extras" ? "hidden" : ""
+        }`}
+      >
         <div className="flex items-center gap-3">
           <div className="min-w-0 flex-1">
             {/* The fitting's NAME is what goes when the bar runs out of room,

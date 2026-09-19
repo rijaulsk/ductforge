@@ -148,6 +148,20 @@ comes from the browser's Save as PDF, not a PDF library, because the preview ren
 a second drawing of the document that could drift. Layout changes go through an updater
 (`updatePrint` in Workspace), never a snapshot: two switches in one tick used to lose one.
 
+**Pages are decided by the app, not the printer** (19 Sep 2026). `sheetItems()` in BoqSheet
+describes the sheet as blocks and row-splittable tables; `SheetMeasurer` (mounted ONCE, in
+Workspace) measures them off screen and `lib/export/paginate.ts` packs them; `PagedSheet` draws
+the same pages in the preview and in the print target as boxes the paper's exact size, with
+`@page { margin: 0 }`. Never let the print target measure itself — it is `display: none` until
+printing. Continued tables repeat their header row and reuse the whole table's column widths,
+or rows re-wrap on later pages and the measurements stop being true. Verified by printing real
+PDFs through Chromium: the preview's page count must equal the PDF's.
+
+**Extras** (`lib/extras.ts`, `components/ExtrasPanel.tsx`, `Project.extras`, schema 5):
+dampers, terminals, accessories and custom lines. **Counted, never calculated, and never added
+to the duct's area or weight** — they print as their own table and say so. No formula for the
+sheet metal inside a damper until the owner gives their shop's method; don't invent one.
+
 The app supports **320px and up**, and carries its own `xs` breakpoint at 480px because
 Tailwind's smallest default (`sm`, 640) is above every phone. Nothing important may hide behind
 a horizontal scroll: wrap it, give it equal columns, or stack it — `components/RefTable.tsx`

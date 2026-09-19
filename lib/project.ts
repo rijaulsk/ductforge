@@ -15,6 +15,7 @@ import type {
 import type { UnitSystem } from "./duct/units";
 import { DEFAULT_WASTE } from "./duct/waste";
 import { defaultPrintOptions, revivePrintOptions } from "./export/printOptions";
+import { reviveExtras } from "./extras";
 import { APP_BYLINE, SITE_URL } from "./site";
 
 /* Project documents: creation, and the one validator every stored or imported
@@ -61,6 +62,7 @@ export function blankProject(name = "Untitled takeoff"): Project {
     ancillaries: { ...NO_ANCILLARIES },
     rates: { ...NO_RATES },
     entries: [],
+    extras: [],
     print: defaultPrintOptions(),
     updatedAt: Date.now(),
   };
@@ -178,6 +180,8 @@ export function reviveProject(v: unknown): Project | null {
     ancillaries: reviveAncillaries(v.ancillaries),
     rates: reviveRates(v.rates),
     entries,
+    /* Absent on every job saved before 19 Sep 2026 — they open with none. */
+    extras: reviveExtras(v.extras, newId),
     /* Absent on every job saved before 18 Sep 2026 — they open with the
      * defaults, which are the sheet they always printed. */
     print: revivePrintOptions(v.print),
@@ -205,10 +209,15 @@ export function reviveProject(v: unknown): Project | null {
  * schema-3 build would drop every round plate and ring in a file without a
  * word. At 4 it refuses the file instead.
  *
+ * 5 since 19 Sep 2026, for `extras` (dampers, terminals, accessories). An
+ * older build would not DROP a line here — it would ignore the unknown field
+ * — but it would then save the project back without it, and the extras would
+ * be gone on the next autosave. Refusing the file is the honest failure.
+ *
  * The reader refuses a file from a NEWER schema than it knows, so this number
  * only goes up when the shape changes in a way an older build could not read.
  */
-export const PROJECT_SCHEMA = 4;
+export const PROJECT_SCHEMA = 5;
 
 export type ProjectFile = {
   schema: number;
