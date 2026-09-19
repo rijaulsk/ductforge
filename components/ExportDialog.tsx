@@ -10,7 +10,7 @@ import { safeFilename, triggerDownload } from "@/lib/export/download";
 import {
   COLUMNS,
   DEFAULT_TITLE,
-  MARGIN_MM,
+  PX_PER_MM,
   type PrintHeader,
   type PrintOptions,
   SECTIONS,
@@ -19,7 +19,7 @@ import {
 } from "@/lib/export/printOptions";
 import { useHasMounted } from "@/lib/hooks";
 import { toProjectFile } from "@/lib/project";
-import BoqSheet from "./BoqSheet";
+import { PagedSheet, type SheetLayout } from "./PagedSheet";
 import { Button, Eyebrow, Segmented } from "./ui";
 
 /* The export studio.
@@ -58,9 +58,6 @@ const FORMATS: { value: Format; label: string; title: string }[] = [
   { value: "project", label: "Project file", title: "The whole takeoff, to reopen or send on" },
 ];
 
-/** CSS pixels per millimetre — the unit a browser lays paper out in. */
-const PX_PER_MM = 96 / 25.4;
-
 /**
  * Print, with the document titled after the job for the length of it.
  *
@@ -85,14 +82,13 @@ function printAs(title: string): void {
 /* ---- the preview ------------------------------------------------------------ */
 
 /**
- * The sheet on a strip of paper at its real width, scaled to fit the panel.
+ * The pages, at their real size, scaled to fit the panel.
  *
- * The page breaks are dashed guides at every printable page height, labelled as
- * approximate — because they are. Where a page actually breaks is the print
- * dialog's decision (a row that would straddle a break moves whole to the next
- * page), and drawing hard page edges here would promise a precision this cannot
- * have. The guides answer the question that matters — "is this one page or
- * three?" — without claiming more.
+ * REAL PAGES since 19 Sep 2026. This used to be one strip of paper with dashed
+ * "approximate break" guides, because the printer decided where pages broke
+ * and the preview could only guess. The breaks are decided by this app now
+ * (lib/export/paginate.ts), from one measurement that the print target draws
+ * too — so each page here is a page on paper, and the count is exact.
  *
  * ZOOMABLE, AND BY SCROLLING RATHER THAN DRAGGING. The drawing viewer pans by
  * transform and deliberately refuses to pan at fit, which is right for one
@@ -112,11 +108,17 @@ const ZOOM_MAX = 4;
 const ZOOM_STEP = 1.25;
 const clampZoom = (z: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
 
-function SheetPreview({ project, options }: { project: Project; options: PrintOptions }) {
+function SheetPreview({
+  project,
+  options,
+  layout,
+}: {
+  project: Project;
+  options: PrintOptions;
+  layout: SheetLayout | null;
+}) {
   const wrapRef = useRef<HTMLDivElement>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
   const [avail, setAvail] = useState(0);
-  const [content, setContent] = useState(0);
   /** 1 = the page fits the panel's width. Relative, so a resize keeps it. */
   const [zoom, setZoom] = useState(1);
   /* Where in the sheet to keep still while the scale changes — a fraction of
@@ -178,37 +180,23 @@ function SheetPreview({ project, options }: { project: Project; options: PrintOp
     return () => el.removeEventListener("wheel", onWheel);
   }, []);
 
-  /* THE SHEET IS MEASURED, NOT THE PAPER. The first version measured the paper
-   * strip, whose `min-height` is one page — 1122.52 px for A4 — and whose
-   * `offsetHeight` rounds that to 1123. Half a pixel over one printable page,
-   * so a sheet with 725 px of content announced itself as "about 2 pages".
-   * The content's own height has no floor to round against. */
   useEffect(() => {
     const wrap = wrapRef.current;
-    const sheet = contentRef.current;
-    if (!wrap || !sheet) return;
-    const ro = new ResizeObserver(() => {
-      setAvail(wrap.clientWidth);
-      /* `offsetHeight` is the layout height, untouched by the preview's
-       * scale transform — the height the sheet will have on paper. */
-      setContent(sheet.offsetHeight);
-    });
+    if (!wrap) return;
+    const ro = new ResizeObserver(() => setAvail(wrap.clientWidth));
     ro.observe(wrap);
-    ro.observe(sheet);
     return () => ro.disconnect();
   }, []);
 
   const { w, h } = pageMm(options.page);
   const pageW = w * PX_PER_MM;
   const pageH = h * PX_PER_MM;
-  const margin = MARGIN_MM * PX_PER_MM;
-  const printable = pageH - 2 * margin;
   /* The fit: the page across the panel's width, never enlarged past life size
    * — a 13-inch A4 is not more truthful, just bigger. Zoom multiplies it. */
-  const fit = avail > 0 ? Math.min(1, (avail - 32) / pageW) : 0;
+  const fit = avail > 0 ? Math.min(1, (avail - 24) / pageW) : 0;
   const scale = fit * zoom;
-  const pages = Math.max(1, Math.ceil(content / printable - 1e-6));
-  const paperH = Math.max(pageH, content + 2 * margin);
+  /* Exact now, not "about": these are the pages that will print. */
+  const pages = layout?.pages.length ?? 1;
   /** Zoom at which the sheet prints at its true size on this screen. */
   const actual = fit > 0 ? 1 / fit : 1;
 
@@ -250,8 +238,8 @@ function SheetPreview({ project, options }: { project: Project; options: PrintOp
         {/* Named from the chosen size, never inferred from the width — rotated,
           * A4 is 297 mm wide, and a width test called it Letter. */}
         <p className="text-small text-muted" aria-live="polite">
-          {options.page.size === "a4" ? "A4" : "Letter"} {options.page.orientation} · about{" "}
-          {pages} {pages === 1 ? "page" : "pages"}
+          {options.page.size === "a4" ? "A4" : "Letter"} {options.page.orientation} · {pages}{" "}
+          {pages === 1 ? "page" : "pages"}
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <Button
@@ -301,41 +289,43 @@ function SheetPreview({ project, options }: { project: Project; options: PrintOp
         onPointerUp={onPointerEnd}
         onPointerCancel={onPointerEnd}
       >
-      <div
-        className="mx-auto overflow-hidden rounded-card border-[1.5px] border-rule"
-        style={{
-          width: pageW * scale,
-          height: paperH * scale,
-          visibility: scale > 0 ? "visible" : "hidden",
-        }}
-      >
+        {/* Plain blocks with auto margins, NOT a centring flexbox: a centred
+          * flex item that grows wider than its box overflows to BOTH sides,
+          * and the half past the left edge cannot be scrolled to. An auto
+          * margin centres while there is room and drops to zero when there
+          * is not, so a zoomed page overflows rightward, all of it reachable. */}
         <div
-          className="relative bg-paper"
-          style={{
-            width: pageW,
-            height: paperH,
-            padding: margin,
-            transform: `scale(${scale || 1})`,
-            transformOrigin: "top left",
-          }}
+          className="space-y-5 pb-2"
+          style={{ visibility: scale > 0 ? "visible" : "hidden" }}
         >
-          <div ref={contentRef}>
-            <BoqSheet project={project} options={options} />
-          </div>
-          {Array.from({ length: pages - 1 }, (_, i) => (
-            <div
-              key={i}
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-x-0 border-t-2 border-dashed border-stone"
-              style={{ top: margin + (i + 1) * printable }}
-            >
-              <span className="absolute right-2 top-1 bg-paper px-1 text-[11px] text-slate">
-                page {i + 2} — approximate break
-              </span>
-            </div>
-          ))}
+          <PagedSheet
+            project={project}
+            options={options}
+            layout={layout}
+            wrap={(page, i, n) => (
+              <figure className="m-0 mx-auto" style={{ width: pageW * scale }}>
+                <div
+                  className="overflow-hidden border-[1.5px] border-rule"
+                  style={{ width: pageW * scale, height: pageH * scale }}
+                >
+                  <div
+                    style={{
+                      width: pageW,
+                      height: pageH,
+                      transform: `scale(${scale || 1})`,
+                      transformOrigin: "top left",
+                    }}
+                  >
+                    {page}
+                  </div>
+                </div>
+                <figcaption className="mt-1.5 text-center text-small text-muted">
+                  Page {i + 1} of {n}
+                </figcaption>
+              </figure>
+            )}
+          />
         </div>
-      </div>
       </div>
     </div>
   );
@@ -556,11 +546,14 @@ export default function ExportDialog({
   open,
   onClose,
   project,
+  layout,
   onPrintChange,
 }: {
   open: boolean;
   onClose: () => void;
   project: Project;
+  /** Where the pages break — measured once in Workspace, see PagedSheet. */
+  layout: SheetLayout | null;
   /** Saves the layout onto the Project — the print target reads it too. */
   onPrintChange: PrintUpdate;
 }) {
@@ -710,7 +703,7 @@ export default function ExportDialog({
                     pane === "preview" ? "flex" : "hidden"
                   }`}
                 >
-                  <SheetPreview project={project} options={options} />
+                  <SheetPreview project={project} options={options} layout={layout} />
                 </div>
               </div>
             </>
