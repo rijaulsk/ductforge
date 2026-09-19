@@ -98,6 +98,7 @@ export default function StickyHeader({
   return (
     <div
       ref={ref}
+      data-sticky-header
       className={`sticky top-0 z-40 transition-transform duration-200 ease-out ${className}`}
       style={{ transform: away ? "translateY(-100%)" : "translateY(0)" }}
     >

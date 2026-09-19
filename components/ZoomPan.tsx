@@ -50,6 +50,7 @@ export default function ZoomPan({
   fill = false,
   initialScale = MIN,
   controls,
+  onTap,
 }: {
   children: React.ReactNode;
   label: string;
@@ -68,7 +69,16 @@ export default function ZoomPan({
   initialScale?: number;
   /** Extra controls for the button row — the full-screen trigger. */
   controls?: React.ReactNode;
+  /**
+   * A TOUCH tap on the drawing at fit. On a phone the inline drawing is too
+   * small to read — its labels render at about 4.5 px — so the thing a thumb
+   * does first, tapping it, should open it full screen. Touch only and fit
+   * only: a mouse click, or a tap on a drawing that is zoomed and being
+   * panned, keeps meaning what it meant.
+   */
+  onTap?: () => void;
 }) {
+  const lastPointer = useRef<string>("");
   const [scale, setScale] = useState(initialScale);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
@@ -119,6 +129,7 @@ export default function ZoomPan({
         /* The fix. Tailwind's touch utilities compile to touch-action. */
         style={{ touchAction: fill || scale > MIN ? "none" : "pan-y" }}
         onPointerDown={(e) => {
+          lastPointer.current = e.pointerType;
           pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
           if (pointers.current.size === 2) {
             /* A second finger converts a drag into a pinch mid-gesture. */
@@ -157,6 +168,11 @@ export default function ZoomPan({
         /* Double-tap or double-click toggles between fit and a useful
          * magnification — the gesture people try second. */
         onDoubleClick={() => (scale > MIN ? reset() : zoomTo(2.2))}
+        /* The pointer type is remembered from pointerdown rather than read off
+         * the click: Safari's click is a MouseEvent with no pointerType. */
+        onClick={() => {
+          if (onTap && scale <= MIN && lastPointer.current === "touch") onTap();
+        }}
       >
         <div
           className={`origin-center p-2 transition-transform duration-200 ease-out${
@@ -174,12 +190,16 @@ export default function ZoomPan({
         </div>
       </div>
 
+      {/* ONE ROW on a phone: −, + and Fit are 40 px icons there (labels from
+        * `xs`), and the percentage waits for `sm`. As pills they took two
+        * rows under a drawing that already had too little height. */}
       <div className={`mt-3 flex flex-wrap items-center gap-2${fill ? " shrink-0" : ""}`}>
         <Button
           size="sm"
           onClick={() => zoomTo(scale - STEP)}
           disabled={scale <= MIN}
           aria-label={`Zoom out of ${label}`}
+          className="h-10 w-10 !px-0"
         >
           <Minus size={16} strokeWidth={1.8} />
         </Button>
@@ -188,14 +208,21 @@ export default function ZoomPan({
           onClick={() => zoomTo(scale + STEP)}
           disabled={scale >= MAX}
           aria-label={`Zoom in on ${label}`}
+          className="h-10 w-10 !px-0"
         >
           <Plus size={16} strokeWidth={1.8} />
         </Button>
-        <Button size="sm" onClick={reset} disabled={scale === MIN && offset.x === 0 && offset.y === 0}>
-          <Maximize2 size={16} strokeWidth={1.5} /> Fit
+        <Button
+          size="sm"
+          onClick={reset}
+          disabled={scale === MIN && offset.x === 0 && offset.y === 0}
+          aria-label="Fit the drawing"
+          className="h-10 !px-3 xs:!px-4"
+        >
+          <Maximize2 size={16} strokeWidth={1.5} /> <span className="hidden xs:inline">Fit</span>
         </Button>
         {controls}
-        <span className="text-small tabular-nums text-muted" aria-live="polite">
+        <span className="hidden text-small tabular-nums text-muted sm:inline" aria-live="polite">
           {Math.round(scale * 100)}%
           {scale > MIN && <span className="ml-2">drag to move</span>}
         </span>

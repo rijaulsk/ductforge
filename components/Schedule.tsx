@@ -1,6 +1,6 @@
 "use client";
 
-import { Copy, Pencil, Trash2, X } from "lucide-react";
+import { ChevronDown, Copy, Pencil, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import { computeFor } from "@/lib/duct/compute";
 import { describeFitting } from "@/lib/duct/describe";
@@ -112,6 +112,8 @@ export default function Schedule({
   onDuplicate: (id: string) => void;
   onRemove: (id: string) => void;
 }) {
+  /** The phone row that is opened out, if any — one at a time. */
+  const [openId, setOpenId] = useState<string | null>(null);
   const units = project.units;
   const au = areaUnit(units);
   const mu = massUnit(units);
@@ -221,43 +223,57 @@ export default function Schedule({
         </table>
       </div>
 
-      {/* Phone: the same figures, stacked. */}
+      {/* PHONE: ONE COMPACT ROW PER LINE, the rest on a tap.
+        *
+        * Each line used to be a ~170 px card — name, dimensions, a row of
+        * three buttons and a four-figure grid — so a 25-line job was a 14,000
+        * px tab, and finding line 18 meant a long scroll past figures you
+        * were not reading. A row now shows what a takeoff is scanned for: the
+        * number, the fitting, its size, the gross area and the weight. Tapping
+        * it opens the gauge, net area, waste, zone, note and the actions. */}
       <ul className="divide-y-[1.5px] divide-rule border-y-[1.5px] border-rule lg:hidden">
-        {rows.map(({ entry, index, result, name, dims }) => (
-          <li key={entry.id} className={`py-4 ${entry.id === editingId ? "bg-sunk" : ""}`}>
-            {/* `min-w-0` on the description and `shrink-0` on the actions.
-              * Without them the fitting's dimension line — "W 600 · H 400 ·
-              * L 3000" — claimed the whole row at 390px and pushed the three
-              * 36px action buttons into a 2 + 1 wrap, so every line ended in a
-              * ragged L of buttons at a different height from the one above.
-              *
-              * Below `xs` the actions drop to their own line instead. Three
-              * 36px buttons are 120px of a 265px row at 320px, which left the
-              * description about 110px and broke "1. Straight duct ×1" across
-              * three lines. Content first, controls under it. */}
-            <div className="flex flex-col items-stretch gap-2 xs:flex-row xs:items-start xs:justify-between xs:gap-3">
-              <div className="flex min-w-0 items-start gap-3">
-                <FittingGlyph kind={entry.fitting.kind} className="mt-1 shrink-0 text-accent" />
-                <div className="min-w-0">
-                  <p className="font-medium text-heading">
-                    <span className="tabular-nums text-muted">{index}. </span>
-                    {name} <span className="tabular-nums text-body">×{entry.qty}</span>
-                  </p>
-                  <p className="text-small tabular-nums text-body">{dims}</p>
-                  {showZone && entry.zone.trim() && (
-                    <p className="text-small text-body">{entry.zone.trim()}</p>
-                  )}
-                  {entry.note && <p className="text-small text-muted">{entry.note}</p>}
-                </div>
-              </div>
-              <Actions
-                index={index}
-                onEdit={() => onEdit(entry.id)}
-                onDuplicate={() => onDuplicate(entry.id)}
-                onRemove={() => onRemove(entry.id)}
+        {rows.map(({ entry, index, result, name, dims }) => {
+          const open = openId === entry.id;
+          return (
+          <li key={entry.id} className={entry.id === editingId ? "bg-sunk" : ""}>
+            <button
+              type="button"
+              aria-expanded={open}
+              onClick={() => setOpenId(open ? null : entry.id)}
+              className="flex min-h-14 w-full items-center gap-3 py-2 text-left"
+            >
+              <FittingGlyph kind={entry.fitting.kind} className="shrink-0 text-accent" />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-medium text-heading">
+                  <span className="tabular-nums text-muted">{index}. </span>
+                  {name} <span className="tabular-nums text-body">×{entry.qty}</span>
+                </span>
+                <span className="block truncate text-small tabular-nums text-body">{dims}</span>
+              </span>
+              <span className="shrink-0 text-right text-small tabular-nums">
+                <span className="block font-medium text-heading">
+                  {fmtArea(result.grossAreaMinor)} {au}
+                </span>
+                <span className="block text-body">
+                  {fmtMass(result.massMinor)} {mu}
+                </span>
+              </span>
+              <ChevronDown
+                size={16}
+                strokeWidth={1.8}
+                aria-hidden="true"
+                className={`shrink-0 text-muted transition-transform duration-200 ease-out ${open ? "rotate-180" : ""}`}
               />
-            </div>
-            <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-small sm:grid-cols-4">
+            </button>
+            {open && (
+            <div className="pb-4">
+            {(showZone && entry.zone.trim()) || entry.note ? (
+              <div className="mb-2 text-small">
+                {showZone && entry.zone.trim() && <p className="text-body">{entry.zone.trim()}</p>}
+                {entry.note && <p className="text-muted">{entry.note}</p>}
+              </div>
+            ) : null}
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-small sm:grid-cols-4">
               <div className="flex justify-between gap-3 sm:block">
                 <dt className="text-muted">Gauge</dt>
                 <dd className="tabular-nums text-heading">{result.gauge} ga</dd>
@@ -281,8 +297,19 @@ export default function Schedule({
                 </dd>
               </div>
             </dl>
+            <div className="mt-3">
+              <Actions
+                index={index}
+                onEdit={() => onEdit(entry.id)}
+                onDuplicate={() => onDuplicate(entry.id)}
+                onRemove={() => onRemove(entry.id)}
+              />
+            </div>
+            </div>
+            )}
           </li>
-        ))}
+          );
+        })}
       </ul>
     </>
   );

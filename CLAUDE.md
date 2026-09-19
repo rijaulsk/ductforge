@@ -157,6 +157,13 @@ printing. Continued tables repeat their header row and reuse the whole table's c
 or rows re-wrap on later pages and the measurements stop being true. Verified by printing real
 PDFs through Chromium: the preview's page count must equal the PDF's.
 
+**Phone layout** (19 Sep 2026): the calculator's header is ONE row below `lg` (`phoneRow` on
+AppHeader — tile, project name, settings, and `HeaderMenu` holding the nav and the theme); the
+guide and standards pages keep the visible nav. The five tabs are sticky under the header at
+`--sticky-header`, and switching tab lands at the top of the new tab. Takeoff lines are compact
+rows that open on tap. A touch tap on the drawing at fit opens full screen (`onTap` on
+ZoomPan; not on the isometric, where a touch starts a turn). Touch targets are 40 px minimum.
+
 **Extras** (`lib/extras.ts`, `components/ExtrasPanel.tsx`, `Project.extras`, schema 5):
 dampers, terminals, accessories and custom lines. **Counted, never calculated, and never added
 to the duct's area or weight** — they print as their own table and say so. No formula for the
