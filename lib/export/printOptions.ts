@@ -39,7 +39,8 @@ export type SectionKey =
   | "alsoCounted"
   | "basis"
   | "credit"
-  | "disclaimer";
+  | "disclaimer"
+  | "pageNumbers";
 
 export type ColumnKey =
   | "index"
@@ -94,6 +95,9 @@ export const SECTIONS: readonly { key: SectionKey; label: string; hint?: string;
   { key: "basis", label: "Basis of the quantities", hint: "The standard and every caveat" },
   { key: "credit", label: "DuctForge credit line" },
   { key: "disclaimer", label: "Check-against-spec note" },
+  /* On by default, and it changes no earlier page's content: it sits in the
+   * bottom margin, outside the area the pages are packed to. */
+  { key: "pageNumbers", label: "Page numbers", hint: "Job name and page n of N at the foot of every page" },
 ];
 
 export const COLUMNS: readonly { key: ColumnKey; label: string; parent?: ColumnKey }[] = [
@@ -121,6 +125,9 @@ export const PAPER_MM: Record<PaperSize, { w: number; h: number }> = {
 
 /** One margin all round — the same 14 mm the sheet always printed with. */
 export const MARGIN_MM = 14;
+
+/** CSS pixels per millimetre — the unit a browser lays paper out in. */
+export const PX_PER_MM = 96 / 25.4;
 
 /** The root font size; every size in the sheet is an `em` of this. */
 export const TEXT_PT: Record<TextSize, number> = { compact: 9, normal: 10, large: 11 };

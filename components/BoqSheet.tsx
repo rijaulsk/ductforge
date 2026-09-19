@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import {
   type EntryResult,
   computeFor,
@@ -36,31 +36,35 @@ import { assumptions } from "@/lib/export/csv";
 import {
   type ColumnKey,
   DEFAULT_TITLE,
-  MARGIN_MM,
   type PrintOptions,
-  TEXT_PT,
   pageMm,
 } from "@/lib/export/printOptions";
 import { APP_CREDIT } from "@/lib/site";
 
-/* The issuable document.
+/* The issuable document, as a list of pieces.
  *
- * ONE COMPONENT, THREE USES, and that is the property the export studio rests
- * on. The same function renders the live preview in the export dialog, the
- * always-mounted print target (so Ctrl+P prints the configured sheet too), and
- * nothing else — both read the options saved on the Project, so what the
- * preview shows and what the printer produces cannot disagree.
+ * WHAT CHANGED, 19 Sep 2026. This used to render the whole sheet as one
+ * element and leave the printer to cut it into pages wherever it liked, so the
+ * preview could only guess at the breaks. It now describes the sheet as an
+ * ordered list of ITEMS — whole blocks (the masthead, a note, the footer) and
+ * tables whose rows can be dealt out across pages — and PagedSheet.tsx measures
+ * them, packs them into pages with lib/export/paginate.ts, and draws the pages.
+ * The preview and the print target draw the same pages from the same layout,
+ * so what is on screen is what comes out of the printer, page for page.
+ *
+ * Every switch, every column rule and every size is exactly what it was: this
+ * is the same sheet, only cut up.
  *
  * It is not the screen with the controls hidden. A quantity sheet that leaves
  * the building carries its own context by default: the standard, the units, the
- * allowance and every caveat. Every one of those can now be switched off for an
- * issued copy — see lib/export/printOptions.ts for the honesty rule's new shape
- * — but they all start on, and the assumptions text is still the one function
- * the CSV footer uses, so the two documents cannot drift.
+ * allowance and every caveat. Every one of those can be switched off for an
+ * issued copy — see lib/export/printOptions.ts — but they all start on, and the
+ * assumptions text is still the one function the CSV footer uses, so the two
+ * documents cannot drift.
  *
- * SIZES ARE `em`, all of them, off one root size (9 / 10 / 11 pt). That is what
- * lets "compact" and "large" scale the whole sheet with one number instead of a
- * second set of classes that would eventually disagree with the first.
+ * SIZES ARE `em`, all of them, off one root size (9 / 10 / 11 pt), set on the
+ * page box. That is what lets "compact" and "large" scale the whole sheet with
+ * one number.
  *
  * Colours are stated literally (ink, mist, paper) rather than through the theme
  * tokens: a printed sheet is ink on paper in both themes, and the preview must
@@ -107,18 +111,49 @@ function PrintLockup() {
 /**
  * The `@page` rule for the chosen paper, stated in millimetres.
  *
- * Emitted as a `<style>` beside the print target rather than living in
- * globals.css, because the paper is a per-takeoff choice now and a stylesheet
- * cannot read it. Explicit dimensions rather than the `A4 landscape` keywords:
- * one form, the same numbers the preview uses to draw its page, so the two
- * cannot be measuring different pieces of paper.
+ * MARGIN 0, because the margin now lives INSIDE each page box that
+ * PagedSheet draws. The boxes are exactly the paper's size, so the printer is
+ * handed pages that already fit and has no margin of its own to add — which is
+ * what keeps its breaks on the lines this app chose. Explicit dimensions rather
+ * than the `A4 landscape` keywords: the same numbers the boxes are drawn with.
  */
 export function PrintPageStyle({ page }: { page: PrintOptions["page"] }) {
   const { w, h } = pageMm(page);
   return (
-    <style>{`@media print { @page { size: ${w}mm ${h}mm; margin: ${MARGIN_MM}mm; } }`}</style>
+    <style>{`@media print { @page { size: ${w}mm ${h}mm; margin: 0; } }`}</style>
   );
 }
+
+/* ---- the pieces -------------------------------------------------------------- */
+
+export type SheetRow = { key: string; node: ReactNode };
+
+export type SheetItem =
+  | {
+      kind: "block";
+      key: string;
+      node: ReactNode;
+      /** Items after this one that must start on the same page. */
+      keepWithNext?: number;
+    }
+  | {
+      kind: "table";
+      key: string;
+      /** The section heading, when the table has one. */
+      heading?: ReactNode;
+      /** What the "(continued)" line calls it on later pages. */
+      label: string;
+      /** Space above the table, as padding — padding never collapses, so it
+       * measures the same alone as it does in place. */
+      pad: string;
+      /** The header row, a `<tr>`. */
+      head: ReactNode;
+      rows: SheetRow[];
+      /** The totals row, a `<tr>`. */
+      total?: ReactNode;
+    };
+
+export type TableItem = Extract<SheetItem, { kind: "table" }>;
 
 type Row = { entry: Entry; index: number; r: EntryResult };
 
@@ -141,15 +176,9 @@ const TF = "border-t-[1.5px] border-ink py-[0.55em] pr-[0.6em] font-bold tabular
  * which is on screen, did not. */
 const H2 = "mt-[1.6em] text-[1.2em] font-bold text-ink";
 
-export default function BoqSheet({
-  project,
-  options,
-}: {
-  project: Project;
-  options: PrintOptions;
-}) {
+export function sheetItems(project: Project, options: PrintOptions): SheetItem[] {
   const { units: us, mode } = project;
-  const { sections: on, columns: col, header, page } = options;
+  const { sections: on, columns: col, header } = options;
   const au = areaUnit(us);
   const mu = massUnit(us);
   const ru = runUnit(us);
@@ -157,6 +186,7 @@ export default function BoqSheet({
   const zonesExist = hasZones(totals);
   const showRates = hasRates(project.rates);
   const showAnc = hasAncillaries(project.ancillaries);
+  const items: SheetItem[] = [];
 
   const rows: Row[] = project.entries.map((entry, i) => ({
     entry,
@@ -164,11 +194,9 @@ export default function BoqSheet({
     r: computeFor(project, entry),
   }));
 
-  /* THE SCHEDULE'S COLUMNS, AS DATA. The sheet used to hard-code ten cells and
-   * a `colSpan={showZone ? 4 : 3}` for the totals label, which is arithmetic
-   * that is only right for one set of columns. With any column switchable, the
-   * header, every row and the totals row are generated from the one visible
-   * list instead, and the label spans whatever leading columns carry no total. */
+  /* THE SCHEDULE'S COLUMNS, AS DATA. The header, every row and the totals row
+   * are generated from the one visible list, and the totals label spans
+   * whatever leading columns carry no total. */
   const all: Column[] = [
     { key: "index", head: "#", cell: (row) => row.index },
     { key: "zone", head: "Zone", cell: (row) => row.entry.zone },
@@ -238,16 +266,11 @@ export default function BoqSheet({
     ["Material", MATERIALS[project.material].name],
   ];
 
-  const alsoCounted =
-    (showAnc || showRates) &&
-    (totals.insulationAreaMinor > 0 || totals.flangeEnds > 0 || totals.supports > 0 || showRates);
-
-  return (
-    <div
-      className="bg-paper text-ink"
-      style={{ fontSize: `${TEXT_PT[page.text]}pt`, lineHeight: 1.35 }}
-    >
-      {on.letterhead && (
+  if (on.letterhead) {
+    items.push({
+      kind: "block",
+      key: "masthead",
+      node: (
         /* A LETTERHEAD, not a left-aligned stack: a centred masthead with the
          * job under it, which is what a title block looks like on any drawing
          * or schedule a QS has ever been handed. The mark is inline SVG in the
@@ -270,18 +293,30 @@ export default function BoqSheet({
             </>
           )}
         </header>
-      )}
+      ),
+    });
+  }
 
-      {/* Filled text always prints and empty text never does: the fields are
-        * their own switch, independent of the masthead, so a client line can
-        * go out on a sheet with no letterhead at all. */}
-      {clientLine.length > 0 && (
+  /* Filled text always prints and empty text never does: the fields are their
+   * own switch, independent of the masthead, so a client line can go out on a
+   * sheet with no letterhead at all. */
+  if (clientLine.length > 0) {
+    items.push({
+      kind: "block",
+      key: "client",
+      node: (
         <p className="border-b border-mist py-[0.45em] text-center text-[0.95em]">
           {clientLine.join("   ·   ")}
         </p>
-      )}
+      ),
+    });
+  }
 
-      {on.parameters && (
+  if (on.parameters) {
+    items.push({
+      kind: "block",
+      key: "parameters",
+      node: (
         <dl className="flex flex-wrap justify-center gap-x-[2.2em] gap-y-[0.2em] border-b border-mist py-[0.5em] text-[0.9em]">
           {params.map(([term, value]) => (
             <div key={term} className="flex gap-[0.4em]">
@@ -290,128 +325,149 @@ export default function BoqSheet({
             </div>
           ))}
         </dl>
-      )}
+      ),
+    });
+  }
 
-      {header.notes.trim() && (
-        <p className="mt-[0.9em] whitespace-pre-line text-[0.95em]">{header.notes.trim()}</p>
-      )}
+  /* Header notes are split on blank lines, so a long scope note can run over
+   * a page rather than being one block too tall to place. */
+  const notes = header.notes.trim();
+  if (notes) {
+    notes.split(/\n\s*\n/).forEach((para, i) => {
+      items.push({
+        kind: "block",
+        key: `notes-${i}`,
+        node: <p className="whitespace-pre-line pt-[0.9em] text-[0.95em]">{para}</p>,
+      });
+    });
+  }
 
-      {on.schedule && visible.length > 0 && (
-        <table className="mt-[1.2em] w-full border-collapse">
-          <thead>
-            <tr>
-              {visible.map((c) => (
-                <th key={c.key} className={`${TH}${c.right ? " text-right" : ""}`}>
-                  {c.head}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              /* A line never splits across two pages. */
-              <tr key={row.entry.id} className="break-inside-avoid">
-                {visible.map((c) => (
-                  <td
-                    key={c.key}
-                    className={`${TD}${c.right ? " text-right tabular-nums" : ""}`}
-                  >
-                    {c.cell(row)}
-                  </td>
-                ))}
-              </tr>
+  if (on.schedule && visible.length > 0) {
+    items.push({
+      kind: "table",
+      key: "schedule",
+      label: "Schedule",
+      pad: "1.2em",
+      head: (
+        <tr>
+          {visible.map((c) => (
+            <th key={c.key} className={`${TH}${c.right ? " text-right" : ""}`}>
+              {c.head}
+            </th>
+          ))}
+        </tr>
+      ),
+      rows: rows.map((row) => ({
+        key: row.entry.id,
+        node: (
+          <tr key={row.entry.id}>
+            {visible.map((c) => (
+              <td key={c.key} className={`${TD}${c.right ? " text-right tabular-nums" : ""}`}>
+                {c.cell(row)}
+              </td>
             ))}
-          </tbody>
-          {on.totalsRow && lead !== -1 && (
-            <tfoot>
-              <tr className="break-inside-avoid">
-                {labelSpan > 0 && (
-                  <td className={TF} colSpan={labelSpan}>
-                    Total
-                  </td>
-                )}
-                {visible.slice(labelSpan).map((c, i) => (
-                  <td key={c.key} className={`${TF}${c.right ? " text-right" : ""}`}>
-                    {/* With every non-total column switched off there is no
-                      * cell left to hold the word, so the first figure carries
-                      * it rather than the row losing its label. */}
-                    {labelSpan === 0 && i === 0 ? <>Total {c.total}</> : c.total}
-                  </td>
-                ))}
-              </tr>
-            </tfoot>
-          )}
-        </table>
-      )}
+          </tr>
+        ),
+      })),
+      total:
+        on.totalsRow && lead !== -1 ? (
+          <tr>
+            {labelSpan > 0 && (
+              <td className={TF} colSpan={labelSpan}>
+                Total
+              </td>
+            )}
+            {visible.slice(labelSpan).map((c, i) => (
+              <td key={c.key} className={`${TF}${c.right ? " text-right" : ""}`}>
+                {/* With every non-total column switched off there is no cell
+                  * left to hold the word, so the first figure carries it
+                  * rather than the row losing its label. */}
+                {labelSpan === 0 && i === 0 ? <>Total {c.total}</> : c.total}
+              </td>
+            ))}
+          </tr>
+        ) : undefined,
+    });
+  }
 
-      {on.byGauge && totals.byGauge.length > 0 && (
-        <section className="break-inside-avoid">
-          <h2 className={H2}>Material by gauge</h2>
-          <table className="mt-[0.5em] w-full border-collapse">
-            <thead>
-              <tr>
-                <th className={TH}>Gauge</th>
-                <th className={TH}>Thickness</th>
-                <th className={`${TH} text-right`}>Pieces</th>
-                <th className={`${TH} text-right`}>Gross {au}</th>
-                <th className={`${TH} text-right`}>Weight {mu}</th>
-                {on.sheetsColumn && <th className={`${TH} text-right`}>Sheets (est.)</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {totals.byGauge.map((g) => (
-                <tr key={g.gauge} className="break-inside-avoid">
-                  <td className={`${TD} tabular-nums`}>{g.gauge} ga</td>
-                  <td className={`${TD} tabular-nums`}>{fmt(g.thicknessMm, 2)} mm</td>
-                  <td className={`${TD} text-right tabular-nums`}>{g.pieces}</td>
-                  <td className={`${TD} text-right tabular-nums`}>{fmtArea(g.grossAreaMinor)}</td>
-                  <td className={`${TD} text-right tabular-nums`}>{fmtMass(g.massMinor)}</td>
-                  {on.sheetsColumn && (
-                    <td className={`${TD} text-right tabular-nums`}>{g.sheets}</td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
-      )}
+  if (on.byGauge && totals.byGauge.length > 0) {
+    items.push({
+      kind: "table",
+      key: "gauge",
+      heading: <h2 className={H2}>Material by gauge</h2>,
+      label: "Material by gauge",
+      pad: "0.5em",
+      head: (
+        <tr>
+          <th className={TH}>Gauge</th>
+          <th className={TH}>Thickness</th>
+          <th className={`${TH} text-right`}>Pieces</th>
+          <th className={`${TH} text-right`}>Gross {au}</th>
+          <th className={`${TH} text-right`}>Weight {mu}</th>
+          {on.sheetsColumn && <th className={`${TH} text-right`}>Sheets (est.)</th>}
+        </tr>
+      ),
+      rows: totals.byGauge.map((g) => ({
+        key: g.gauge,
+        node: (
+          <tr key={g.gauge}>
+            <td className={`${TD} tabular-nums`}>{g.gauge} ga</td>
+            <td className={`${TD} tabular-nums`}>{fmt(g.thicknessMm, 2)} mm</td>
+            <td className={`${TD} text-right tabular-nums`}>{g.pieces}</td>
+            <td className={`${TD} text-right tabular-nums`}>{fmtArea(g.grossAreaMinor)}</td>
+            <td className={`${TD} text-right tabular-nums`}>{fmtMass(g.massMinor)}</td>
+            {on.sheetsColumn && <td className={`${TD} text-right tabular-nums`}>{g.sheets}</td>}
+          </tr>
+        ),
+      })),
+    });
+  }
 
-      {on.byZone && zonesExist && (
-        <section className="break-inside-avoid">
-          <h2 className={H2}>By zone</h2>
-          <table className="mt-[0.5em] w-full border-collapse">
-            <thead>
-              <tr>
-                <th className={TH}>Zone</th>
-                <th className={`${TH} text-right`}>Lines</th>
-                <th className={`${TH} text-right`}>Pieces</th>
-                <th className={`${TH} text-right`}>Gross {au}</th>
-                <th className={`${TH} text-right`}>Weight {mu}</th>
-                {showRates && (
-                  <th className={`${TH} text-right`}>Value {project.rates.label}</th>
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {totals.byZone.map((z) => (
-                <tr key={z.zone || "__none"} className="break-inside-avoid">
-                  <td className={TD}>{z.zone || "Not assigned"}</td>
-                  <td className={`${TD} text-right tabular-nums`}>{z.lines}</td>
-                  <td className={`${TD} text-right tabular-nums`}>{z.pieces}</td>
-                  <td className={`${TD} text-right tabular-nums`}>{fmtArea(z.grossAreaMinor)}</td>
-                  <td className={`${TD} text-right tabular-nums`}>{fmtMass(z.massMinor)}</td>
-                  {showRates && (
-                    <td className={`${TD} text-right tabular-nums`}>{fmtValue(z.valueMinor)}</td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
-      )}
+  if (on.byZone && zonesExist) {
+    items.push({
+      kind: "table",
+      key: "zones",
+      heading: <h2 className={H2}>By zone</h2>,
+      label: "By zone",
+      pad: "0.5em",
+      head: (
+        <tr>
+          <th className={TH}>Zone</th>
+          <th className={`${TH} text-right`}>Lines</th>
+          <th className={`${TH} text-right`}>Pieces</th>
+          <th className={`${TH} text-right`}>Gross {au}</th>
+          <th className={`${TH} text-right`}>Weight {mu}</th>
+          {showRates && <th className={`${TH} text-right`}>Value {project.rates.label}</th>}
+        </tr>
+      ),
+      rows: totals.byZone.map((z) => ({
+        key: z.zone || "__none",
+        node: (
+          <tr key={z.zone || "__none"}>
+            <td className={TD}>{z.zone || "Not assigned"}</td>
+            <td className={`${TD} text-right tabular-nums`}>{z.lines}</td>
+            <td className={`${TD} text-right tabular-nums`}>{z.pieces}</td>
+            <td className={`${TD} text-right tabular-nums`}>{fmtArea(z.grossAreaMinor)}</td>
+            <td className={`${TD} text-right tabular-nums`}>{fmtMass(z.massMinor)}</td>
+            {showRates && (
+              <td className={`${TD} text-right tabular-nums`}>{fmtValue(z.valueMinor)}</td>
+            )}
+          </tr>
+        ),
+      })),
+    });
+  }
 
-      {on.alsoCounted && alsoCounted && (
-        <section className="break-inside-avoid">
+  const alsoCounted =
+    (showAnc || showRates) &&
+    (totals.insulationAreaMinor > 0 || totals.flangeEnds > 0 || totals.supports > 0 || showRates);
+
+  if (on.alsoCounted && alsoCounted) {
+    items.push({
+      kind: "block",
+      key: "also",
+      node: (
+        <section>
           <h2 className={H2}>Also counted</h2>
           <dl className="mt-[0.5em] grid grid-cols-2 gap-x-[2.4em] gap-y-[0.2em]">
             {totals.insulationAreaMinor > 0 && (
@@ -454,29 +510,114 @@ export default function BoqSheet({
             )}
           </dl>
         </section>
-      )}
+      ),
+    });
+  }
 
-      {on.basis && (
-        <section>
-          <h2 className={H2}>Basis of the quantities</h2>
-          <ul className="mt-[0.5em] space-y-[0.25em]">
-            {assumptions(project).map((a) => (
-              <li key={a} className="text-[0.9em] leading-snug">
-                {a}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+  if (on.basis) {
+    /* One block per note, so the basis can run over a page; the heading keeps
+     * its first note with it. */
+    items.push({
+      kind: "block",
+      key: "basis",
+      keepWithNext: 1,
+      node: <h2 className={`${H2} pb-[0.25em]`}>Basis of the quantities</h2>,
+    });
+    assumptions(project).forEach((a, i) => {
+      items.push({
+        kind: "block",
+        key: `basis-${i}`,
+        node: <p className="pt-[0.25em] text-[0.9em] leading-snug">{a}</p>,
+      });
+    });
+  }
 
-      {(on.credit || on.disclaimer) && (
-        <p className="mt-[1.6em] break-inside-avoid border-t border-mist pt-[0.5em] text-center text-[0.85em]">
+  if (on.credit || on.disclaimer) {
+    items.push({
+      kind: "block",
+      key: "credit",
+      node: (
+        <p className="mt-[1.6em] border-t border-mist pt-[0.5em] text-center text-[0.85em]">
           {on.credit && APP_CREDIT}
           {on.credit && on.disclaimer && <br />}
           {on.disclaimer &&
             "Quantities are calculated from the dimensions entered above and should be checked against the project specification before being used to order or to invoice."}
         </p>
-      )}
+      ),
+    });
+  }
+
+  return items;
+}
+
+/* ---- drawing the pieces -------------------------------------------------------
+ *
+ * Each piece is wrapped in a `flow-root` box, in the measurer and on the page
+ * alike. A flow root contains its children's margins, so a heading's top
+ * margin is inside the box that was measured instead of collapsing into its
+ * neighbour on one side and not the other — and the heights add up on the page
+ * exactly as they were measured.
+ */
+
+export function SheetBlock({ node }: { node: ReactNode }) {
+  return <div className="flow-root">{node}</div>;
+}
+
+export function TableHeading({ item }: { item: TableItem }) {
+  return <div className="flow-root">{item.heading}</div>;
+}
+
+/** The line a table prints above its header row on every page after its first. */
+export function TableContinued({ item }: { item: TableItem }) {
+  return (
+    <div className="flow-root">
+      <p className="pt-[0.6em] text-[0.85em] italic text-slate">{item.label} (continued)</p>
+    </div>
+  );
+}
+
+/**
+ * A table, or the part of one that falls on a page.
+ *
+ * `cols` are the column widths measured from the WHOLE table. An auto-layout
+ * table sizes its columns to the rows it holds, so the rows dealt to page 2
+ * would size page 2's columns differently — different wrapping, different row
+ * heights, and the measurements the page was packed with would stop being
+ * true. Fixed layout at the widths of the whole table keeps every part of it
+ * the same shape as the table that was measured.
+ */
+export function SheetTable({
+  item,
+  rows,
+  total,
+  cols,
+}: {
+  item: TableItem;
+  rows: SheetRow[];
+  total: boolean;
+  cols?: number[];
+}) {
+  return (
+    <div className="flow-root" style={{ paddingTop: item.pad }}>
+      <table
+        className="w-full border-collapse"
+        style={cols ? { tableLayout: "fixed" } : undefined}
+      >
+        {cols && (
+          <colgroup>
+            {cols.map((w, i) => (
+              <col key={i} style={{ width: w }} />
+            ))}
+          </colgroup>
+        )}
+        <thead>{item.head}</thead>
+        <tbody>
+          {rows.map((r) => (
+            <Fragment key={r.key}>{r.node}</Fragment>
+          ))}
+        </tbody>
+        {total && item.total && <tfoot>{item.total}</tfoot>}
+      </table>
     </div>
   );
 }

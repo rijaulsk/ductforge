@@ -374,4 +374,17 @@
    * a per-takeoff choice now, emitted beside the print target by
    * `PrintPageStyle` in BoqSheet.tsx — a second rule here would be a second
    * opinion about the same page. */
+
+  /* ONE PAGE BOX, ONE SHEET OF PAPER. PagedSheet has already cut the sheet
+   * into boxes the paper's exact size, so all the printer is asked to do is
+   * start a new sheet after each. Nothing may split a box: if one did, a
+   * rounding hair over the paper height would print a blank page after every
+   * real one. */
+  .sheet-page-slot {
+    break-after: page;
+    break-inside: avoid;
+  }
+  .sheet-page-slot:last-child {
+    break-after: auto;
+  }
 }
