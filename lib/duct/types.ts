@@ -288,6 +288,41 @@ export type Rates = {
   label: string;
 };
 
+/* ---- extras: dampers, terminals, accessories, custom lines ----------------
+ *
+ * Asked for on 19 Sep 2026: "a separate place to add VCD and other
+ * calculations that can get added to the doc". Everything on a duct job that
+ * is not sheet metal cut by this app — a volume control damper, a grille, an
+ * access door, labour. Each is COUNTED, not calculated: a type, a size, a
+ * quantity, a unit and, if the estimator gives one, a rate. No formula, and
+ * never added to the sheet-metal area or weight. See lib/extras.ts.
+ */
+export type ExtraCategory = "damper" | "terminal" | "accessory" | "custom";
+
+/** How the item's size is given. `none` for things with no duct size. */
+export type ExtraShape = "rect" | "round" | "none";
+
+export type ExtraUnit = "nos" | "m" | "m²" | "set" | "lot";
+
+export type Extra = {
+  id: string;
+  category: ExtraCategory;
+  /** What it is: a preset name ("Volume control damper (VCD)") or free text. */
+  item: string;
+  shape: ExtraShape;
+  /** Millimetres, like every other dimension here. `d` for round. */
+  w: number;
+  h: number;
+  d: number;
+  /** A count for `nos`, `set` and `lot`; may be fractional for `m` and `m²`. */
+  qty: number;
+  unit: ExtraUnit;
+  /** Price per unit in the project's currency label. 0 = no rate given. */
+  rate: number;
+  zone: string;
+  note: string;
+};
+
 export type Project = {
   id: string;
   name: string;
@@ -300,6 +335,8 @@ export type Project = {
   ancillaries: Ancillaries;
   rates: Rates;
   entries: Entry[];
+  /** Dampers, terminals, accessories and custom lines — see `Extra`. */
+  extras: Extra[];
   /** What the printed sheet shows and how it is laid out. Saved with the job so
    * a reprint comes out the same — see lib/export/printOptions.ts. */
   print: PrintOptions;

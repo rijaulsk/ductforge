@@ -28,7 +28,9 @@
  *   · The totals row never sits alone at the top of a page: it goes with the
  *     last row.
  *   · A block marked `keepWithNext` travels with the blocks after it (a
- *     heading with its first note).
+ *     heading with its first note), and one marked `keepWithPrevious` brings
+ *     the block before it when it has to turn a page — so the closing credit
+ *     never prints alone on a last page.
  *   · Anything taller than a whole page gets a page to itself and overflows
  *     it, rather than being pushed forward for ever. The packer always
  *     terminates.
@@ -43,6 +45,9 @@ export type PackItem =
       height: number;
       /** How many of the following items must start on the same page. */
       keepWithNext?: number;
+      /** If this block has to start a new page, it takes the block before it
+       * along — so a closing line never sits alone on a page of its own. */
+      keepWithPrevious?: boolean;
     }
   | {
       kind: "table";
@@ -107,7 +112,25 @@ export function packPages(items: PackItem[], pageHeight: number, continued = 0):
       }
       /* Turn only if the page already holds something: a block too tall for
        * an empty page gets that page and overflows it, and packing moves on. */
-      if (used > 0 && used + need > pageHeight) turn();
+      if (used > 0 && used + need > pageHeight) {
+        const page = current();
+        const prev = page[page.length - 1];
+        const prevItem = items[i - 1];
+        /* Widow control: carry the previous block over too, as long as it is
+         * a whole block and the page it leaves is not left empty. */
+        const carry =
+          item.keepWithPrevious &&
+          page.length > 1 &&
+          prev?.kind === "block" &&
+          prevItem?.kind === "block" &&
+          prevItem.height + need <= pageHeight;
+        if (carry) page.pop();
+        turn();
+        if (carry && prevItem.kind === "block") {
+          current().push({ kind: "block", key: prevItem.key });
+          used += prevItem.height;
+        }
+      }
       current().push({ kind: "block", key: item.key });
       used += item.height;
       return;

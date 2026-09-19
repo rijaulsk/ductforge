@@ -124,6 +124,13 @@ export const en: Guide = {
       ],
     },
     {
+      title: "Dampers, terminals and everything else",
+      body: [
+        "VCDs, fire dampers, grilles, diffusers, access doors, flexible duct — and anything of your own, like labour or transport — go under Extras, a list of their own. Pick the type and the item, give it a size, a quantity and a unit, and a rate if you want it priced.",
+        "Extras are counted, not calculated. They print on the PDF as their own table, grouped by type, and have their own block in both CSVs — but they are never added to the duct's area or weight, and the sheet says so.",
+      ],
+    },
+    {
       title: "Read the totals and get it out",
       body: [
         "Totals give you net area, waste, gross area and weight, then material by gauge with an estimated sheet count for each. Put in your rate per kg or per m² and it prices the job at your own figures.",

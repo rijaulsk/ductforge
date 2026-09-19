@@ -37,6 +37,7 @@ export type SectionKey =
   | "sheetsColumn"
   | "byZone"
   | "alsoCounted"
+  | "extras"
   | "basis"
   | "credit"
   | "disclaimer"
@@ -92,6 +93,11 @@ export const SECTIONS: readonly { key: SectionKey; label: string; hint?: string;
   { key: "sheetsColumn", label: "Sheet count", parent: "byGauge" },
   { key: "byZone", label: "By zone", hint: "Only printed when lines have zones" },
   { key: "alsoCounted", label: "Also counted", hint: "Insulation, flanges, hangers, value" },
+  {
+    key: "extras",
+    label: "Dampers, terminals and accessories",
+    hint: "Only printed when the job has any",
+  },
   { key: "basis", label: "Basis of the quantities", hint: "The standard and every caveat" },
   { key: "credit", label: "DuctForge credit line" },
   { key: "disclaimer", label: "Check-against-spec note" },

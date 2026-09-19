@@ -1434,6 +1434,84 @@ section("12q. the sheet is cut into pages by rule, not by the printer");
 
   /* An empty sheet is one page, not none. */
   eq(packPages([], 300).length, 1, "a sheet with nothing on it is still one page");
+
+  /* Widow control: the closing credit never prints alone on a last page. */
+  const widow = packPages(
+    [block("a", 200), block("note", 60), { kind: "block", key: "credit", height: 50, keepWithPrevious: true }],
+    300,
+  );
+  eq(widow.length, 2, "the credit that does not fit turns a page");
+  eq(JSON.stringify(widow[1].map((p) => p.key)), JSON.stringify(["note", "credit"]), "…and takes the last note with it");
+  const fits = packPages(
+    [block("a", 150), block("note", 60), { kind: "block", key: "credit", height: 50, keepWithPrevious: true }],
+    300,
+  );
+  eq(fits.length, 1, "a credit that fits stays put, and carries nothing");
+}
+
+/* ---- 12r. extras ------------------------------------------------------------ */
+
+section("12r. dampers, terminals and accessories are counted, never added to the metal");
+{
+  const extras = await import("../lib/extras.ts");
+  const csv = await import("../lib/export/csv.ts");
+  const x = (over) => ({ ...extras.blankExtra("x" + Math.random()), ...over });
+
+  const list = [
+    x({ category: "terminal", item: "Supply air grille", qty: 10, rate: 850 }),
+    x({ category: "damper", item: "Volume control damper (VCD)", qty: 4, rate: 2500 }),
+    x({ category: "accessory", item: "Flexible duct", shape: "round", d: 250, qty: 7.5, unit: "m", rate: 180.35 }),
+    x({ category: "custom", item: "Labour", shape: "none", qty: 1, unit: "lot", rate: 0 }),
+  ];
+  const t = extras.computeExtras(list);
+  eq(t.rows[0].extra.category, "damper", "rows are grouped: dampers first");
+  eq(t.rows.map((r) => r.index).join(","), "1,2,3,4", "…and numbered in that order");
+  /* 4 × 2500 + 10 × 850 + 7.5 × 180.35 (= 1352.625 → 1352.63) */
+  eq(units.fmtValue(t.valueMinor), "19,852.63", "value = the sum of the rounded line values");
+  check(t.priced, "a job with any rate shows rates");
+  check(!extras.computeExtras([list[3]]).priced, "…and one with none does not");
+
+  /* The quantity rule: countable units are whole, metres keep three places. */
+  eq(extras.normaliseQty(3.7, "nos"), 3, "3.7 dampers is 3");
+  eq(extras.normaliseQty(0, "nos"), 1, "zero dampers is one — a line of nothing is not a line");
+  eq(extras.normaliseQty(7.5, "m"), 7.5, "7.5 m of flexible duct stays 7.5");
+  eq(extras.normaliseQty(1.23456, "m²"), 1.235, "areas keep three decimals");
+
+  /* The reviver: total, never throws, drops what it cannot read. */
+  const revived = extras.reviveExtras(
+    [
+      { item: "VCD", category: "damper", qty: 2, w: 600, h: 400, shape: "rect", rate: 10 },
+      { item: "", category: "damper" },
+      "garbage",
+      { item: "Mystery", category: "spaceship", unit: "parsecs", qty: -5, shape: "hexagon" },
+    ],
+    () => "new-id",
+  );
+  eq(revived.length, 2, "an unreadable or nameless extra is dropped");
+  eq(revived[1].category, "custom", "an unknown category becomes a custom line");
+  eq(revived[1].unit, "nos", "an unknown unit becomes nos");
+  eq(revived[1].shape, "none", "an unknown shape has no size");
+  eq(revived[1].qty, 1, "a negative quantity becomes one");
+  eq(extras.reviveExtras(undefined, () => "x").length, 0, "a project from before extras has none");
+  const old = project.reviveProject({ name: "Saved in August", entries: [] });
+  eq(old?.extras.length, 0, "…and opens with an empty list");
+
+  /* In both CSVs, once, stating they are outside the metal. */
+  const p = { ...project.blankProject("With extras"), extras: list };
+  const out = csv.toCsv(p);
+  check(out.includes("DAMPERS, TERMINALS AND ACCESSORIES"), "the CSV has the extras block");
+  check(out.includes("Not included in the sheet-metal area or weight"), "…and says they are not in the metal");
+  check(csv.toDetailedCsv(p).includes("DAMPERS, TERMINALS AND ACCESSORIES"), "the working CSV has it too");
+  check(!csv.toCsv(project.blankProject("None")).includes("DAMPERS, TERMINALS"), "no extras, no block");
+
+  /* And they never touch the duct figures. */
+  const withDuct = { ...p, entries: [line(A.straight, 1, 0)] };
+  const without = { ...withDuct, extras: [] };
+  const { computeTotals } = await import("../lib/duct/compute.ts");
+  eq(computeTotals(withDuct).grossAreaMinor, computeTotals(without).grossAreaMinor, "extras add nothing to the area");
+  eq(computeTotals(withDuct).massMinor, computeTotals(without).massMinor, "…or to the weight");
+
+  check(project.PROJECT_SCHEMA >= 5, "schema is at least 5 once extras exist");
 }
 
 /* ---- 12p. the print layout ---------------------------------------------- */

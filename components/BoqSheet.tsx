@@ -17,12 +17,15 @@ import {
   areaUnit,
   fmt,
   fmtArea,
+  fmtExact,
   fmtMass,
   fmtRun,
   fmtValue,
   massUnit,
   runUnit,
+  toValueMinor,
 } from "@/lib/duct/units";
+import { computeExtras, describeExtraSize } from "@/lib/extras";
 import {
   BYLINE_PATH,
   LOGO,
@@ -135,6 +138,8 @@ export type SheetItem =
       node: ReactNode;
       /** Items after this one that must start on the same page. */
       keepWithNext?: number;
+      /** Brings the item before it when it turns a page — see paginate.ts. */
+      keepWithPrevious?: boolean;
     }
   | {
       kind: "table";
@@ -156,6 +161,12 @@ export type SheetItem =
 export type TableItem = Extract<SheetItem, { kind: "table" }>;
 
 type Row = { entry: Entry; index: number; r: EntryResult };
+
+/** An extras table carries a zone column only when some extra has a zone. */
+const zonesExtras = (project: Project) => project.extras.some((x) => x.zone.trim() !== "");
+
+/** A quantity as counted: whole numbers bare, metres to three places. */
+const fmtQty = (q: number) => fmtExact(q, 3);
 
 type Column = {
   key: ColumnKey;
@@ -514,6 +525,94 @@ export function sheetItems(project: Project, options: PrintOptions): SheetItem[]
     });
   }
 
+  /* THE EXTRAS: dampers, terminals, accessories, custom lines. Their own
+   * table, grouped by category under a label row, and said out loud to be
+   * outside the sheet-metal figures above — a damper is counted here, never
+   * added to the duct's area or weight. Rate and value appear only when some
+   * line has a rate, like the schedule's own value column. */
+  const extras = computeExtras(project.extras);
+  if (on.extras && extras.rows.length > 0) {
+    const cols = 5 + (extras.priced ? 2 : 0) + (zonesExtras(project) ? 1 : 0);
+    const showZone = zonesExtras(project);
+    const rowsOut: SheetRow[] = [];
+    for (const cat of extras.byCategory) {
+      rowsOut.push({
+        key: `cat-${cat.category}`,
+        node: (
+          <tr key={`cat-${cat.category}`}>
+            <td colSpan={cols} className="pb-[0.2em] pt-[0.7em] text-[0.85em] font-bold uppercase tracking-[0.06em]">
+              {cat.label}
+            </td>
+          </tr>
+        ),
+      });
+      for (const r of extras.rows.filter((x) => x.extra.category === cat.category)) {
+        const x = r.extra;
+        rowsOut.push({
+          key: x.id,
+          node: (
+            <tr key={x.id}>
+              <td className={TD}>{r.index}</td>
+              {showZone && <td className={TD}>{x.zone}</td>}
+              <td className={TD}>
+                {x.item}
+                {x.note && <span className="block text-[0.85em]">{x.note}</span>}
+              </td>
+              <td className={`${TD} tabular-nums`}>{describeExtraSize(x, us)}</td>
+              <td className={`${TD} text-right tabular-nums`}>{fmtQty(x.qty)}</td>
+              <td className={TD}>{x.unit}</td>
+              {extras.priced && (
+                <>
+                  <td className={`${TD} text-right tabular-nums`}>{x.rate > 0 ? fmtValue(toValueMinor(x.rate)) : ""}</td>
+                  <td className={`${TD} text-right tabular-nums`}>{r.valueMinor ? fmtValue(r.valueMinor) : ""}</td>
+                </>
+              )}
+            </tr>
+          ),
+        });
+      }
+    }
+    items.push({
+      kind: "table",
+      key: "extras",
+      heading: (
+        <div>
+          <h2 className={H2}>Dampers, terminals and accessories</h2>
+          <p className="mt-[0.2em] text-[0.85em] text-slate">
+            Counted items. Not included in the sheet-metal area or weight above.
+          </p>
+        </div>
+      ),
+      label: "Dampers, terminals and accessories",
+      pad: "0.5em",
+      head: (
+        <tr>
+          <th className={TH}>#</th>
+          {showZone && <th className={TH}>Zone</th>}
+          <th className={TH}>Item</th>
+          <th className={TH}>Size ({us === "metric" ? "mm" : "in"})</th>
+          <th className={`${TH} text-right`}>Qty</th>
+          <th className={TH}>Unit</th>
+          {extras.priced && (
+            <>
+              <th className={`${TH} text-right`}>Rate {project.rates.label}</th>
+              <th className={`${TH} text-right`}>Value {project.rates.label}</th>
+            </>
+          )}
+        </tr>
+      ),
+      rows: rowsOut,
+      total: extras.priced ? (
+        <tr>
+          <td className={TF} colSpan={cols - 1}>
+            Total, {extras.rows.length} {extras.rows.length === 1 ? "item" : "items"}
+          </td>
+          <td className={`${TF} text-right`}>{fmtValue(extras.valueMinor)}</td>
+        </tr>
+      ) : undefined,
+    });
+  }
+
   if (on.basis) {
     /* One block per note, so the basis can run over a page; the heading keeps
      * its first note with it. */
@@ -536,6 +635,9 @@ export function sheetItems(project: Project, options: PrintOptions): SheetItem[]
     items.push({
       kind: "block",
       key: "credit",
+      /* Two lines of credit alone on a last page is a page printed for
+       * nothing; it takes the last note over with it instead. */
+      keepWithPrevious: true,
       node: (
         <p className="mt-[1.6em] border-t border-mist pt-[0.5em] text-center text-[0.85em]">
           {on.credit && APP_CREDIT}
