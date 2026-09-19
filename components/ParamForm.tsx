@@ -179,7 +179,9 @@ export default function ParamForm({
                   title={p.detail}
                   onClick={() => onChange({ ...draft, waste: String(p.value) })}
                   aria-pressed={draft.waste === String(p.value)}
-                  className={`rounded-full border px-2.5 py-1 text-small tabular-nums transition duration-200 ease-out ${
+                  /* 40 px tall: the smallest target a thumb reliably hits.
+                   * These were 32, the smallest controls in the app. */
+                  className={`h-10 min-w-12 rounded-full border px-2.5 text-small tabular-nums transition duration-200 ease-out ${
                     draft.waste === String(p.value)
                       ? "border-line bg-heading text-page"
                       : "border-rule text-body hover:bg-sunk"
@@ -202,7 +204,7 @@ export default function ParamForm({
             type="button"
             onClick={() => onChange({ ...draft, gauge: null })}
             aria-pressed={draft.gauge === null}
-            className={`rounded-full border-[1.5px] px-3.5 py-1.5 text-small font-medium transition duration-200 ease-out ${
+            className={`h-10 rounded-full border-[1.5px] px-3.5 text-small font-medium transition duration-200 ease-out ${
               draft.gauge === null
                 ? "border-line bg-heading text-page"
                 : "border-line text-heading hover:bg-sunk"
@@ -216,7 +218,7 @@ export default function ParamForm({
               type="button"
               onClick={() => onChange({ ...draft, gauge: b.gauge as GaugeName })}
               aria-pressed={draft.gauge === b.gauge}
-              className={`rounded-full border-[1.5px] px-3 py-1.5 text-small font-medium tabular-nums transition duration-200 ease-out ${
+              className={`h-10 rounded-full border-[1.5px] px-3 text-small font-medium tabular-nums transition duration-200 ease-out ${
                 draft.gauge === b.gauge
                   ? "border-line bg-heading text-page"
                   : "border-line text-heading hover:bg-sunk"

@@ -2,7 +2,7 @@
 
 import { Plus, RotateCcw } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ViewKind } from "@/lib/draw";
 import { computeFor, computeTotals } from "@/lib/duct/compute";
 import { SPECS } from "@/lib/duct/formulas";
@@ -68,6 +68,20 @@ export default function Workspace() {
   /* Only meaningful below `lg`; at `lg` every panel is visible at once and the
    * classes that read this are overridden. */
   const [tab, setTab] = useState<Tab>("fitting");
+  /* Where the tabs start, so a tab switch made further down the page can
+   * bring you back to the top of the new tab — see the tab row. */
+  const tabsTop = useRef<HTMLDivElement>(null);
+  const pickTab = (next: Tab) => {
+    setTab(next);
+    const el = tabsTop.current;
+    if (!el) return;
+    /* Scrolling UP brings the header back (StickyHeader), and the stuck tab
+     * row sits under it — so land the header's height above the tabs, or the
+     * top of the new tab starts hidden behind both. */
+    const header = document.querySelector<HTMLElement>("[data-sticky-header]")?.offsetHeight ?? 0;
+    const y = el.getBoundingClientRect().top + window.scrollY - header;
+    if (window.scrollY > y) window.scrollTo({ top: Math.max(0, y) });
+  };
 
   /* THE WORKSPACE RENDERS IMMEDIATELY, EMPTY, AND FILLS IN.
    *
@@ -279,6 +293,9 @@ export default function Workspace() {
     if (!entry) return;
     setDraft(draftFromEntry(entry, project.units));
     setEditingId(id);
+    /* On a phone, Edit was pressed on the Takeoff tab, where the form it just
+     * filled is hidden: it looked like nothing happened. Go to the form. */
+    pickTab("fitting");
   };
 
   const duplicateEntry = (id: string) => {
@@ -387,15 +404,26 @@ export default function Workspace() {
           * with room; `truncate` is the belt-and-braces that keeps a future
           * longer label from pushing the page sideways rather than being
           * clipped inside its own pill. */}
-        <div className="mb-4 grid grid-cols-5 gap-1 xs:gap-1.5 lg:hidden" role="tablist">
+        {/* STICKY, under the header, since 19 Sep 2026. The tabs scrolled away
+          * with the page, so moving from the bottom of the Fitting form to the
+          * Drawing meant scrolling all the way back up to find them. They now
+          * ride under the header — at the header's height while it shows, at
+          * the top while it is scrolled away (`--sticky-header`, published by
+          * StickyHeader) — and a tap brings you to the top of that tab, not to
+          * wherever the last one was scrolled. */}
+        <div ref={tabsTop} aria-hidden="true" />
+        <div
+          className="sticky top-[var(--sticky-header,0px)] z-30 -mx-5 mb-4 grid grid-cols-5 gap-1 border-b-[1.5px] border-rule bg-page/95 px-5 py-2 backdrop-blur transition-[top] duration-200 ease-out xs:gap-1.5 md:-mx-8 md:px-8 lg:hidden"
+          role="tablist"
+        >
           {TABS.map((t) => (
             <button
               key={t.key}
               type="button"
               role="tab"
               aria-selected={tab === t.key}
-              onClick={() => setTab(t.key)}
-              className={`min-w-0 truncate rounded-full border-[1.5px] px-1 py-1.5 text-[13px] font-medium transition-colors duration-200 ease-out xs:px-3.5 xs:text-small ${
+              onClick={() => pickTab(t.key)}
+              className={`h-11 min-w-0 truncate rounded-full border-[1.5px] px-1 text-[13px] font-medium transition-colors duration-200 ease-out xs:px-2 xs:text-small ${
                 tab === t.key
                   ? "border-line bg-heading text-page"
                   : "border-transparent text-body hover:bg-sunk"
@@ -581,9 +609,17 @@ export default function Workspace() {
             as="section"
             className={`lg:col-span-12 ${tab === "result" ? "" : "hidden lg:block"}`}
           >
+            {/* The title names the fitting. "Not added yet" on its own, as the
+              * first words of the Result tab, read as an empty state — as if
+              * there were no result — when it meant "these figures are for a
+              * fitting you have not added". */}
             <PanelHeading
               eyebrow="This fitting"
-              title={editingId ? "Line being edited" : "Not added yet"}
+              title={
+                editingId
+                  ? `${spec.name} — line ${project.entries.findIndex((e) => e.id === editingId) + 1}, being edited`
+                  : `${spec.name} — not added yet`
+              }
             />
             <ResultPanel
               result={preview}

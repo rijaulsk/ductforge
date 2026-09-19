@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import HeaderMenu from "./HeaderMenu";
 import SiteNav, { type NavKey } from "./SiteNav";
 import StickyHeader from "./StickyHeader";
 import ThemeToggle from "./ThemeToggle";
@@ -39,6 +40,7 @@ export default function AppHeader({
   labels,
   right,
   children,
+  phoneRow,
   held = false,
 }: {
   current: NavKey;
@@ -46,13 +48,35 @@ export default function AppHeader({
   right?: ReactNode;
   /** Page-specific chrome, on its own row under the identity row. */
   children?: ReactNode;
+  /**
+   * ONE ROW BELOW `lg`, for the calculator. When given, a phone gets the tile,
+   * this, and a menu holding the nav and the theme — instead of three rows
+   * (identity, nav, then `children`). See HeaderMenu for why only here.
+   */
+  phoneRow?: ReactNode;
   /** Hold it on screen — a disclosure inside it is open. */
   held?: boolean;
 }) {
   return (
     <StickyHeader className="print:hidden" held={held}>
       <header className="border-b-[1.5px] border-line bg-page/95 backdrop-blur">
-        <div className="mx-auto w-full max-w-canvas px-5 md:px-8">
+        {/* `relative`, so a panel a phone row opens can hang from the whole
+          * header's width rather than from the narrow cell it was opened in. */}
+        <div className="relative mx-auto w-full max-w-canvas px-5 md:px-8">
+          {phoneRow && (
+            <div className="flex h-14 items-center gap-2 lg:hidden">
+              <Wordmark size="sm" compact />
+              <div className="min-w-0 flex-1">{phoneRow}</div>
+              <HeaderMenu>
+                <SiteNav
+                  current={current}
+                  labels={labels}
+                  className="flex-col items-stretch [&>a]:px-3 [&>a]:py-2.5"
+                />
+              </HeaderMenu>
+            </div>
+          )}
+          <div className={phoneRow ? "hidden lg:block" : undefined}>
           {/* Fixed height, so no page's `right` slot can move the logo. 48px
             * rather than 56: it is one row of 38px artwork and 32px pills, and
             * every pixel of a sticky bar is charged on every scroll position. */}
@@ -91,6 +115,7 @@ export default function AppHeader({
             </div>
           </div>
           {children && <div className="border-t-[1.5px] border-rule py-2.5">{children}</div>}
+          </div>
         </div>
       </header>
     </StickyHeader>

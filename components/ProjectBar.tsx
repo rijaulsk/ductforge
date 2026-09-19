@@ -196,35 +196,35 @@ export default function ProjectBar({
     />
   );
 
-  /* No `right` prop: AppHeader mounts the theme toggle on every page now,
-   * which is also how /standards and /guide got one at all — it used to be
-   * mounted here and therefore existed only on the calculator. */
-  return (
-    <AppHeader current="calculator" held={panelOpen}>
-      {/* One file input for both layouts. */}
-      <input
-        ref={fileRef}
-        type="file"
-        accept="application/json,.json"
-        className="sr-only"
-        aria-label="Open a DuctForge project file"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) onImport(file);
-          /* Cleared so re-picking the same file fires change again. */
-          e.target.value = "";
-        }}
-      />
-
-      {/* ---- phone ----
-        * Explicit state rather than a <details>: the name field has to live in
-        * the same row as the toggle, and an <input> inside a <summary> hands
-        * every tap to the disclosure instead of to the field.
-        *
-        * No wordmark and no nav here any more — AppHeader owns the identity row
-        * on every page, which is what stopped the logo moving on navigation. */}
-      <div className="relative lg:hidden">
-        <div className="flex items-center gap-3">
+  /* ---- phone ----
+   * ONE ROW with AppHeader's tile and menu: the name, and a button that opens
+   * the rest. It used to be the header's third row, under the logo and a row of
+   * nav pills — 163 px of a 390 px phone's height before any content, charged
+   * again every time the header slid back. See HeaderMenu.
+   *
+   * Explicit state rather than a <details>: the name field has to live in the
+   * same row as the toggle, and an <input> inside a <summary> hands every tap
+   * to the disclosure instead of to the field. */
+  const phoneRow = (
+    <>
+        {/* ONE FILE INPUT for both layouts, and it lives HERE, in the part a
+          * phone shows. iOS Safari will not open a picker for an input inside a
+          * `display: none` parent, and the desktop block is exactly that on a
+          * phone; desktop browsers open it hidden or not. */}
+        <input
+          ref={fileRef}
+          type="file"
+          accept="application/json,.json"
+          className="sr-only"
+          aria-label="Open a DuctForge project file"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) onImport(file);
+            /* Cleared so re-picking the same file fires change again. */
+            e.target.value = "";
+          }}
+        />
+        <div className="flex items-center gap-2">
           <label htmlFor={`${uid}-name-m`} className="sr-only">
             Project name
           </label>
@@ -260,10 +260,12 @@ export default function ProjectBar({
           * Absolutely positioned, it overlays the page instead of displacing
           * it, and it scrolls internally if it runs out of room. Nothing below
           * moves, and nothing can become unreachable. */}
+        {/* Hangs from the whole header (AppHeader's container is `relative`),
+          * not from this row's narrow middle cell. */}
         {panelOpen && (
           <div
             id={`${uid}-panel`}
-            className="absolute inset-x-0 top-full z-50 mt-3 max-h-[70svh] space-y-4 overflow-y-auto overscroll-contain rounded-card border-[1.5px] border-line bg-page p-4 shadow-none"
+            className="absolute inset-x-3 top-full z-50 mt-2 max-h-[70svh] space-y-4 overflow-y-auto overscroll-contain rounded-card border-[1.5px] border-line bg-page p-4 shadow-none"
           >
             <div className="flex items-center gap-2">
               <label htmlFor={`${uid}-project-m`} className="sr-only">
@@ -291,8 +293,14 @@ export default function ProjectBar({
             {actions}
           </div>
         )}
-      </div>
+    </>
+  );
 
+  /* No `right` prop: AppHeader mounts the theme toggle on every page now,
+   * which is also how /standards and /guide got one at all — it used to be
+   * mounted here and therefore existed only on the calculator. */
+  return (
+    <AppHeader current="calculator" held={panelOpen} phoneRow={phoneRow}>
       {/* ---- desktop ----
         * No container of its own: AppHeader's is the container, on every page.
         * This block used to carry `mx-auto max-w-canvas px-8`, which is why it

@@ -85,7 +85,9 @@ export default function Viewer({
 
   return (
     <div>
-      <div className="mb-4 flex flex-wrap items-center gap-2">
+      {/* Three equal cells in ONE row on a phone — as pills they wrapped onto
+        * two, a third "row" of chrome above a drawing that needs the height. */}
+      <div className="mb-4 grid grid-cols-3 gap-1.5 sm:flex sm:flex-wrap sm:items-center sm:gap-2">
         {VIEWS.map((v) => {
           const on = v.kind === view;
           return (
@@ -95,7 +97,7 @@ export default function Viewer({
               title={v.hint}
               aria-pressed={on}
               onClick={() => onView(v.kind)}
-              className={`rounded-full border-[1.5px] px-4 py-2 text-small font-medium transition duration-200 ease-out ${
+              className={`h-10 min-w-0 truncate rounded-full border-[1.5px] px-1 text-small font-medium transition duration-200 ease-out sm:px-4 ${
                 on ? "border-line bg-heading text-page" : "border-line text-heading hover:bg-sunk"
               }`}
             >
@@ -146,8 +148,10 @@ export default function Viewer({
           * the only way to read the dimensions at all — see DrawingDialog. */}
         <ZoomPan
           label={`the ${name} drawing`}
+          /* Not on the isometric, where a touch is the start of a turn. */
+          onTap={rotatable ? undefined : () => setExpanded(true)}
           controls={
-            <Button size="sm" onClick={() => setExpanded(true)}>
+            <Button size="sm" onClick={() => setExpanded(true)} className="h-10">
               <Expand size={16} strokeWidth={1.6} /> Full screen
             </Button>
           }

@@ -96,7 +96,8 @@ function Presets({
             type="button"
             aria-pressed={on}
             onClick={() => onPick(p.mm)}
-            className={`rounded-full border px-2.5 py-1 text-small tabular-nums transition duration-200 ease-out ${
+            /* 40 px, like every other chip now (was 32). */
+            className={`h-10 rounded-full border px-2.5 text-small tabular-nums transition duration-200 ease-out ${
               on ? "border-line bg-heading text-page" : "border-rule text-body hover:bg-sunk"
             }`}
           >
