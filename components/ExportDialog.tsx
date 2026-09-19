@@ -54,8 +54,9 @@ type Format = "pdf" | "csv" | "working" | "project";
 const FORMATS: { value: Format; label: string; title: string }[] = [
   { value: "pdf", label: "PDF", title: "The quantity sheet — set it up and preview it" },
   { value: "csv", label: "CSV", title: "The schedule as a spreadsheet" },
-  { value: "working", label: "CSV + working", title: "The schedule with every step written out" },
-  { value: "project", label: "Project file", title: "The whole takeoff, to reopen or send on" },
+  /* Short enough for a quarter of a 320 px row; the title says the rest. */
+  { value: "working", label: "Working", title: "CSV + working — the schedule with every step written out" },
+  { value: "project", label: "Project", title: "Project file — the whole takeoff, to reopen or send on" },
 ];
 
 /**
@@ -103,6 +104,26 @@ function printAs(title: string): void {
  * computed from the viewport's width, and a scrollbar appearing as the sheet
  * zooms would narrow it, change the fit, and oscillate.
  */
+/** A 40 px round icon button — the smallest target a thumb reliably hits. */
+function IconButton({
+  label,
+  children,
+  className = "",
+  ...rest
+}: { label: string; children: React.ReactNode } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-[1.5px] border-line text-heading transition-colors duration-200 ease-out hover:bg-sunk disabled:pointer-events-none disabled:opacity-45 ${className}`}
+      {...rest}
+    >
+      {children}
+    </button>
+  );
+}
+
 const ZOOM_MIN = 0.5;
 const ZOOM_MAX = 4;
 const ZOOM_STEP = 1.25;
@@ -234,47 +255,50 @@ function SheetPreview({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-2">
+      {/* ONE ROW, at every width. It used to wrap onto two at 390 px — a page
+        * label, four pill buttons and a percentage — and cost the preview a
+        * sixth of a phone screen. Now: the count, then − · % · + · Fit, where
+        * the percentage is itself the "actual size" button. */}
+      <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
         {/* Named from the chosen size, never inferred from the width — rotated,
           * A4 is 297 mm wide, and a width test called it Letter. */}
-        <p className="text-small text-muted" aria-live="polite">
-          {options.page.size === "a4" ? "A4" : "Letter"} {options.page.orientation} · {pages}{" "}
-          {pages === 1 ? "page" : "pages"}
+        <p className="min-w-0 truncate text-small text-muted" aria-live="polite">
+          <span className="hidden xs:inline">
+            {options.page.size === "a4" ? "A4" : "Letter"} {options.page.orientation} ·{" "}
+          </span>
+          {pages} {pages === 1 ? "page" : "pages"}
         </p>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            size="sm"
+        <div className="flex shrink-0 items-center gap-1.5">
+          <IconButton
             onClick={() => zoomTo(zoom / ZOOM_STEP)}
             disabled={zoom <= ZOOM_MIN}
-            aria-label="Zoom out of the preview"
+            label="Zoom out of the preview"
           >
             <Minus size={16} strokeWidth={1.8} />
-          </Button>
-          <Button
-            size="sm"
+          </IconButton>
+          <button
+            type="button"
+            onClick={() => zoomTo(actual)}
+            disabled={Math.abs(zoom - actual) < 0.01}
+            title="Show the sheet at the size it prints"
+            aria-label={`${Math.round(scale * 100)}% — show at the size it prints`}
+            className="h-10 min-w-14 rounded-full px-2 text-small font-medium tabular-nums text-heading transition-colors duration-200 ease-out hover:bg-card disabled:text-muted"
+          >
+            {Math.round(scale * 100)}%
+          </button>
+          <IconButton
             onClick={() => zoomTo(zoom * ZOOM_STEP)}
             disabled={zoom >= ZOOM_MAX}
-            aria-label="Zoom in on the preview"
+            label="Zoom in on the preview"
           >
             <Plus size={16} strokeWidth={1.8} />
-          </Button>
+          </IconButton>
           {/* "Fit", not "Fit width": on a wide screen the fit is capped at life
             * size and the page does not fill the width, so the longer label
             * described something the button does not do there. */}
-          <Button size="sm" onClick={() => zoomTo(1)} disabled={zoom === 1}>
+          <Button size="sm" onClick={() => zoomTo(1)} disabled={zoom === 1} className="h-10">
             Fit
           </Button>
-          <Button
-            size="sm"
-            onClick={() => zoomTo(actual)}
-            disabled={Math.abs(zoom - actual) < 0.01}
-            title="The size the sheet will print at"
-          >
-            Actual size
-          </Button>
-          <span className="w-12 text-right text-small tabular-nums text-muted" aria-live="polite">
-            {Math.round(scale * 100)}%
-          </span>
         </div>
       </div>
 
@@ -562,7 +586,7 @@ export default function ExportDialog({
   const [format, setFormat] = useState<Format>("pdf");
   /* Below `lg` the settings and the preview take turns; from `lg` they sit side
    * by side and this is ignored. */
-  const [pane, setPane] = useState<"settings" | "preview">("settings");
+  const [pane, setPane] = useState<"settings" | "preview">("preview");
 
   /* BOTH EFFECTS DEPEND ON `mounted`, and leaving it out broke reopening.
    *
@@ -614,16 +638,13 @@ export default function ExportDialog({
     }
   };
 
+  /* `short` is what fits beside the title on the narrowest phones. */
   const primary =
     format === "pdf"
-      ? { label: "Save as PDF", icon: <FileText size={18} strokeWidth={1.8} />, act: savePdf }
+      ? { label: "Save as PDF", short: "PDF", icon: <FileText size={18} strokeWidth={1.8} />, act: savePdf }
       : {
-          label:
-            format === "project"
-              ? "Download project file"
-              : format === "working"
-                ? "Download CSV + working"
-                : "Download CSV",
+          label: format === "project" ? "Download file" : "Download CSV",
+          short: "Download",
           icon: <Download size={18} strokeWidth={1.8} />,
           act: download,
         };
@@ -632,47 +653,81 @@ export default function ExportDialog({
     format === "csv" ? toCsv(project) : format === "working" ? toDetailedCsv(project) : null;
 
   return createPortal(
+    /* `border-0` and `overflow-hidden` on the dialog itself: a native dialog
+     * has a UA border, which on a full-height dialog is four pixels of
+     * overflow — and a whole-dialog scrollbar outside the panes that own the
+     * scrolling. Only the panes scroll. */
     <dialog
       ref={ref}
       aria-label="Export this takeoff"
-      className="m-0 h-full max-h-none w-full max-w-none bg-page p-0 text-body backdrop:bg-ink/70 print:hidden"
+      className="m-0 h-full max-h-none w-full max-w-none overflow-hidden border-0 bg-page p-0 text-body backdrop:bg-ink/70 print:hidden"
     >
       {open && (
         <div className="flex h-full flex-col">
-          <div className="flex shrink-0 items-start justify-between gap-3 border-b-[1.5px] border-line px-4 py-3 md:px-6">
-            <div className="min-w-0">
-              <p className="text-eyebrow uppercase text-accent">Export</p>
-              <p className="mt-1 font-medium text-heading">{project.name || "Untitled takeoff"}</p>
-            </div>
-            <Button onClick={onClose} className="shrink-0" aria-label="Close export">
+          {/* ONE ROW: close, what this is, and the action. The action used to
+            * sit in a footer bar of its own and the title took two lines —
+            * together a fifth of a phone screen the preview could have had. */}
+          <div className="flex shrink-0 items-center gap-2 border-b-[1.5px] border-line px-3 py-2 md:gap-3 md:px-6 md:py-3">
+            <IconButton label="Close export" onClick={onClose}>
               <X size={18} strokeWidth={1.8} />
-              Close
+            </IconButton>
+            <div className="min-w-0 flex-1">
+              <p className="text-eyebrow uppercase text-accent">Export</p>
+              <p className="truncate text-small font-medium text-heading md:text-body">
+                {project.name || "Untitled takeoff"}
+              </p>
+            </div>
+            {/* The one clay element on screen: the modal covers the page's own. */}
+            <Button variant="primary" size="sm" onClick={primary.act} className="h-10 shrink-0">
+              {primary.icon}
+              <span className="hidden xs:inline">{primary.label}</span>
+              <span className="xs:hidden">{primary.short}</span>
             </Button>
           </div>
 
-          <div className="shrink-0 border-b-[1.5px] border-rule px-4 py-3 md:px-6">
-            <Segmented
-              label="Export format"
-              size="sm"
-              value={format}
-              onChange={setFormat}
-              options={FORMATS}
-            />
+          {/* The format, as four equal cells in one row at every width. As
+            * pills it wrapped onto two rows on a phone. */}
+          <div
+            role="group"
+            aria-label="Export format"
+            className="grid shrink-0 grid-cols-4 gap-1.5 border-b-[1.5px] border-rule px-3 py-2 md:max-w-xl md:px-6"
+          >
+            {FORMATS.map((f) => (
+              <button
+                key={f.value}
+                type="button"
+                title={f.title}
+                aria-pressed={format === f.value}
+                onClick={() => setFormat(f.value)}
+                className={`h-10 truncate rounded-full border-[1.5px] border-line px-0.5 text-[13px] font-medium tracking-tight transition-colors duration-200 ease-out xs:px-1 xs:text-small xs:tracking-normal ${
+                  format === f.value ? "bg-heading text-page" : "text-heading hover:bg-sunk"
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
           </div>
 
           {format === "pdf" ? (
             <>
-              <div className="shrink-0 px-4 pt-3 lg:hidden">
-                <Segmented
-                  label="Show"
-                  size="sm"
-                  value={pane}
-                  onChange={setPane}
-                  options={[
-                    { value: "settings", label: "Settings" },
-                    { value: "preview", label: "Preview" },
-                  ]}
-                />
+              {/* Settings and preview take turns below `lg`, as two full-width
+                * tabs. The preview is the default on a phone: it is what you
+                * came to see, and most exports need no setting changed. */}
+              <div role="tablist" aria-label="Show" className="grid shrink-0 grid-cols-2 border-b-[1.5px] border-rule lg:hidden">
+                {(["preview", "settings"] as const).map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    role="tab"
+                    aria-selected={pane === p}
+                    onClick={() => setPane(p)}
+                    className={`h-11 border-b-2 text-small font-medium transition-colors duration-200 ease-out ${
+                      pane === p ? "border-heading text-heading" : "border-transparent text-muted"
+                    }`}
+                  >
+                    {p === "preview" ? "Preview" : "Settings"}
+                  </button>
+                ))}
               </div>
               {/* One row exactly as tall as the space left: each pane then owns
                 * its own scrolling and neither can push the dialog taller.
@@ -695,11 +750,19 @@ export default function ExportDialog({
                   }`}
                 >
                   <PdfSettings options={options} zonesExist={zonesExist} onChange={onPrintChange} />
+                  <div className="mt-8 border-t-[1.5px] border-rule pt-5">
+                    <Button
+                      variant="quiet"
+                      onClick={() => onPrintChange(() => defaultPrintOptions())}
+                    >
+                      <RotateCcw size={15} strokeWidth={1.6} /> Reset to the full sheet
+                    </Button>
+                  </div>
                 </div>
                 {/* No overflow here: the preview owns its own scroll viewport,
                   * which is what lets it zoom and still reach page two. */}
                 <div
-                  className={`min-h-0 min-w-0 flex-col bg-sunk px-4 py-5 md:px-6 lg:col-span-8 lg:flex ${
+                  className={`min-h-0 min-w-0 flex-col bg-sunk px-2 pb-2 pt-2 md:px-6 md:py-5 lg:col-span-8 lg:flex ${
                     pane === "preview" ? "flex" : "hidden"
                   }`}
                 >
@@ -732,23 +795,6 @@ export default function ExportDialog({
             </div>
           )}
 
-          <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t-[1.5px] border-line px-4 py-3 md:px-6">
-            {format === "pdf" ? (
-              <Button
-                variant="quiet"
-                onClick={() => onPrintChange(() => defaultPrintOptions())}
-              >
-                <RotateCcw size={15} strokeWidth={1.6} /> Reset to the full sheet
-              </Button>
-            ) : (
-              <span />
-            )}
-            {/* The one clay element on screen: the modal covers the page's own. */}
-            <Button variant="primary" onClick={primary.act}>
-              {primary.icon}
-              {primary.label}
-            </Button>
-          </div>
         </div>
       )}
     </dialog>,
