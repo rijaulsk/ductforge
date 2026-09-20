@@ -69,6 +69,22 @@ const FORMATS: { value: Format; label: string; title: string }[] = [
  * dialog closes. Module level rather than inside the component: it touches a
  * global, and a closure built during render must not.
  */
+/**
+ * What the PDF saves as: THE JOB'S OWN NAME, on the owner's call (20 Sep
+ * 2026) — "Office Tower — AHU-1", not the slug the CSVs use. A printed sheet
+ * is handed to a person, and it should arrive called what they call the job.
+ *
+ * Only the characters a file system cannot take are replaced; the reference
+ * comes along when there is one, because two takeoffs of the same building
+ * are told apart by it. A job with no name falls back to the document's own
+ * title rather than saving as nothing.
+ */
+function pdfName(project: Project): string {
+  const parts = [project.name.trim(), project.reference.trim()].filter(Boolean);
+  const name = parts.join(" - ").replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim();
+  return name.slice(0, 80) || DEFAULT_TITLE;
+}
+
 function printAs(title: string): void {
   const before = document.title;
   document.title = title;
@@ -612,12 +628,28 @@ export default function ExportDialog({
     return () => el.removeEventListener("close", sync);
   }, [onClose, mounted]);
 
+  /* THE DOCUMENT IS THE TAKEOFF WHILE THIS IS OPEN, and that is what names the
+   * saved file: every browser offers its Save as PDF under the document's
+   * title. The button below sets it for the length of its own print, but the
+   * browser's OWN print — Ctrl+P, the menu, a phone's share sheet — does not go
+   * through that button, and those saved as "DuctForge — HVAC duct takeoff &
+   * sheet metal calculator by DebugSwift". Held for as long as the dialogue is
+   * open, so every route out of here names the file after the job. */
+  useEffect(() => {
+    if (!open) return;
+    const before = document.title;
+    document.title = pdfName(project);
+    return () => {
+      document.title = before;
+    };
+  }, [open, project]);
+
   if (!mounted) return null;
 
   const options = project.print;
   const zonesExist = hasZones(computeTotals(project));
 
-  const savePdf = () => printAs(safeFilename(project.name, "pdf").replace(/\.pdf$/, ""));
+  const savePdf = () => printAs(pdfName(project));
 
   const download = () => {
     if (format === "csv") {
