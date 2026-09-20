@@ -8,6 +8,7 @@ import {
   PX_PER_MM,
   type PrintOptions,
   TEXT_PT,
+  contentMm,
   pageMm,
 } from "@/lib/export/printOptions";
 import {
@@ -47,6 +48,12 @@ export type SheetLayout = {
  * pixel would then push its bottom row's border into the margin. */
 const SLACK_PX = 3;
 
+/** The running footer's line, in ems of the sheet's root size — one line of
+ * 0.75em type plus the air above it. Reserved out of every page. */
+const FOOTER_EM = 1.9;
+
+const PX_PER_PT = 96 / 72;
+
 const sheetStyle = (options: PrintOptions) => ({
   fontSize: `${TEXT_PT[options.page.text]}pt`,
   lineHeight: 1.35,
@@ -64,8 +71,11 @@ export function SheetMeasurer({
   const ref = useRef<HTMLDivElement>(null);
   const items = useMemo(() => sheetItems(project, options), [project, options]);
   const last = useRef("");
-  const { w, h } = pageMm(options.page);
-  const contentH = (h - 2 * MARGIN_MM) * PX_PER_MM - SLACK_PX;
+  const content = contentMm(options.page);
+  /* The page numbers sit at the foot of the content box now (the browser owns
+   * the paper margin), so their height comes off what a page can hold. */
+  const footer = options.sections.pageNumbers ? FOOTER_EM * TEXT_PT[options.page.text] * PX_PER_PT : 0;
+  const contentH = content.h * PX_PER_MM - footer - SLACK_PX;
 
   const measure = useCallback(() => {
     const root = ref.current;
@@ -150,7 +160,7 @@ export function SheetMeasurer({
       ref={ref}
       aria-hidden="true"
       className="pointer-events-none fixed left-[-20000px] top-0 bg-paper text-ink print:hidden"
-      style={{ width: `${w - 2 * MARGIN_MM}mm`, visibility: "hidden", ...sheetStyle(options) }}
+      style={{ width: `${content.w}mm`, visibility: "hidden", ...sheetStyle(options) }}
     >
       {items.map((item) =>
         item.kind === "block" ? (
@@ -189,15 +199,19 @@ export function PagedSheet({
   options,
   layout,
   wrap,
+  paper = false,
 }: {
   project: Project;
   options: PrintOptions;
   layout: SheetLayout | null;
   wrap?: (page: ReactNode, index: number, count: number) => ReactNode;
+  /** Draw the paper margin around each page — the preview does, paper doesn't. */
+  paper?: boolean;
 }) {
   const items = useMemo(() => sheetItems(project, options), [project, options]);
   const byKey = useMemo(() => new Map(items.map((i) => [i.key, i] as const)), [items]);
   const { w, h } = pageMm(options.page);
+  const content = contentMm(options.page);
 
   const pages: Page[] = layout?.pages ?? [
     items.map((i) =>
@@ -212,13 +226,15 @@ export function PagedSheet({
   return (
     <>
       {pages.map((parts, i) => {
-        const page = (
+        /* THE BOX IS THE PRINTABLE AREA, not the sheet: the browser adds the
+         * margin from `@page` (see PrintPageStyle). The preview wraps this in
+         * paper of its own below, so what is on screen is still a page. */
+        const box = (
           <div
             className="sheet-page relative overflow-hidden bg-paper text-ink"
             style={{
-              width: `${w}mm`,
-              height: `${h}mm`,
-              padding: `${MARGIN_MM}mm`,
+              width: `${content.w}mm`,
+              height: `${content.h}mm`,
               ...sheetStyle(options),
             }}
           >
@@ -237,12 +253,11 @@ export function PagedSheet({
                 </div>
               );
             })}
-            {/* In the bottom margin, clear of the content area the pages were
-              * packed to, so it costs the sheet nothing. */}
+            {/* At the foot of the content box, in the room reserved for it when
+              * the pages were packed. */}
             {options.sections.pageNumbers && (
               <div
-                className="absolute flex justify-between gap-[1em] text-[0.75em] text-slate"
-                style={{ left: `${MARGIN_MM}mm`, right: `${MARGIN_MM}mm`, bottom: `${MARGIN_MM * 0.4}mm` }}
+                className="absolute inset-x-0 bottom-0 flex justify-between gap-[1em] text-[0.75em] text-slate"
               >
                 <span className="truncate">{job}</span>
                 <span className="shrink-0 tabular-nums">
@@ -251,6 +266,19 @@ export function PagedSheet({
               </div>
             )}
           </div>
+        );
+        /* On screen the box gets its paper back: the same margin the printer
+         * will add, drawn, so the preview is a picture of the sheet. On paper
+         * the box goes out bare — the margin is the printer's. */
+        const page = paper ? (
+          <div
+            className="bg-paper"
+            style={{ width: `${w}mm`, height: `${h}mm`, padding: `${MARGIN_MM}mm` }}
+          >
+            {box}
+          </div>
+        ) : (
+          box
         );
         /* The slot, not the page, carries the print break — see globals.css —
          * so the preview's frame around a page cannot change where it breaks. */

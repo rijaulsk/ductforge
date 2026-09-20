@@ -39,6 +39,7 @@ import { assumptions } from "@/lib/export/csv";
 import {
   type ColumnKey,
   DEFAULT_TITLE,
+  MARGIN_MM,
   type PrintOptions,
   pageMm,
 } from "@/lib/export/printOptions";
@@ -114,16 +115,18 @@ function PrintLockup() {
 /**
  * The `@page` rule for the chosen paper, stated in millimetres.
  *
- * MARGIN 0, because the margin now lives INSIDE each page box that
- * PagedSheet draws. The boxes are exactly the paper's size, so the printer is
- * handed pages that already fit and has no margin of its own to add — which is
- * what keeps its breaks on the lines this app chose. Explicit dimensions rather
- * than the `A4 landscape` keywords: the same numbers the boxes are drawn with.
+ * THE MARGIN IS DECLARED HERE, and the page boxes are sized to what is left
+ * (`contentMm`). It was `margin: 0` with full-bleed boxes for a day, which
+ * requires the box and the sheet to match to the dot: any margin, scale or
+ * "headers and footers" setting in the print dialogue breaks that match, and
+ * what comes out is split or shifted pages. A declared margin with a smaller
+ * box survives all of them, and gives the browser's own header and footer
+ * somewhere to print that is not on top of the sheet.
  */
 export function PrintPageStyle({ page }: { page: PrintOptions["page"] }) {
   const { w, h } = pageMm(page);
   return (
-    <style>{`@media print { @page { size: ${w}mm ${h}mm; margin: 0; } }`}</style>
+    <style>{`@media print { @page { size: ${w}mm ${h}mm; margin: ${MARGIN_MM}mm; } }`}</style>
   );
 }
 

@@ -80,6 +80,10 @@ function printAs(title: string): void {
   window.print();
 }
 
+/** The name the PDF should save under — the pattern the CSVs already use. */
+const pdfName = (project: Project) =>
+  safeFilename(project.name, "pdf").replace(/\.pdf$/, "");
+
 /* ---- the preview ------------------------------------------------------------ */
 
 /**
@@ -326,6 +330,7 @@ function SheetPreview({
             project={project}
             options={options}
             layout={layout}
+            paper
             wrap={(page, i, n) => (
               <figure className="m-0 mx-auto" style={{ width: pageW * scale }}>
                 <div
@@ -612,12 +617,29 @@ export default function ExportDialog({
     return () => el.removeEventListener("close", sync);
   }, [onClose, mounted]);
 
+  /* THE DOCUMENT IS THE TAKEOFF WHILE THIS IS OPEN, and that is what names the
+   * saved file: every browser offers its Save as PDF under the document's
+   * title. Our own button sets it for the length of the print (`printAs`), but
+   * the browser's OWN print — Ctrl+P, the menu, a phone's share sheet — does
+   * not go through that button, and those saved as "DuctForge — HVAC duct
+   * takeoff & sheet metal calculator by DebugSwift". Held for as long as the
+   * export dialogue is open, so every route out of here names the file after
+   * the job and the day. */
+  useEffect(() => {
+    if (!open) return;
+    const before = document.title;
+    document.title = pdfName(project);
+    return () => {
+      document.title = before;
+    };
+  }, [open, project]);
+
   if (!mounted) return null;
 
   const options = project.print;
   const zonesExist = hasZones(computeTotals(project));
 
-  const savePdf = () => printAs(safeFilename(project.name, "pdf").replace(/\.pdf$/, ""));
+  const savePdf = () => printAs(pdfName(project));
 
   const download = () => {
     if (format === "csv") {
