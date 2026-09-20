@@ -4,7 +4,7 @@
  * this app prints is plausible: swap a half-offset for a full one in the
  * transition, grade an imperial job against the metric gauge bands, or round a
  * density from 4.3175 to 4.32 at the wrong moment, and the screen still shows
- * a tidy number with three decimals that somebody will put on an invoice.
+ * a tidy number with four decimals that somebody will put on an invoice.
  * Inspection cannot catch that. So correctness here is established three ways:
  *
  *   1. AN INDEPENDENT ORACLE. All twelve formulas are transcribed a second
@@ -609,17 +609,23 @@ section("9. the same duct in both unit systems");
   const m = computeEntry(metricEntry, "billing", "metric", "gi");
   const i = computeEntry(metricEntry, "billing", "imperial", "gi");
   /* Tolerance is one rounding step, not zero, and it has to be. Each system
-   * rounds to 3 dp in ITS OWN unit, and 0.001 m² is 0.0108 ft² — so the two
-   * answers can legitimately differ by up to about a hundredth of a square
-   * foot. Anything larger than one rounding step would be a conversion bug. */
+   * rounds to AREA_DECIMALS places in ITS OWN unit, and one step of m² is
+   * 10.76 steps of ft² — so the two answers can legitimately differ by about
+   * eleven steps of the imperial figure. Larger than that is a conversion bug.
+   *
+   * DERIVED FROM AREA_DECIMALS, not typed. This was a bare 0.011 against 3 dp,
+   * and on 20 Sep 2026 the precision moved to 4 — which would have left a
+   * tolerance a hundred times slacker than the thing it is a tolerance for,
+   * still passing, testing nothing. */
+  const areaStep = 10 ** -units.AREA_DECIMALS;
   near(
     units.fromAreaMinor(i.netAreaMinor),
     units.fromAreaMinor(m.netAreaMinor) * 10.763_910_416_709_722,
-    0.011,
+    areaStep * 11,
     "24×16×120 inch duct: m² and ft² agree to within one rounding step",
   );
-  near(units.fromAreaMinor(m.netAreaMinor), 6.194, 0.001, "…= 6.194 m²");
-  near(units.fromAreaMinor(i.netAreaMinor), 66.667, 0.001, "…= 66.667 ft²");
+  near(units.fromAreaMinor(m.netAreaMinor), 6.1935, areaStep, "…= 6.1935 m²");
+  near(units.fromAreaMinor(i.netAreaMinor), 66.6667, areaStep, "…= 66.6667 ft²");
   eq(m.gauge, "24", "609.6 mm grades 24 ga on the metric table");
   eq(i.gauge, "24", "24 inches grades 24 ga on the imperial table");
 }
@@ -720,8 +726,8 @@ section("11. one line, checked by hand end to end");
   eq(r.gauge, "24", "600 mm max dimension → 24 ga");
   eq(r.thicknessMm, 0.7, "24 ga is 0.70 mm");
   eq(r.density, 5.5, "0.70 mm is 5.50 kg/m²");
-  eq(units.fmtArea(r.netAreaMinor), "6.000", "net 6.000 m²");
-  eq(units.fmtArea(r.grossAreaMinor), "6.720", "gross at 12% = 6.720 m²");
+  eq(units.fmtArea(r.netAreaMinor), "6.0000", "net 6.0000 m²");
+  eq(units.fmtArea(r.grossAreaMinor), "6.7200", "gross at 12% = 6.7200 m²");
   eq(units.fmtMass(r.massMinor), "36.96", "6.720 × 5.50 = 36.96 kg");
   eq(gauge.sheetCount(6.72, "metric"), 3, "6.72 m² needs 3 of a 2.88 m² sheet");
   eq(gauge.sheetCount(2.88, "metric"), 1, "exactly one sheet is one sheet, not two");
@@ -774,8 +780,8 @@ section("12c. insulation is the billing formula on a fatter duct");
   const anc = { insulationMm: 25, standardLengthMm: 0, supportSpacingMm: 0 };
   const r = computeEntry(line(A.straight, 1, 0), "billing", "metric", "gi", anc);
   /* 600×400 lagged 25 mm all round is 650×450: 2(650+450)×3000 = 6.6 m². */
-  eq(units.fmtArea(r.insulationAreaMinor), "6.600", "600×400×3000 at 25 mm = 6.600 m²");
-  eq(units.fmtArea(r.netAreaMinor), "6.000", "…while the sheet area is untouched at 6.000");
+  eq(units.fmtArea(r.insulationAreaMinor), "6.6000", "600×400×3000 at 25 mm = 6.6000 m²");
+  eq(units.fmtArea(r.netAreaMinor), "6.0000", "…while the sheet area is untouched at 6.0000");
 
   const off = computeEntry(line(A.straight, 1, 0), "billing", "metric", "gi");
   eq(off.insulationAreaMinor, 0, "no insulation set, no insulation counted");
@@ -831,9 +837,9 @@ section("12d. flanges and hangers");
   eq(caps.supports, 0, "flat piece: no hangers");
   eq(caps.pieces, 1, "flat piece: one piece per line item, never split");
   /* 8 × 600 × 400 = 1.92 m² — the sheet itself is counted like any fitting. */
-  eq(units.fmtArea(caps.netAreaMinor), "1.920", "8 flat pieces 600×400 = 1.920 m²");
+  eq(units.fmtArea(caps.netAreaMinor), "1.9200", "8 flat pieces 600×400 = 1.9200 m²");
   /* …and the insulation still comes off the one formula: 650 × 450 each. */
-  eq(units.fmtArea(caps.insulationAreaMinor), "2.340", "insulated at 25 mm: 8 × 650×450 = 2.340 m²");
+  eq(units.fmtArea(caps.insulationAreaMinor), "2.3400", "insulated at 25 mm: 8 × 650×450 = 2.3400 m²");
 
   /* …and so is every other flat piece, decided by group rather than by a list
    * a new shape could be left off. */
@@ -1077,11 +1083,11 @@ section("12k. the audit case, traced end to end");
   near(2 * (f.w + f.h), 3500, 1e-12, "mean perimeter = 3500 mm");
   near(r.netEachMm2, 4260785.036431157, 1e-6, "net area ≈ 4,260,785.036 mm²");
   near(r.netEachArea, 4.260785036431157, 1e-12, "…= 4.260785 m²");
-  eq(units.fmtArea(r.netAreaMinor), "4.261", "displayed net area 4.261 m²");
+  eq(units.fmtArea(r.netAreaMinor), "4.2608", "displayed net area 4.2608 m²");
   eq(r.gauge, "22", "22 ga as configured");
   eq(r.thicknessMm, 0.85, "22 ga is 0.85 mm");
   eq(r.density, 6.67, "…and 6.67 kg/m²");
-  eq(units.fmtArea(r.grossAreaMinor), "4.772", "gross at 12% = 4.772 m²");
+  eq(units.fmtArea(r.grossAreaMinor), "4.7721", "gross at 12% = 4.7721 m²");
   eq(units.fmtMass(r.massMinor), "31.83", "weight = 31.83 kg");
 
   /* THE MAGNITUDE GUARD. A working line that mixed units would print the net
