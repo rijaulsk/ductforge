@@ -23,11 +23,20 @@ export const MM2_PER_M2 = 1_000_000;
 export const MM2_PER_FT2 = 92_903.04;
 export const KG_PER_LB = 0.453_592_37;
 
-/** Precision the app rounds to, and therefore the precision it sums at. */
-export const AREA_DECIMALS = 3; // 0.001 m² / ft²
+/** Precision the app rounds to, and therefore the precision it sums at.
+ *
+ * 4 since 20 Sep 2026, at the owner's request: a takeoff priced per m² wants
+ * the fourth place, and 3.3046 shown as 3.305 is money over a hundred lines.
+ *
+ * AREA_SCALE IS DERIVED FROM IT, deliberately. The invariant in the file
+ * header — the printed total is exactly the sum of the printed rows — holds
+ * only while the scale is 10^decimals. These were two independent literals
+ * until this change: two ways of saying one thing, and one of them free to go
+ * stale silently. */
+export const AREA_DECIMALS = 4; // 0.0001 m² / ft²
 export const MASS_DECIMALS = 2; // 0.01 kg / lb
 
-export const AREA_SCALE = 1000; // minor units per display area unit
+export const AREA_SCALE = 10 ** AREA_DECIMALS; // minor units per display area unit
 export const MASS_SCALE = 100; // minor units per display mass unit
 export const RUN_SCALE = 100; // minor units per metre / foot
 export const VALUE_SCALE = 100; // minor units per whatever the rate is in
