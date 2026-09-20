@@ -15,8 +15,7 @@ import { safeFilename, triggerDownload } from "@/lib/export/download";
 import { useHasMounted } from "@/lib/hooks";
 import { blankProject, fromProjectFile, newId, toProjectFile } from "@/lib/project";
 import { clearAll, initialState, saveActiveId, saveProjects } from "@/lib/storage";
-import { PrintPageStyle } from "./BoqSheet";
-import { PagedSheet, type SheetLayout, SheetMeasurer } from "./PagedSheet";
+import BoqSheet, { PrintPageStyle } from "./BoqSheet";
 import ExportDialog from "./ExportDialog";
 import ExtrasPanel from "./ExtrasPanel";
 import ChartsPanel from "./ChartsPanel";
@@ -114,9 +113,6 @@ export default function Workspace() {
   const [view, setView] = useState<ViewKind>("blueprint");
   const [notice, setNotice] = useState<Notice>(null);
   const [exportOpen, setExportOpen] = useState(false);
-  /* Where the printed sheet's pages break — measured once, off screen, by
-   * SheetMeasurer below, and drawn by both the preview and the print target. */
-  const [sheetLayout, setSheetLayout] = useState<SheetLayout | null>(null);
   /* Stable, because the dialog subscribes to its own `close` event with it. */
   const closeExport = useCallback(() => setExportOpen(false), []);
 
@@ -354,7 +350,6 @@ export default function Workspace() {
         open={exportOpen}
         onClose={closeExport}
         project={project}
-        layout={sheetLayout}
         onPrintChange={updatePrint}
       />
 
@@ -810,15 +805,8 @@ export default function Workspace() {
       {hydrated && (
         <div className="hidden print:block">
           <PrintPageStyle page={project.print.page} />
-          <PagedSheet project={project} options={project.print} layout={sheetLayout} />
+          <BoqSheet project={project} options={project.print} />
         </div>
-      )}
-
-      {/* The one measurement of the sheet, off screen, that both the preview
-        * and the print target above draw their pages from — see PagedSheet.tsx
-        * for why neither may measure itself. */}
-      {hydrated && (
-        <SheetMeasurer project={project} options={project.print} onLayout={setSheetLayout} />
       )}
     </>
   );

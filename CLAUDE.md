@@ -148,14 +148,18 @@ comes from the browser's Save as PDF, not a PDF library, because the preview ren
 a second drawing of the document that could drift. Layout changes go through an updater
 (`updatePrint` in Workspace), never a snapshot: two switches in one tick used to lose one.
 
-**Pages are decided by the app, not the printer** (19 Sep 2026). `sheetItems()` in BoqSheet
-describes the sheet as blocks and row-splittable tables; `SheetMeasurer` (mounted ONCE, in
-Workspace) measures them off screen and `lib/export/paginate.ts` packs them; `PagedSheet` draws
-the same pages in the preview and in the print target as boxes the paper's exact size, with
-`@page { margin: 0 }`. Never let the print target measure itself — it is `display: none` until
-printing. Continued tables repeat their header row and reuse the whole table's column widths,
-or rows re-wrap on later pages and the measurements stop being true. Verified by printing real
-PDFs through Chromium: the preview's page count must equal the PDF's.
+**THE BROWSER BREAKS THE PAGES, and app-side pagination was tried and REVERTED** (20 Sep 2026,
+owner's call: "the current one sucks, previous one was better… revert"). For a day the sheet was
+measured, packed into pages (`lib/export/paginate.ts`) and drawn as fixed boxes; it printed
+perfectly through Chromium's own PDF export and badly on the owner's real printer. The sheet
+flows again, `@page` states the paper and a 14 mm margin, and `break-inside: avoid` keeps rows,
+headings and blocks whole — the behaviour that worked for weeks. The preview draws the same
+`BoqSheet` on a paper strip with dashed, HONESTLY LABELLED "approximate break" guides, because
+where a page falls is the print dialogue's decision.
+
+If pagination is ever revisited: the code is in the history (`git show 870320b`), and the lesson
+is that Chromium's `page.pdf()` is not evidence — it agreed with the preview in all five hostile
+configurations while a real print dialogue did not. Test on a real printer first.
 
 **Phone layout** (19 Sep 2026): the calculator's header is ONE row below `lg` (`phoneRow` on
 AppHeader — tile, project name, settings, and `HeaderMenu` holding the nav and the theme); the

@@ -40,8 +40,7 @@ export type SectionKey =
   | "extras"
   | "basis"
   | "credit"
-  | "disclaimer"
-  | "pageNumbers";
+  | "disclaimer";
 
 export type ColumnKey =
   | "index"
@@ -101,9 +100,6 @@ export const SECTIONS: readonly { key: SectionKey; label: string; hint?: string;
   { key: "basis", label: "Basis of the quantities", hint: "The standard and every caveat" },
   { key: "credit", label: "DuctForge credit line" },
   { key: "disclaimer", label: "Check-against-spec note" },
-  /* On by default, and it changes no earlier page's content: it sits in the
-   * bottom margin, outside the area the pages are packed to. */
-  { key: "pageNumbers", label: "Page numbers", hint: "Job name and page n of N at the foot of every page" },
 ];
 
 export const COLUMNS: readonly { key: ColumnKey; label: string; parent?: ColumnKey }[] = [
@@ -144,34 +140,20 @@ export function pageMm(page: PrintOptions["page"]): { w: number; h: number } {
   return page.orientation === "landscape" ? { w: p.h, h: p.w } : { w: p.w, h: p.h };
 }
 
-/**
- * A hair under the printable area, because a page box the EXACT height of what
- * it prints into is the classic way to get a blank sheet after every real one.
+/* THE APP DOES NOT CUT THE PAGES, and that is a deliberate step back.
  *
- * The box is laid out in millimetres and the printer works in device dots at
- * its own resolution; one rounding in the wrong direction and a 297 mm box no
- * longer fits 297 mm of paper, so every page spills a sliver onto another
- * sheet. A millimetre of slack is invisible on paper and cannot round the
- * wrong way.
- */
-export const PAGE_SAFETY_MM = 1;
-
-/**
- * The area a page's content is drawn in: the paper less the margin, less the
- * safety above.
+ * For a day it did: the sheet was measured, packed into pages by
+ * lib/export/paginate.ts, and drawn as fixed boxes the printer only had to
+ * pass through. On the owner's own printer the result was worse than what the
+ * browser had been doing on its own, and the owner asked for the old behaviour
+ * back (20 Sep 2026). So the sheet flows again, `@page` states the paper and
+ * the margin, and the browser breaks it — with `break-inside: avoid` on every
+ * row, heading and block, which is what kept a line from splitting before.
  *
- * THE MARGIN BELONGS TO THE BROWSER, not to the box. Drawing full-bleed pages
- * with `@page { margin: 0 }` means the box has to match the sheet exactly, and
- * every margin or scale setting in the print dialogue — including the header
- * and footer the browser prints by default — can break that match. With the
- * margin declared on `@page` and the box sized to what is left, anything the
- * dialogue does leaves the box SMALLER than the space it prints into, which it
- * always survives.
+ * The pagination is not deleted, it is in the history: `git show 870320b`. If
+ * it comes back it needs testing on a real printer first, not only through
+ * Chromium's own PDF export, which is where it looked perfect.
  */
-export function contentMm(page: PrintOptions["page"]): { w: number; h: number } {
-  const { w, h } = pageMm(page);
-  return { w: w - 2 * MARGIN_MM, h: h - 2 * MARGIN_MM - PAGE_SAFETY_MM };
-}
 
 /* ---- defaults ------------------------------------------------------------ */
 
